@@ -79,6 +79,10 @@ npm install
 ```
 > `package.json` 기반으로 모든 의존성을 설치합니다.
 
+### 옵션 설명
+- `--legacy-peer-deps`: 의존성 충돌이 날 경우 무시하고 강제 설치 (주의 필요)
+- `--force`: 강제 설치 (더 위험함, 추천하지 않음)
+
 ### 캐시 삭제 및 클린 설치
 ```bash
 rm -rf node_modules package-lock.json
@@ -109,6 +113,51 @@ npm install
 | 기기 목록 확인 (Android) | `adb devices` |
 | iOS 기기 목록 확인 | `xcrun simctl list devices` |
 | 앱 종료 (iOS 시뮬레이터) | `Cmd + Q` 또는 시뮬레이터 창 닫기 |
+
+---
+
+## ✅ React Native 개발 시 코드 구성 단위
+
+| 단위 | 설명 | 예시 폴더명 |
+|------|------|-------------|
+| **Screen** | 하나의 전체 화면(페이지) | `screens/` |
+| **Component** | 여러 Screen에서 재사용되는 UI 블록 | `components/` |
+| **Navigation** | 스택/탭 구조 정의 | `navigation/` |
+| **Hooks** | 커스텀 로직 (상태/비즈니스) | `hooks/` |
+| **Context / Store** | 전역 상태 관리 (Redux, Context API 등) | `store/`, `contexts/` |
+| **Assets** | 이미지, 폰트 등 정적 자원 | `assets/` |
+| **Utils** | 날짜 처리, 숫자 포맷 등 유틸 함수 | `utils/` |
+| **Types** | TypeScript 인터페이스/타입 정의 | `types/` |
+| **Services / API** | 서버 통신, 로컬 DB 등 외부 의존성 | `api/`, `services/` |
+
+---
+
+## 🧩 기본 폴더 구조 예시
+
+```
+src/
+├── screens/           # 전체 화면 단위 (ex. HomeScreen.tsx)
+├── components/        # 공통 UI 컴포넌트 (ex. CustomButton.tsx)
+├── navigation/        # 네비게이션 스택/탭 정의
+├── hooks/             # 사용자 정의 훅
+├── store/             # Redux/Context 등 상태관리
+├── api/               # REST API 호출, axios 정의 등
+├── utils/             # 날짜/문자열/포맷 함수들
+├── types/             # 공통 타입 정의
+├── assets/            # 이미지, 폰트, 아이콘 등
+└── App.tsx            # 루트 앱 진입점
+```
+
+---
+
+## 📝 React 와의 차이
+
+| 항목 | React (Web) | React Native |
+|------|-------------|--------------|
+| **단위** | page, component | screen, component |
+| **라우팅** | React Router | React Navigation (Stack/Tab/Drawer) |
+| **스타일** | CSS/SASS/Styled-components 등 | StyleSheet / Tailwind-like utility libraries |
+| **자원** | 이미지, SVG 등 웹 static | 로컬 이미지, 폰트, .ttf 등 직접 import 필요 |
 
 ---
 
