@@ -1,79 +1,126 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# React Native 프로젝트 가이드
 
-# Getting Started
+이 프로젝트는 [`@react-native-community/cli`](https://github.com/react-native-community/cli)를 통해 생성된 [**React Native**](https://reactnative.dev) 기반 프로젝트입니다.
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+---
 
-## Step 1: Start the Metro Server
+## ✅ 시작 전 준비사항
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+- [React Native 환경 구성 가이드](https://reactnative.dev/docs/environment-setup)를 참고해 Node, JDK, Android Studio, Xcode 등을 사전에 설치해 주세요.
 
-To start Metro, run the following command from the _root_ of your React Native project:
+---
 
+## 🚀 앱 실행 기본 명령어
+
+### 1. Metro 서버 실행
 ```bash
-# using npm
-npm start
+npx react-native start
+```
+> 프로젝트 루트에서 실행하며, JS 번들러 역할을 합니다. 항상 백그라운드에서 켜두세요.
 
-# OR using Yarn
-yarn start
+### 2. 안드로이드 앱 실행
+```bash
+npx react-native run-android
+```
+> 연결된 Android 기기 또는 에뮬레이터에서 앱을 실행합니다.
+
+### 3. 아이폰(iOS) 앱 실행
+```bash
+npx react-native run-ios
+```
+> macOS 환경에서만 실행 가능하며, Xcode 설정 필요
+
+
+---
+
+## 📱 디바이스/에뮬레이터 설정 방법
+
+### ✅ 안드로이드 기기 연결
+
+- **USB 디버깅 허용**: 개발자 옵션에서 활성화 필요
+- **연결 확인**:
+```bash
+adb devices
+```
+- **지정된 기기로 실행**:
+```bash
+npx react-native run-android --deviceId [기기 ID]
 ```
 
-## Step 2: Start your Application
-
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
-
-### For Android
+### ✅ 안드로이드 에뮬레이터 실행
 
 ```bash
-# using npm
-npm run android
-
-# OR using Yarn
-yarn android
+emulator -list-avds          # AVD 리스트 출력
+emulator -avd [에뮬레이터 이름]  # 에뮬레이터 실행
 ```
 
-### For iOS
+### ✅ iOS 시뮬레이터 실행 (Mac 전용)
 
 ```bash
-# using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+xcrun simctl list devices  # 모든 iOS 기기 리스트 확인
+npx react-native run-ios --device "iPhone 14"
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+### ✅ 물리 iOS 기기에서 실행 (Mac 전용)
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+- Xcode → Devices and Simulators → 본인 iPhone 연결 및 신뢰 설정
+- Xcode에서 해당 기기 선택 후 실행 또는
+```bash
+npx react-native run-ios --device "사용자 아이폰 이름"
+```
 
-## Step 3: Modifying your App
+---
 
-Now that you have successfully run the app, let's modify it.
+## 📦 npm install 관련 정리
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+### 기본 명령어
+```bash
+npm install
+```
+> `package.json` 기반으로 모든 의존성을 설치합니다.
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+### 캐시 삭제 및 클린 설치
+```bash
+rm -rf node_modules package-lock.json
+npm cache clean --force
+npm install
+```
 
-## Congratulations! :tada:
+---
 
-You've successfully run and modified your React Native App. :partying_face:
+## 🔄 앱 리로드 방법
 
-### Now what?
+### Android
+- 개발자 메뉴: `Ctrl + M` (Windows/Linux), `Cmd ⌘ + M` (macOS)
+- 또는 `R` 키 두 번 눌러 새로고침
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+### iOS
+- 시뮬레이터 내에서 `Cmd ⌘ + R`
 
-# Troubleshooting
+---
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## 🛠 기타 명령어 정리
 
-# Learn More
+| 기능 | 명령어 |
+|------|--------|
+| Metro 서버 시작 | `npx react-native start` |
+| Android 실행 | `npx react-native run-android` |
+| iOS 실행 | `npx react-native run-ios` |
+| 기기 목록 확인 (Android) | `adb devices` |
+| iOS 기기 목록 확인 | `xcrun simctl list devices` |
+| 앱 종료 (iOS 시뮬레이터) | `Cmd + Q` 또는 시뮬레이터 창 닫기 |
 
-To learn more about React Native, take a look at the following resources:
+---
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## 🎉 축하합니다!
+
+React Native 프로젝트가 성공적으로 실행되었고, 디바이스 연결 및 앱 개발을 위한 환경이 갖추어졌습니다. 다음 단계로는 컴포넌트 개발, API 연동, 네비게이션 구성 등을 확장할 수 있습니다.
+
+
+---
+
+## 🔗 참고 링크
+- [React Native 공식문서](https://reactnative.dev)
+- [환경설정 가이드](https://reactnative.dev/docs/environment-setup)
+- [디버깅 방법](https://reactnative.dev/docs/debugging)
+- [iOS 디바이스 설정](https://developer.apple.com)
