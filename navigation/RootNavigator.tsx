@@ -1,4 +1,5 @@
 import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import CongestionScreen from '../screens/CongestionScreen';
@@ -13,7 +14,23 @@ const RootNavigator = () => {
   return (
     <Tab.Navigator
       initialRouteName="홈"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerTitleAlign: 'left',
+        headerTitleStyle: {
+          fontSize: 22,
+          fontWeight: 'bold',
+        },
+        headerRight: () => (
+          <View style={styles.headerRightContainer}>
+            <TouchableOpacity onPress={() => alert('Search Pressed!')} style={styles.headerButton}>
+              <Text style={styles.icon}>🔍</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => alert('My Page Pressed!')} style={styles.headerButton}>
+              <Text style={styles.icon}>👤</Text>
+            </TouchableOpacity>
+          </View>
+        ),
+      }}
     >
       <Tab.Screen name="혼잡도" component={CongestionScreen} />
       <Tab.Screen name="명소" component={AttractionScreen} />
@@ -23,5 +40,18 @@ const RootNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  headerRightContainer: {
+    flexDirection: 'row',
+    marginRight: 15,
+  },
+  headerButton: {
+    marginLeft: 20,
+  },
+  icon: {
+    fontSize: 24,
+  }
+});
 
 export default RootNavigator;

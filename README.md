@@ -1,13 +1,82 @@
 # React Native 프로젝트 가이드
 
 이 프로젝트는 [`@react-native-community/cli`](https://github.com/react-native-community/cli)를 통해 생성된 [**React Native**](https://reactnative.dev) 기반 프로젝트입니다.
+- [React Native 환경 구성 가이드](https://reactnative.dev/docs/environment-setup)를 참고해 Node, JDK, Android Studio, Xcode 등을 사전에 설치해 주세요.
 
 ---
 
-## ✅ 시작 전 준비사항
+## ✅ Android Emulator 설치 및 사용 방법 (Windows & macOS 공통)
 
-- [React Native 환경 구성 가이드](https://reactnative.dev/docs/environment-setup)를 참고해 Node, JDK, Android Studio, Xcode 등을 사전에 설치해 주세요.
+### 1. **Android Studio 설치**
 
+* 공식 사이트: [https://developer.android.com/studio](https://developer.android.com/studio)
+* 운영체제에 맞게 다운로드 후 설치
+
+---
+
+### 2. **Android SDK & Emulator 설치**
+
+Android Studio 설치 후 처음 실행 시, 다음과 같은 컴포넌트 설치 유무를 확인하거나 수동 설치 가능:
+
+* Android SDK
+* Android SDK Platform-tools
+* Android Emulator
+* Intel HAXM (Windows) / Apple Hypervisor Framework (macOS)
+* AVD Manager
+
+> 설치 유무 확인:
+> `Android Studio → More Actions → SDK Manager → SDK Tools 탭`
+> `Android Emulator` 체크되어 있어야 함
+
+---
+
+### 3. **AVD(가상 디바이스) 생성 방법**
+
+**Android Studio GUI 사용**
+
+1. Android Studio 실행
+2. `More Actions → Virtual Device Manager` 클릭
+3. `+ Create Device` 버튼 클릭
+4. 원하는 기기 선택 (예: Pixel 6)
+5. 사용할 Android 버전 선택 (예: Android 13.0)
+6. 이름 지정 후 `Finish`
+
+---
+
+## ✅ 에뮬레이터 실행
+
+### ▶ GUI로 실행:
+
+* Android Studio → Virtual Device Manager → `▶` 아이콘 클릭
+
+### ▶ CLI (명령어)로 실행:
+
+```bash
+emulator -avd <AVD_NAME>
+```
+
+> 예: `emulator -avd Pixel_6_API_33`
+
+---
+
+## 🔧 SDK 경로 (중요)
+
+* **Windows**: `C:\Users\<username>\AppData\Local\Android\Sdk`
+* **macOS**: `~/Library/Android/sdk`
+
+환경변수 등록 시:
+
+```bash
+# Windows (PowerShell 또는 환경변수 설정)
+setx ANDROID_HOME "C:\Users\<username>\AppData\Local\Android\Sdk"
+
+# macOS (zsh)
+export ANDROID_HOME=$HOME/Library/Android/sdk
+export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
+```
+
+---
+---
 ---
 
 ## 🚀 앱 실행 기본 명령어
@@ -34,18 +103,6 @@ npx react-native run-ios
 ---
 
 ## 📱 디바이스/에뮬레이터 설정 방법
-
-### ✅ 안드로이드 기기 연결
-
-- **USB 디버깅 허용**: 개발자 옵션에서 활성화 필요
-- **연결 확인**:
-```bash
-adb devices
-```
-- **지정된 기기로 실행**:
-```bash
-npx react-native run-android --deviceId [기기 ID]
-```
 
 ### ✅ 안드로이드 에뮬레이터 실행
 
@@ -132,6 +189,17 @@ npm install
 
 ---
 
+## 📝 React 와의 차이
+
+| 항목 | React (Web) | React Native |
+|------|-------------|--------------|
+| **단위** | page, component | screen, component |
+| **라우팅** | React Router | React Navigation (Stack/Tab/Drawer) |
+| **스타일** | CSS/SASS/Styled-components 등 | StyleSheet / Tailwind-like utility libraries |
+| **자원** | 이미지, SVG 등 웹 static | 로컬 이미지, 폰트, .ttf 등 직접 import 필요 |
+
+---
+
 ## 🧩 기본 폴더 구조 예시
 
 ```
@@ -150,16 +218,7 @@ src/
 
 ---
 
-## 📝 React 와의 차이
 
-| 항목 | React (Web) | React Native |
-|------|-------------|--------------|
-| **단위** | page, component | screen, component |
-| **라우팅** | React Router | React Navigation (Stack/Tab/Drawer) |
-| **스타일** | CSS/SASS/Styled-components 등 | StyleSheet / Tailwind-like utility libraries |
-| **자원** | 이미지, SVG 등 웹 static | 로컬 이미지, 폰트, .ttf 등 직접 import 필요 |
-
----
 
 ## 🎉 축하합니다!
 
