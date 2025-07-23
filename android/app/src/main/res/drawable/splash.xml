@@ -1,3 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 흰색 배경 -->
     <item android:drawable="@android:color/white" />
+    
+    <!-- 로고 이미지 -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/logo" />
+    </item>
 </layer-list> 
