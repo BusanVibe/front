@@ -10,6 +10,7 @@ import HomeScreen from '../screens/HomeScreen';
 import FestivalScreen from '../screens/FestivalScreen';
 import BusanTalkScreen from '../screens/BusanTalkScreen';
 import SearchScreen from '../screens/SearchScreen';
+import MyPageScreen from '../screens/MyPageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -31,7 +32,7 @@ const MainTabNavigator = () => {
             <TouchableOpacity onPress={() => navigation.navigate('Search')} style={styles.headerButton}>
               <Text style={styles.icon}>🔍</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => alert('My Page Pressed!')} style={styles.headerButton}>
+            <TouchableOpacity onPress={() => navigation.navigate('MyPage')} style={styles.headerButton}>
               <Text style={styles.icon}>👤</Text>
             </TouchableOpacity>
           </View>
@@ -52,6 +53,14 @@ const RootNavigator = () => {
     <Stack.Navigator>
       <Stack.Screen name="Main" component={MainTabNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen 
+        name="MyPage" 
+        component={MyPageScreen} 
+        options={{ 
+          headerShown: false,
+          presentation: 'modal'
+        }} 
+      />
     </Stack.Navigator>
   );
 };
