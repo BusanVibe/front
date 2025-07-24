@@ -4,6 +4,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
 import MyPageScreen from '../screens/MyPageScreen';
+import CustomHeader from '../components/CustomHeader';
 
 type RootStackParamList = {
   Main: undefined;
@@ -21,7 +22,18 @@ const RootNavigator = () => {
         component={TabNavigator}
         options={{headerShown: false}}
       />
-      <Stack.Screen name="Search" component={SearchScreen} />
+      <Stack.Screen 
+        name="Search" 
+        component={SearchScreen}
+        options={{
+          header: () => (
+            <CustomHeader 
+              showSearchInput={true}
+              searchPlaceholder="관광지 · 장소 · 축제 검색"
+            />
+          ),
+        }}
+      />
       <Stack.Screen
         name="MyPage"
         component={MyPageScreen}

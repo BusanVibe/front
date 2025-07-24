@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, FlatList, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 
 const recentSearches = [
   { id: '1', term: '해운대' },
-  { id: '2', term: '광안리' },
-  { id: '3', term: '태종대' },
-  { id: '4', term: '감천문화마을' },
-  { id: '5', term: '더베이101' },
+  { id: '2', term: '이재모피자' },
 ];
 
 const popularSearches = [
@@ -19,26 +16,19 @@ const popularSearches = [
 
 const SearchScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [recentSearchList, setRecentSearchList] = useState(recentSearches);
   const categories = ['전체', '관광명소', '맛집', '카페', '축제'];
+
+  const removeRecentSearch = (id: string) => {
+    setRecentSearchList(recentSearchList.filter(item => item.id !== id));
+  };
+
+  const clearAllRecentSearches = () => {
+    setRecentSearchList([]);
+  };
 
   return (
     <View style={styles.container}>
-      {/* 검색 입력창 */}
-      <View style={styles.searchContainer}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="관광지 · 장소 · 축제 검색"
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity style={styles.searchIconButton}>
-            <Image 
-              source={require('../assets/icon/ic_search.png')} 
-              style={styles.searchIcon} 
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
 
       {/* 카테고리 버튼들 */}
       <View style={styles.categoryContainer}>
@@ -64,8 +54,32 @@ const SearchScreen = () => {
       </View>
 
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>최근 검색어</Text>
-        <Text style={styles.emptyText}>지금 궁금한 장소를 검색해보세요!</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>최근 검색어</Text>
+          <TouchableOpacity onPress={clearAllRecentSearches}>
+            <Text style={styles.clearAllText}>전체 삭제</Text>
+          </TouchableOpacity>
+        </View>
+        {recentSearchList.length > 0 ? (
+          <View style={styles.recentSearchContainer}>
+            {recentSearchList.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.recentSearchButton}
+              >
+                <Text style={styles.recentSearchText}>{item.term}</Text>
+                <TouchableOpacity
+                  onPress={() => removeRecentSearch(item.id)}
+                  style={styles.removeButton}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>지금 궁금한 장소를 검색해보세요!</Text>
+        )}
       </View>
 
       <View style={styles.sectionContainer}>
@@ -92,31 +106,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     padding: 16,
-  },
-  searchContainer: {
-    marginBottom: 16,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 48,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  searchIconButton: {
-    padding: 4,
-  },
-  searchIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#666',
   },
   categoryContainer: {
     flexDirection: 'row',
@@ -149,11 +138,50 @@ const styles = StyleSheet.create({
   sectionContainer: {
     marginBottom: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 16,
     color: '#333',
+  },
+  clearAllText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  recentSearchContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recentSearchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  recentSearchText: {
+    fontSize: 14,
+    color: '#333',
+    marginRight: 8,
+  },
+  removeButton: {
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'bold',
   },
   emptyText: {
     fontSize: 14,

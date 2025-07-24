@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, TouchableOpacity, StyleSheet, Image, Text} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, Image, Text, TextInput} from 'react-native';
 import {useNavigation, NavigationProp} from '@react-navigation/native';
 
 type RootStackParamList = {
@@ -9,11 +9,52 @@ type RootStackParamList = {
 };
 
 interface CustomHeaderProps {
-  title: string;
+  title?: string;
+  showSearchInput?: boolean;
+  searchPlaceholder?: string;
+  onSearchChange?: (text: string) => void;
+  searchValue?: string;
 }
 
-const CustomHeader: React.FC<CustomHeaderProps> = ({title}) => {
+const CustomHeader: React.FC<CustomHeaderProps> = ({
+  title,
+  showSearchInput = false,
+  searchPlaceholder = '검색어를 입력하세요',
+  onSearchChange,
+  searchValue,
+}) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  if (showSearchInput) {
+    return (
+      <View style={styles.headerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}>
+          <Image
+            source={require('../assets/icon/ic_chevron_left_3.png')}
+            style={styles.headerIcon}
+          />
+        </TouchableOpacity>
+        <View style={styles.searchInputContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={searchPlaceholder}
+            placeholderTextColor="#999999"
+            value={searchValue}
+            onChangeText={onSearchChange}
+            autoFocus={true}
+          />
+          <TouchableOpacity style={styles.searchIconContainer}>
+            <Image
+              source={require('../assets/icon/ic_search.png')}
+              style={styles.searchIcon}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.headerContainer}>
@@ -72,6 +113,32 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     tintColor: '#000000',
+  },
+  backButton: {
+    marginRight: 10,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+    paddingVertical: 0,
+  },
+  searchIconContainer: {
+    marginLeft: 10,
+  },
+  searchIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#666666',
   },
 });
 
