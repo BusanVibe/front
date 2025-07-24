@@ -1,12 +1,9 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 
 const recentSearches = [
   { id: '1', term: '해운대' },
-  { id: '2', term: '광안리' },
-  { id: '3', term: '태종대' },
-  { id: '4', term: '감천문화마을' },
-  { id: '5', term: '더베이101' },
+  { id: '2', term: '이재모피자' },
 ];
 
 const popularSearches = [
@@ -18,33 +15,86 @@ const popularSearches = [
 ];
 
 const SearchScreen = () => {
+  const [selectedCategory, setSelectedCategory] = useState('전체');
+  const [recentSearchList, setRecentSearchList] = useState(recentSearches);
+  const categories = ['전체', '관광명소', '맛집', '카페', '축제'];
+
+  const removeRecentSearch = (id: string) => {
+    setRecentSearchList(recentSearchList.filter(item => item.id !== id));
+  };
+
+  const clearAllRecentSearches = () => {
+    setRecentSearchList([]);
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="검색어를 입력하세요"
-        />
-        <TouchableOpacity style={styles.searchButton}>
-          <Text style={styles.icon}>🔍</Text>
-        </TouchableOpacity>
+
+      {/* 카테고리 버튼들 */}
+      <View style={styles.categoryContainer}>
+        {categories.map((category) => (
+          <TouchableOpacity
+            key={category}
+            style={[
+              styles.categoryButton,
+              selectedCategory === category ? styles.selectedCategory : styles.unselectedCategory
+            ]}
+            onPress={() => setSelectedCategory(category)}
+          >
+            <Text
+              style={[
+                styles.categoryText,
+                selectedCategory === category ? styles.selectedText : styles.unselectedText
+              ]}
+            >
+              {category}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>최근 검색어</Text>
-        <FlatList
-          data={recentSearches}
-          renderItem={({ item }) => <Text style={styles.item}>{item.term}</Text>}
-          keyExtractor={item => item.id}
-        />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>최근 검색어</Text>
+          <TouchableOpacity onPress={clearAllRecentSearches}>
+            <Text style={styles.clearAllText}>전체 삭제</Text>
+          </TouchableOpacity>
+        </View>
+        {recentSearchList.length > 0 ? (
+          <View style={styles.recentSearchContainer}>
+            {recentSearchList.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.recentSearchButton}
+              >
+                <Text style={styles.recentSearchText}>{item.term}</Text>
+                <TouchableOpacity
+                  onPress={() => removeRecentSearch(item.id)}
+                  style={styles.removeButton}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>지금 궁금한 장소를 검색해보세요!</Text>
+        )}
       </View>
 
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>인기 검색어</Text>
         <FlatList
           data={popularSearches}
-          renderItem={({ item }) => <Text style={styles.item}>{item.term}</Text>}
+          renderItem={({ item }) => (
+            <View style={styles.popularItem}>
+              <Text style={styles.itemNumber}>{item.id}</Text>
+              <Text style={styles.itemText}>{item.term}</Text>
+              <Text style={styles.trendIcon}>🔺</Text>
+            </View>
+          )}
           keyExtractor={item => item.id}
+          numColumns={2}
         />
       </View>
     </View>
@@ -55,38 +105,111 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 20,
+    padding: 16,
   },
-  searchContainer: {
+  categoryContainer: {
     flexDirection: 'row',
+    marginBottom: 24,
+    gap: 8,
+  },
+  categoryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 60,
     alignItems: 'center',
-    marginBottom: 20,
   },
-  input: {
-    flex: 1,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 10,
+  selectedCategory: {
+    backgroundColor: '#8cb6ee',
   },
-  searchButton: {
-    marginLeft: 10,
+  unselectedCategory: {
+    backgroundColor: '#eaeaea',
   },
-  icon: {
-    fontSize: 24,
+  categoryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  selectedText: {
+    color: '#ffffff',
+  },
+  unselectedText: {
+    color: '#000000',
   },
   sectionContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
+    color: '#333',
   },
-  item: {
-    fontSize: 16,
+  clearAllText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  recentSearchContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recentSearchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingHorizontal: 16,
     paddingVertical: 8,
+    marginBottom: 8,
+  },
+  recentSearchText: {
+    fontSize: 14,
+    color: '#333',
+    marginRight: 8,
+  },
+  removeButton: {
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 40,
+  },
+  popularItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    flex: 0.5,
+  },
+  itemNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginRight: 8,
+    width: 20,
+  },
+  itemText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  trendIcon: {
+    fontSize: 12,
+    marginLeft: 4,
   },
 });
 
