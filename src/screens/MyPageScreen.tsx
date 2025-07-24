@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   View,
   Text,
@@ -7,7 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 
 const MyPageScreen = () => {
   const navigation = useNavigation();
@@ -41,7 +40,7 @@ const MyPageScreen = () => {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>마이페이지</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.settingsButton}
             onPress={() => navigation.goBack()}>
             <Text style={styles.settingsIcon}>👤</Text>

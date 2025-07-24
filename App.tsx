@@ -36,14 +36,14 @@ function App(): React.JSX.Element {
 
   if (showSplash) {
     return (
-      <View className="flex-1 bg-white items-center justify-center">
+      <View className="flex-1 bg-white">
         <Animated.View 
-          className="items-center justify-center"
+          className="flex-1 items-center justify-center"
           style={{opacity: fadeAnim}}
         >
           <Image
             source={require('./src/assets/logo.png')}
-            style={{width: 80, height: 80}}
+            className="w-24 h-24"
             resizeMode="contain"
             onLoad={() => setImageLoaded(true)}
             onError={error => {
