@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, Image} from 'react-native';
+import {StyleSheet} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 
 import CongestionScreen from '../screens/CongestionScreen';
@@ -8,6 +8,12 @@ import HomeScreen from '../screens/HomeScreen';
 import FestivalScreen from '../screens/FestivalScreen';
 import BusanTalkScreen from '../screens/BusanTalkScreen';
 import CustomHeader from '../components/CustomHeader';
+
+import IcMap from '../assets/icon/ic_map.svg';
+import IcMapPin from '../assets/icon/ic_map_pin.svg';
+import IcHome from '../assets/icon/ic_home.svg';
+import IcCalendar from '../assets/icon/ic_calendar.svg';
+import IcMessage from '../assets/icon/ic_message.svg';
 
 const Tab = createBottomTabNavigator();
 
@@ -19,16 +25,18 @@ const TabNavigator = () => {
         header: () => <CustomHeader title={route.name} />,
         tabBarShowLabel: true,
         tabBarActiveTintColor: '#0057cc',
-        tabBarInactiveTintColor: '#000000',
+        tabBarInactiveTintColor: '#999999',
       })}>
       <Tab.Screen
         name="혼잡도"
         component={CongestionScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <Image
-              source={require('../assets/icon/ic_map.png')}
-              style={[styles.tabIcon, {tintColor: color}]}
+            <IcMap
+              width={24}
+              height={24}
+              fill={color}
+              stroke="none"
             />
           ),
         }}
@@ -38,9 +46,11 @@ const TabNavigator = () => {
         component={AttractionScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <Image
-              source={require('../assets/icon/ic_map_pin.png')}
-              style={[styles.tabIcon, {tintColor: color}]}
+            <IcMapPin
+              width={24}
+              height={24}
+              fill={color}
+              stroke="none"
             />
           ),
         }}
@@ -50,9 +60,11 @@ const TabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <Image
-              source={require('../assets/icon/ic_home.png')}
-              style={[styles.tabIcon, {tintColor: color}]}
+            <IcHome
+              width={24}
+              height={24}
+              fill={color}
+              stroke="none"
             />
           ),
         }}
@@ -62,9 +74,11 @@ const TabNavigator = () => {
         component={FestivalScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <Image
-              source={require('../assets/icon/ic_calendar.png')}
-              style={[styles.tabIcon, {tintColor: color}]}
+            <IcCalendar
+              width={24}
+              height={24}
+              fill={color}
+              stroke="none"
             />
           ),
         }}
@@ -74,9 +88,11 @@ const TabNavigator = () => {
         component={BusanTalkScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <Image
-              source={require('../assets/icon/ic_message.png')}
-              style={[styles.tabIcon, {tintColor: color}]}
+            <IcMessage
+              width={24}
+              height={24}
+              fill={color}
+              stroke="none"
             />
           ),
         }}
