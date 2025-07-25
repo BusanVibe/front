@@ -32,12 +32,7 @@ const TabNavigator = () => {
         component={CongestionScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <IcMap
-              width={24}
-              height={24}
-              fill={color}
-              stroke="none"
-            />
+            <IcMap width={24} height={24} fill="white" color={color} />
           ),
         }}
       />
@@ -46,12 +41,7 @@ const TabNavigator = () => {
         component={AttractionScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <IcMapPin
-              width={24}
-              height={24}
-              fill={color}
-              stroke="none"
-            />
+            <IcMapPin width={24} height={24} fill="white" color={color} />
           ),
         }}
       />
@@ -60,12 +50,7 @@ const TabNavigator = () => {
         component={HomeScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <IcHome
-              width={24}
-              height={24}
-              fill={color}
-              stroke="none"
-            />
+            <IcHome width={24} height={24} fill="white" color={color} />
           ),
         }}
       />
@@ -74,12 +59,7 @@ const TabNavigator = () => {
         component={FestivalScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <IcCalendar
-              width={24}
-              height={24}
-              fill={color}
-              stroke="none"
-            />
+            <IcCalendar width={24} height={24} fill="white" color={color} />
           ),
         }}
       />
@@ -88,12 +68,7 @@ const TabNavigator = () => {
         component={BusanTalkScreen}
         options={{
           tabBarIcon: ({color}) => (
-            <IcMessage
-              width={24}
-              height={24}
-              fill={color}
-              stroke="none"
-            />
+            <IcMessage width={24} height={24} fill="white" color={color} />
           ),
         }}
       />
