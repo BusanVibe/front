@@ -1,6 +1,15 @@
 import React from 'react';
-import {View, TouchableOpacity, StyleSheet, Image, Text, TextInput} from 'react-native';
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Text,
+  TextInput,
+} from 'react-native';
 import {useNavigation, NavigationProp} from '@react-navigation/native';
+import IcChevronLeft from '../assets/icon/ic_chevron_left.svg';
+import IcSearch from '../assets/icon/ic_search.svg';
+import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 
 type RootStackParamList = {
   Main: undefined;
@@ -31,10 +40,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
-          <Image
-            source={require('../assets/icon/ic_chevron_left_3.png')}
-            style={styles.headerIcon}
-          />
+          <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
         </TouchableOpacity>
         <View style={styles.searchInputContainer}>
           <TextInput
@@ -46,10 +52,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             autoFocus={true}
           />
           <TouchableOpacity style={styles.searchIconContainer}>
-            <Image
-              source={require('../assets/icon/ic_search.png')}
-              style={styles.searchIcon}
-            />
+            <IcSearch width={20} height={20} fill="#999999" stroke="none" />
           </TouchableOpacity>
         </View>
       </View>
@@ -63,18 +66,12 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         <TouchableOpacity
           onPress={() => navigation.navigate('Search')}
           style={styles.headerButton}>
-          <Image
-            source={require('../assets/icon/ic_search.png')}
-            style={styles.headerIcon}
-          />
+          <IcSearch width={24} height={24} fill="#666666" stroke="none" />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => navigation.navigate('MyPage')}
           style={styles.headerButton}>
-          <Image
-            source={require('../assets/icon/ic_user_circle.png')}
-            style={styles.headerIcon}
-          />
+          <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
         </TouchableOpacity>
       </View>
     </View>

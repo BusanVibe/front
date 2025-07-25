@@ -44,12 +44,7 @@ function App(): React.JSX.Element {
 
       {/* 스플래시 화면 오버레이 */}
       {showSplash && (
-        <Animated.View 
-          style={[
-            styles.splashOverlay, 
-            {opacity: splashOpacity}
-          ]}
-        >
+        <Animated.View style={[styles.splashOverlay, {opacity: splashOpacity}]}>
           <Animated.View style={[styles.logoContainer, {opacity: fadeAnim}]}>
             <Image
               source={require('./src/assets/logo.png')}
