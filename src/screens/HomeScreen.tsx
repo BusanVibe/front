@@ -1,20 +1,17 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import CurationComponent from '../components/common/Curration';
+import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
+import {attractionData} from '../mocks/dummy';
 
 const HomeScreen = () => {
   return (
     <ScrollView style={styles.container}>
-      {/* 큐레이션 영역 */}
       <View style={styles.curationSection}>
         <CurationComponent />
       </View>
-      {/* 지금 붐비는 곳 영역 */}
       <View style={styles.crowdedSection}>
-        <Text style={styles.sectionTitle}>지금 붐비는 곳</Text>
-        <View style={styles.crowdedCard}>
-          <Text style={styles.cardText}>붐비는 장소 정보</Text>
-        </View>
+        <CrowdedPlacesSection places={attractionData} />
       </View>
 
       {/* 추천 명소 영역 */}
