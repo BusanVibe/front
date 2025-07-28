@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet, Image} from 'react-native';
 import {PlaceListItem, PlaceType} from '../../types/place';
-import CongestionBadge from '../CongestionBadge';
+import CongestionBadge from '../common/CongestionBadge';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 

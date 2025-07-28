@@ -1,7 +1,7 @@
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
-import colors from '../styles/colors';
-import typography from '../styles/typography';
+import colors from '../../styles/colors';
+import typography from '../../styles/typography';
 
 interface CongestionBadgeProps {
   level: number; // 1: 여유, 2: 보통, 3: 약간혼잡, 4: 혼잡
