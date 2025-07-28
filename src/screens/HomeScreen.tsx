@@ -2,7 +2,10 @@ import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
+import AttractionSection from '../components/home/AttractionSection';
 import {attractionData} from '../mocks/dummy';
+import typography from '../styles/typography';
+import colors from '../styles/colors';
 
 const HomeScreen = () => {
   return (
@@ -10,22 +13,17 @@ const HomeScreen = () => {
       <View style={styles.curationSection}>
         <CurationComponent />
       </View>
+
       <View style={styles.crowdedSection}>
         <CrowdedPlacesSection places={attractionData} />
       </View>
 
-      {/* 추천 명소 영역 */}
       <View style={styles.attractionSection}>
-        <Text style={styles.sectionTitle}>추천 명소</Text>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
+        <AttractionSection
+          places={attractionData}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </ScrollView>
   );
@@ -53,10 +51,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...typography.subHeadingLg,
+    color: colors.black,
     marginBottom: 12,
-    color: '#333',
   },
   curationCard: {
     height: 200,
