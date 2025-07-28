@@ -1,37 +1,29 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import CurationComponent from '../components/common/Curration';
+import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
+import AttractionSection from '../components/home/AttractionSection';
+import {attractionData} from '../mocks/dummy';
+import typography from '../styles/typography';
+import colors from '../styles/colors';
 
 const HomeScreen = () => {
   return (
     <ScrollView style={styles.container}>
-      {/* 큐레이션 영역 */}
       <View style={styles.curationSection}>
-        <Text style={styles.sectionTitle}>큐레이션 영역</Text>
-        <View style={styles.curationCard}>
-          <Text style={styles.cardText}>큐레이션 콘텐츠</Text>
-        </View>
+        <CurationComponent />
       </View>
 
-      {/* 지금 붐비는 곳 영역 */}
       <View style={styles.crowdedSection}>
-        <Text style={styles.sectionTitle}>지금 붐비는 곳</Text>
-        <View style={styles.crowdedCard}>
-          <Text style={styles.cardText}>붐비는 장소 정보</Text>
-        </View>
+        <CrowdedPlacesSection places={attractionData} />
       </View>
 
-      {/* 추천 명소 영역 */}
       <View style={styles.attractionSection}>
-        <Text style={styles.sectionTitle}>추천 명소</Text>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
-        <View style={styles.attractionCard}>
-          <Text style={styles.cardText}>추천 명소 리스트</Text>
-        </View>
+        <AttractionSection
+          places={attractionData}
+          scrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     </ScrollView>
   );
@@ -45,7 +37,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   curationSection: {
-    padding: 16,
     backgroundColor: '#fff',
     marginBottom: 8,
   },
@@ -60,10 +51,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    ...typography.subHeadingLg,
+    color: colors.black,
     marginBottom: 12,
-    color: '#333',
   },
   curationCard: {
     height: 200,
