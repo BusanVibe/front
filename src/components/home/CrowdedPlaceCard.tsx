@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Text, StyleSheet, Image} from 'react-native';
 import {PlaceListItem, PlaceType} from '../../types/place';
 import CongestionBadge from '../common/CongestionBadge';
+import {getPlaceTypeText} from '../../utils/placeUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 
@@ -10,19 +11,6 @@ interface CrowdedPlaceCardProps {
 }
 
 const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
-  const getPlaceTypeText = (type: PlaceType) => {
-    switch (type) {
-      case PlaceType.SIGHT:
-        return '관광명소';
-      case PlaceType.RESTAURANT:
-        return '맛집';
-      case PlaceType.CAFE:
-        return '카페';
-      default:
-        return '';
-    }
-  };
-
   return (
     <View style={styles.cardContainer}>
       <View style={styles.imageContainer}>
