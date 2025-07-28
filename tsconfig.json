@@ -2,7 +2,7 @@
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "strict": true,
