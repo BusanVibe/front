@@ -5,7 +5,6 @@ export const curationData = [
   {
     id: '1',
     title: '광안리 M(Marvelous) 드론 라이트쇼',
-    time: '매일 09:00 - 18:00',
     period: '2022.04.02 ~ 2025.12.31',
     image: '',
   },

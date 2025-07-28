@@ -1,17 +1,14 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import CurationComponent from '../components/common/Curration';
 
 const HomeScreen = () => {
   return (
     <ScrollView style={styles.container}>
       {/* 큐레이션 영역 */}
       <View style={styles.curationSection}>
-        <Text style={styles.sectionTitle}>큐레이션 영역</Text>
-        <View style={styles.curationCard}>
-          <Text style={styles.cardText}>큐레이션 콘텐츠</Text>
-        </View>
+        <CurationComponent />
       </View>
-
       {/* 지금 붐비는 곳 영역 */}
       <View style={styles.crowdedSection}>
         <Text style={styles.sectionTitle}>지금 붐비는 곳</Text>
@@ -45,7 +42,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   curationSection: {
-    padding: 16,
     backgroundColor: '#fff',
     marginBottom: 8,
   },
