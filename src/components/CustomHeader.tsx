@@ -15,6 +15,7 @@ type RootStackParamList = {
   Main: undefined;
   Search: undefined;
   MyPage: undefined;
+  FavoriteList: undefined;
 };
 
 interface CustomHeaderProps {
@@ -23,6 +24,7 @@ interface CustomHeaderProps {
   searchPlaceholder?: string;
   onSearchChange?: (text: string) => void;
   searchValue?: string;
+  showBackButton?: boolean;
 }
 
 const CustomHeader: React.FC<CustomHeaderProps> = ({
@@ -31,6 +33,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   searchPlaceholder = '검색어를 입력하세요',
   onSearchChange,
   searchValue,
+  showBackButton = false,
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -61,18 +64,31 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
 
   return (
     <View style={styles.headerContainer}>
+      {showBackButton ? (
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}>
+          <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerRightContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Search')}
-          style={styles.headerButton}>
-          <IcSearch width={24} height={24} fill="#666666" stroke="none" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('MyPage')}
-          style={styles.headerButton}>
-          <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
-        </TouchableOpacity>
+        {!showBackButton && (
+          <>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Search')}
+              style={styles.headerButton}>
+              <IcSearch width={24} height={24} fill="#666666" stroke="none" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyPage')}
+              style={styles.headerButton}>
+              <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );
@@ -113,6 +129,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginRight: 10,
+  },
+  placeholder: {
+    width: 34, // backButton과 같은 너비
   },
   searchInputContainer: {
     flex: 1,
