@@ -60,7 +60,7 @@ const CurationComponent: React.FC = () => {
   const renderCurationItem = ({item}: {item: CurationItem}) => (
     <TouchableOpacity style={styles.curationCard} activeOpacity={0.9}>
       <ImageBackground
-        source={{uri: item.image}}
+        source={item.image ? {uri: item.image} : undefined}
         style={styles.curationImageContainer}
         imageStyle={styles.curationImage}>
         <LinearGradient
