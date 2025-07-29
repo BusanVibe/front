@@ -61,7 +61,9 @@ const MyPageScreen = () => {
         </View>
 
         {/* 내 좋아요 목록 */}
-        <TouchableOpacity style={styles.favoriteSection}>
+        <TouchableOpacity 
+          style={styles.favoriteSection}
+          onPress={() => navigation.navigate('FavoriteList' as never)}>
           <View style={styles.favoriteContent}>
             <Text style={styles.favoriteIcon}>🤍</Text>
             <Text style={styles.favoriteText}>내 좋아요 목록</Text>

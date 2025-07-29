@@ -4,12 +4,14 @@ import {createStackNavigator} from '@react-navigation/stack';
 import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
 import MyPageScreen from '../screens/MyPageScreen';
+import FavoriteListScreen from '../screens/FavoriteListScreen';
 import CustomHeader from '../components/CustomHeader';
 
 type RootStackParamList = {
   Main: undefined;
   Search: undefined;
   MyPage: undefined;
+  FavoriteList: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -40,6 +42,18 @@ const RootNavigator = () => {
         options={{
           headerShown: false,
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="FavoriteList"
+        component={FavoriteListScreen}
+        options={{
+          header: () => (
+            <CustomHeader 
+              title="좋아요"
+              showBackButton={true}
+            />
+          ),
         }}
       />
     </Stack.Navigator>
