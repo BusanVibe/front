@@ -25,7 +25,7 @@ const AttractionSection: React.FC<AttractionSectionProps> = ({
         data={places}
         renderItem={renderCard}
         keyExtractor={item => item.place_id.toString()}
-        scrollEnabled={scrollEnabled}
+        scrollEnabled={false}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         contentContainerStyle={styles.listContent}
         removeClippedSubviews={false}
