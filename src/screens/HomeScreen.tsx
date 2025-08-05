@@ -3,7 +3,7 @@ import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
 import AttractionSection from '../components/home/AttractionSection';
-import {attractionData} from '../mocks/dummy';
+import {suggestAttractionData} from '../mocks/attraction';
 import typography from '../styles/typography';
 import colors from '../styles/colors';
 
@@ -15,12 +15,12 @@ const HomeScreen = () => {
       </View>
 
       <View style={styles.crowdedSection}>
-        <CrowdedPlacesSection places={attractionData} />
+        <CrowdedPlacesSection places={suggestAttractionData} />
       </View>
 
       <View style={styles.attractionSection}>
         <AttractionSection
-          places={attractionData}
+          places={suggestAttractionData}
           scrollEnabled={true}
           showsVerticalScrollIndicator={false}
         />
