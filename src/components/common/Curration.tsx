@@ -1,12 +1,10 @@
-import React, {useRef, useState, useEffect} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  FlatList,
   Dimensions,
-  Image,
   ImageBackground,
 } from 'react-native';
 import colors from '../../styles/colors';
@@ -28,36 +26,20 @@ interface CurationItem {
 }
 
 const CurationComponent: React.FC = () => {
-  const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 자동 슬라이드 기능
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex(prevIndex => {
-        const nextIndex = (prevIndex + 1) % curationData.length;
-        flatListRef.current?.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        });
-        return nextIndex;
-      });
+      setCurrentIndex(prevIndex => (prevIndex + 1) % curationData.length);
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const onViewableItemsChanged = useRef(({viewableItems}: any) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
-    }
-  }).current;
+  const currentItem = curationData[currentIndex];
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  const renderCurationItem = ({item}: {item: CurationItem}) => (
+  const renderCurationItem = (item: CurationItem) => (
     <TouchableOpacity style={styles.curationCard} activeOpacity={0.9}>
       <ImageBackground
         source={item.image ? {uri: item.image} : undefined}
@@ -93,47 +75,26 @@ const CurationComponent: React.FC = () => {
             </View>
           </View>
         </View>
-
-        <View style={styles.paginationContainer}>
-          {curationData.map((_, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.paginationDot,
-                index === currentIndex ? styles.activeDot : styles.inactiveDot,
-              ]}
-              onPress={() => {
-                flatListRef.current?.scrollToIndex({
-                  index,
-                  animated: true,
-                });
-                setCurrentIndex(index);
-              }}
-            />
-          ))}
-        </View>
       </ImageBackground>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={curationData}
-        renderItem={renderCurationItem}
-        keyExtractor={item => item.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={(data, index) => ({
-          length: screenWidth,
-          offset: screenWidth * index,
-          index,
-        })}
-      />
+      {renderCurationItem(currentItem)}
+
+      <View style={styles.paginationContainer}>
+        {curationData.map((_, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.paginationDot,
+              index === currentIndex ? styles.activeDot : styles.inactiveDot,
+            ]}
+            onPress={() => setCurrentIndex(index)}
+          />
+        ))}
+      </View>
     </View>
   );
 };
@@ -144,9 +105,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   curationCard: {
-    width: screenWidth,
+    width: screenWidth - 32,
     height: 360,
-    paddingHorizontal: 16,
+    marginHorizontal: 16,
   },
   curationImageContainer: {
     flex: 1,

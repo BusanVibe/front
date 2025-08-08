@@ -1,7 +1,7 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import {View, Text, StyleSheet, FlatList} from 'react-native';
 import CurationComponent from '../components/common/Curration';
-import AttractionSection from '../components/attraction/AttractionSection';
+import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
 import {attractionData} from '../mocks/attraction';
 import {PlaceType} from '../types/place';
@@ -65,46 +65,85 @@ const AttractionScreen = () => {
     return filtered;
   }, [selectedCategory, selectedSort]);
 
+  const headerData = useMemo(
+    () => [
+      {type: 'curation', id: 'curation'},
+      {type: 'filter', id: 'filter'},
+      ...filteredData.map(item => ({
+        type: 'attraction',
+        id: item.place_id,
+        data: item,
+      })),
+    ],
+    [filteredData],
+  );
+
+  const renderItem = ({item, index}: {item: any; index: number}) => {
+    switch (item.type) {
+      case 'curation':
+        return (
+          <View style={styles.curationWrapper}>
+            <CurationComponent />
+          </View>
+        );
+      case 'filter':
+        return (
+          <FilterComponent
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategorySelect={setSelectedCategory}
+            selectedSort={selectedSort}
+            onSortSelect={handleSortSelect}
+            showFilter={showFilter}
+            onToggleFilter={handleToggleFilter}
+            sortOptions={sortOptions}
+          />
+        );
+      case 'attraction':
+        return (
+          <View style={styles.itemContainer}>
+            <AttractionCard place={item.data} />
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderEmpty = () => (
+    <View>
+      <View style={styles.curationWrapper}>
+        <CurationComponent />
+      </View>
+      <FilterComponent
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategorySelect={setSelectedCategory}
+        selectedSort={selectedSort}
+        onSortSelect={handleSortSelect}
+        showFilter={showFilter}
+        onToggleFilter={handleToggleFilter}
+        sortOptions={sortOptions}
+      />
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>
+          해당 카테고리에 표시할 장소가 없습니다.
+        </Text>
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        data={headerData}
+        renderItem={renderItem}
+        keyExtractor={item => item.id.toString()}
+        ListEmptyComponent={renderEmpty}
+        showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
-        showsVerticalScrollIndicator={false}>
-        {/* 큐레이션 섹션 */}
-        <View style={styles.curationWrapper}>
-          <CurationComponent />
-        </View>
-
-        {/* 필터 컴포넌트 */}
-        <FilterComponent
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategorySelect={setSelectedCategory}
-          selectedSort={selectedSort}
-          onSortSelect={handleSortSelect}
-          showFilter={showFilter}
-          onToggleFilter={handleToggleFilter}
-          sortOptions={sortOptions}
-        />
-
-        {/* 명소 리스트 */}
-        <View style={styles.attractionContainer}>
-          {filteredData.length > 0 ? (
-            <AttractionSection
-              places={filteredData}
-              scrollEnabled={false}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                해당 카테고리에 표시할 장소가 없습니다.
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+        contentContainerStyle={styles.listContent}
+      />
     </View>
   );
 };
@@ -114,17 +153,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  scrollView: {
-    flex: 1,
+  listContent: {
+    flexGrow: 1,
   },
   curationWrapper: {
     height: 400,
     backgroundColor: colors.white,
   },
-  attractionContainer: {
+  itemContainer: {
     paddingHorizontal: 16,
-    backgroundColor: colors.white,
-    minHeight: 600,
   },
   emptyContainer: {
     flex: 1,
@@ -132,6 +169,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 40,
     minHeight: 200,
+    paddingHorizontal: 16,
   },
   emptyText: {
     fontSize: 16,

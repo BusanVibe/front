@@ -21,7 +21,7 @@ const HomeScreen = () => {
       <View style={styles.attractionSection}>
         <AttractionSection
           places={suggestAttractionData}
-          scrollEnabled={true}
+          scrollEnabled={false}
           showsVerticalScrollIndicator={false}
         />
       </View>
