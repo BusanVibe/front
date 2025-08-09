@@ -1,6 +1,6 @@
 import React from 'react';
-import {StyleSheet} from 'react-native';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import { StyleSheet } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import CongestionScreen from '../screens/CongestionScreen';
 import AttractionScreen from '../screens/AttractionScreen';
@@ -21,7 +21,7 @@ const TabNavigator = () => {
   return (
     <Tab.Navigator
       initialRouteName="홈"
-      screenOptions={({route}) => ({
+      screenOptions={({ route }) => ({
         header: () => <CustomHeader title={route.name} />,
         tabBarShowLabel: true,
         tabBarActiveTintColor: '#0057cc',
@@ -31,7 +31,7 @@ const TabNavigator = () => {
         name="혼잡도"
         component={CongestionScreen}
         options={{
-          tabBarIcon: ({color}) => (
+          tabBarIcon: ({ color }) => (
             <IcMap width={24} height={24} fill="white" color={color} />
           ),
         }}
@@ -40,7 +40,7 @@ const TabNavigator = () => {
         name="명소"
         component={AttractionScreen}
         options={{
-          tabBarIcon: ({color}) => (
+          tabBarIcon: ({ color }) => (
             <IcMapPin width={24} height={24} fill="white" color={color} />
           ),
         }}
@@ -49,7 +49,7 @@ const TabNavigator = () => {
         name="홈"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({color}) => (
+          tabBarIcon: ({ color }) => (
             <IcHome width={24} height={24} fill="white" color={color} />
           ),
         }}
@@ -58,7 +58,7 @@ const TabNavigator = () => {
         name="축제"
         component={FestivalScreen}
         options={{
-          tabBarIcon: ({color}) => (
+          tabBarIcon: ({ color }) => (
             <IcCalendar width={24} height={24} fill="white" color={color} />
           ),
         }}
@@ -67,7 +67,7 @@ const TabNavigator = () => {
         name="부산톡"
         component={BusanTalkScreen}
         options={{
-          tabBarIcon: ({color}) => (
+          tabBarIcon: ({ color }) => (
             <IcMessage width={24} height={24} fill="white" color={color} />
           ),
         }}
