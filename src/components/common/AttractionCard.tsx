@@ -1,6 +1,6 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {PlaceListItem} from '../../types/place';
+import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
 import colors from '../../styles/colors';
@@ -8,10 +8,24 @@ import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
 
 interface AttractionCardProps {
-  place: PlaceListItem;
+  place: PlaceListItem | FestivalListItem;
+  cardType?: CardType;
 }
 
-const AttractionCard: React.FC<AttractionCardProps> = ({place}) => {
+const AttractionCard: React.FC<AttractionCardProps> = ({
+  place,
+  cardType = CardType.PLACE,
+}) => {
+  const isPlace = cardType === CardType.PLACE;
+  const placeData = place as PlaceListItem;
+  const festivalData = place as FestivalListItem;
+
+  const formatDateRange = (startDate: string, endDate: string) => {
+    const formatDate = (dateStr: string) => {
+      return dateStr.replace(/-/g, '.');
+    };
+    return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
+  };
   return (
     <View style={styles.attractionItem}>
       <View style={styles.attractionImageContainer}>
@@ -23,10 +37,12 @@ const AttractionCard: React.FC<AttractionCardProps> = ({place}) => {
         <View style={styles.attractionHeader}>
           <View style={styles.nameAndBadgeContainer}>
             <Text style={styles.attractionName}>{place.name}</Text>
-            <CongestionBadge
-              level={place.congestion_level}
-              style={styles.congestionBadge}
-            />
+            {isPlace && (
+              <CongestionBadge
+                level={placeData.congestion_level}
+                style={styles.congestionBadge}
+              />
+            )}
           </View>
           <TouchableOpacity style={styles.favoriteButton}>
             <IcHeart
@@ -38,12 +54,20 @@ const AttractionCard: React.FC<AttractionCardProps> = ({place}) => {
           </TouchableOpacity>
         </View>
         <Text style={styles.attractionCategory}>
-          {getPlaceTypeText(place.type)}
+          {isPlace
+            ? getPlaceTypeText(placeData.type)
+            : formatDateRange(festivalData.start_date, festivalData.end_date)}
         </Text>
         <View style={styles.attractionDetails}>
-          <Text style={styles.attractionDistance}>315m</Text>
-          <Text style={styles.attractionSeparator}>|</Text>
-          <Text style={styles.attractionLocation}>{place.address}</Text>
+          {isPlace && (
+            <>
+              <Text style={styles.attractionDistance}>315m</Text>
+              <Text style={styles.attractionSeparator}>|</Text>
+            </>
+          )}
+          <Text style={styles.attractionLocation}>
+            {isPlace ? (place as PlaceListItem).address : (place as FestivalListItem).address}
+          </Text>
           <TouchableOpacity style={styles.expandButton}>
             <Text style={styles.expandIcon}>⌄</Text>
           </TouchableOpacity>
