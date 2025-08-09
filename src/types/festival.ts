@@ -4,7 +4,7 @@ export interface FestivalListItem {
   img?: string;
   start_date: string;
   end_date: string;
-  region: string;
+  address: string;
   is_like: boolean;
 }
 
@@ -14,7 +14,7 @@ export interface FestivalDetail {
   like_count: number;
   start_date: string;
   end_date: string;
-  region: string;
+  address: string;
   phone: string;
   fee: number;
   introduce: string;

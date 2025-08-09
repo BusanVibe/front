@@ -8,7 +8,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/fireworks.jpg',
       start_date: '2025-05-03',
       end_date: '2025-05-03',
-      region: '해운대',
+      address: '해운대',
       is_like: false,
     },
     {
@@ -17,7 +17,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/filmfestival.jpg',
       start_date: '2025-04-05',
       end_date: '2025-04-14',
-      region: '남포동',
+      address: '남포동',
       is_like: true,
     },
     {
@@ -26,7 +26,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/christmasmarket.jpg',
       start_date: '2025-01-02',
       end_date: '2025-01-15',
-      region: '광안리 해변 일원',
+      address: '광안리 해변 일원',
       is_like: false,
     },
     {
@@ -35,7 +35,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/seafestival.jpg',
       start_date: '2025-06-01',
       end_date: '2025-06-06',
-      region: '광안리',
+      address: '광안리',
       is_like: false,
     },
     {
@@ -44,7 +44,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/rockfestival.jpg',
       start_date: '2025-03-10',
       end_date: '2025-03-12',
-      region: '삼락생태공원',
+      address: '삼락생태공원',
       is_like: true,
     },
     {
@@ -53,7 +53,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/beachart.jpg',
       start_date: '2025-02-15',
       end_date: '2025-02-20',
-      region: '송정 해수욕장',
+      address: '송정 해수욕장',
       is_like: false,
     },
     {
@@ -62,7 +62,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/internationalrock.jpg',
       start_date: '2025-08-05',
       end_date: '2025-08-12',
-      region: '다대포 해수욕장',
+      address: '다대포 해수욕장',
       is_like: false,
     },
     {
@@ -71,7 +71,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/foodtruck.jpg',
       start_date: '2025-08-01',
       end_date: '2025-08-15',
-      region: '벡스코 광장',
+      address: '벡스코 광장',
       is_like: true,
     },
     {
@@ -80,7 +80,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/beerfestival.jpg',
       start_date: '2025-07-28',
       end_date: '2025-08-10',
-      region: '센텀시티',
+      address: '센텀시티',
       is_like: false,
     },
     {
@@ -89,7 +89,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/artfair.jpg',
       start_date: '2025-11-23',
       end_date: '2025-11-26',
-      region: '벡스코',
+      address: '벡스코',
       is_like: false,
     },
     {
@@ -98,7 +98,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/lanternfestival.jpg',
       start_date: '2025-09-20',
       end_date: '2025-09-22',
-      region: '용두산공원',
+      address: '용두산공원',
       is_like: false,
     },
     {
@@ -107,7 +107,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/globalcitizen.jpg',
       start_date: '2025-09-10',
       end_date: '2025-09-12',
-      region: '시민공원',
+      address: '시민공원',
       is_like: true,
     },
     {
@@ -116,7 +116,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/jazzfestival.jpg',
       start_date: '2025-10-20',
       end_date: '2025-10-22',
-      region: '해운대 해변',
+      address: '해운대 해변',
       is_like: false,
     },
     {
@@ -125,7 +125,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/drone.jpg',
       start_date: '2025-08-20',
       end_date: '2025-08-21',
-      region: '광안대교 일원',
+      address: '광안대교 일원',
       is_like: false,
     },
     {
@@ -134,7 +134,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/motorshow.jpg',
       start_date: '2025-09-01',
       end_date: '2025-09-10',
-      region: '벡스코',
+      address: '벡스코',
       is_like: true,
     },
     {
@@ -143,7 +143,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/dancefestival.jpg',
       start_date: '2025-10-05',
       end_date: '2025-10-07',
-      region: '부산문화회관',
+      address: '부산문화회관',
       is_like: false,
     },
     {
@@ -152,7 +152,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/marine.jpg',
       start_date: '2025-08-25',
       end_date: '2025-08-30',
-      region: '송도 해수욕장',
+      address: '송도 해수욕장',
       is_like: false,
     },
     {
@@ -161,7 +161,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/coffeefestival.jpg',
       start_date: '2025-09-15',
       end_date: '2025-09-17',
-      region: '부산역 광장',
+      address: '부산역 광장',
       is_like: true,
     },
     {
@@ -170,7 +170,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/marathon.jpg',
       start_date: '2025-11-05',
       end_date: '2025-11-05',
-      region: '광안리~해운대',
+      address: '광안리~해운대',
       is_like: false,
     },
     {
@@ -179,7 +179,7 @@ export const festivalData: FestivalListResult = {
       img: 'https://example.com/nightmusic.jpg',
       start_date: '2025-12-10',
       end_date: '2025-12-11',
-      region: '영도대교 일원',
+      address: '영도대교 일원',
       is_like: false,
     },
   ],

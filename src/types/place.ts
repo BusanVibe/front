@@ -23,7 +23,7 @@ export interface FestivalListItem {
   festival_id: number;
   name: string;
   is_like: boolean;
-  region: string;
+  address: string;
   img?: string;
   start_date: string;
   end_date: string;

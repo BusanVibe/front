@@ -66,7 +66,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             </>
           )}
           <Text style={styles.attractionLocation}>
-            {isPlace ? (place as PlaceListItem).address : (place as FestivalListItem).region}
+            {isPlace ? (place as PlaceListItem).address : (place as FestivalListItem).address}
           </Text>
           <TouchableOpacity style={styles.expandButton}>
             <Text style={styles.expandIcon}>⌄</Text>

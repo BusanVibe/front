@@ -121,7 +121,7 @@ const FestivalScreen = () => {
                   place_id: item.data.festival_id,
                   name: item.data.name,
                   is_like: item.data.is_like,
-                  region: item.data.region,
+                  address: item.data.address,
                   img: item.data.img,
                   start_date: item.data.start_date,
                   end_date: item.data.end_date,
