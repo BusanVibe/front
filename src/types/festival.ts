@@ -17,10 +17,10 @@ export interface FestivalDetail {
   region: string;
   phone: string;
   fee: number;
-  introduce: string;  
+  introduce: string;
   img?: string;
   is_like: boolean;
-  website?: string;
+  site_url?: string;
 }
 
 export interface FestivalListResult {

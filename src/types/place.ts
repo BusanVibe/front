@@ -1,7 +1,12 @@
 export enum PlaceType {
   SIGHT = 'SIGHT',
   RESTAURANT = 'RESTAURANT',
-  CAFE = 'CAFE'
+  CAFE = 'CAFE',
+}
+
+export enum CardType {
+  PLACE = 'PLACE',
+  FESTIVAL = 'FESTIVAL',
 }
 
 export interface PlaceListItem {
@@ -12,6 +17,16 @@ export interface PlaceListItem {
   type: PlaceType;
   address: string;
   img?: string;
+}
+
+export interface FestivalListItem {
+  festival_id: number;
+  name: string;
+  is_like: boolean;
+  region: string;
+  img?: string;
+  start_date: string;
+  end_date: string;
 }
 
 export interface PlaceDetailBase {
