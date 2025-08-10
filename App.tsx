@@ -7,49 +7,256 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  Dimensions 
+  Dimensions,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import LinearGradient from 'react-native-linear-gradient';
 import LogoIcon from './src/assets/logo.svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
 function App(): React.JSX.Element {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [showWebView, setShowWebView] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedCode, setProcessedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    // 로그인 상태 체크 (실제로는 AsyncStorage나 다른 저장소에서 확인)
+    // 로그인 상태 체크
     checkLoginStatus();
   }, []);
 
   const checkLoginStatus = async () => {
     try {
-      // TODO: 실제 로그인 상태 체크 로직
-      // const loginStatus = await AsyncStorage.getItem('isLoggedIn');
-      // setIsLoggedIn(loginStatus === 'true');
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      const userData = await AsyncStorage.getItem('userData');
       
-      // 임시로 false로 설정 (로그인되지 않은 상태)
-      setIsLoggedIn(false);
+      console.log('저장된 토큰 확인:', !!accessToken);
+      console.log('저장된 사용자 데이터 확인:', !!userData);
+      
+      if (accessToken && userData) {
+        setIsLoggedIn(true);
+        setShowSplash(false);
+      } else {
+        setIsLoggedIn(false);
+        setShowSplash(true);
+      }
     } catch (error) {
       console.error('로그인 상태 확인 오류:', error);
       setIsLoggedIn(false);
+      setShowSplash(true);
     }
   };
 
-  const handleKakaoLogin = async () => {
-    try {
-      // TODO: 카카오 로그인 구현
-      console.log('카카오 로그인 시도');
+  const handleKakaoLogin = () => {
+    console.log('=== 카카오 로그인 시작 ===');
+    setIsProcessing(false);
+    setProcessedCode(null);
+    setShowWebView(true);
+  };
+
+  const handleWebViewNavigationStateChange = async (navState: any) => {
+    const { url, loading } = navState;
+    console.log('=== WebView URL 변경 ===');
+    console.log('URL:', url);
+    console.log('Loading:', loading);
+    
+    // 백엔드 콜백 URL 감지 (JSON 응답이 있는 페이지)
+    if (url.includes('api.busanvibe.site/users/oauth/kakao') && url.includes('code=') && !loading) {
+      console.log('=== 카카오 콜백 URL 감지 ===');
       
-      // 임시로 로그인 성공 처리
-      setIsLoggedIn(true);
-      setShowSplash(false);
-    } catch (error) {
-      console.error('카카오 로그인 오류:', error);
+      // URL에서 code 파라미터 추출 (React Native 호환 방식)
+      let code = null;
+      const codeMatch = url.match(/code=([^&]+)/);
+      if (codeMatch) {
+        code = decodeURIComponent(codeMatch[1]);
+      }
+      
+      console.log('추출된 카카오 코드:', code);
+      console.log('이전에 처리된 코드:', processedCode);
+      
+      // 중복 처리 방지 - 같은 코드는 한 번만 처리
+      if (isProcessing || code === processedCode) {
+        console.log('이미 처리 중이거나 같은 코드이므로 스킵');
+        return;
+      }
+      
+      if (code && code.length > 0) {
+        // 카카오 코드 유효성 체크
+        console.log('=== 카카오 코드 유효성 체크 ===');
+        console.log('코드 길이:', code.length);
+        console.log('코드 형태 체크:', /^[A-Za-z0-9_-]+$/.test(code));
+        console.log('코드에 특수문자 포함:', /[^A-Za-z0-9_-]/.test(code));
+        
+        setIsProcessing(true);
+        setProcessedCode(code);
+        
+        console.log('=== 백엔드 API 호출 시작 ===');
+        setShowWebView(false);
+        setLoading(true);
+        
+        try {
+          // GET 방식으로 백엔드 API 호출 (기존 방식 유지)
+          const encodedCode = encodeURIComponent(code);
+          const apiUrl = `https://api.busanvibe.site/users/oauth/kakao?code=${encodedCode}`;
+          
+          console.log('=== API 호출 디버깅 정보 ===');
+          console.log('원본 코드:', code);
+          console.log('인코딩된 코드:', encodedCode);
+          console.log('최종 API URL:', apiUrl);
+          console.log('코드 길이:', code.length);
+          console.log('현재 시간:', new Date().toISOString());
+          
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'BusanVibe-App/1.0',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache',
+            },
+          });
+
+          console.log('=== 백엔드 응답 정보 ===');
+          console.log('응답 상태:', response.status);
+          console.log('응답 상태 텍스트:', response.statusText);
+          console.log('응답 헤더:', JSON.stringify([...response.headers.entries()]));
+
+          const responseText = await response.text();
+          console.log('백엔드 원본 응답:', responseText);
+
+          if (!response.ok) {
+            console.error('=== 백엔드 API 호출 실패 ===');
+            console.error('상태 코드:', response.status);
+            console.error('응답 내용:', responseText);
+            
+            // 백엔드 개발자를 위한 디버깅 정보
+            console.error('=== 백엔드 개발자용 디버깅 정보 ===');
+            console.error('요청 URL:', apiUrl);
+            console.error('요청 메소드: GET');
+            console.error('카카오 코드 길이:', code.length);
+            console.error('카카오 코드 첫 10자:', code.substring(0, 10));
+            console.error('카카오 코드 마지막 10자:', code.substring(code.length - 10));
+            
+            throw new Error(`HTTP error! status: ${response.status}, response: ${responseText}`);
+          }
+
+          const data = JSON.parse(responseText);
+          console.log('=== 백엔드 응답 성공 ===');
+          console.log('파싱된 응답 데이터:', {
+            is_success: data.is_success,
+            code: data.code,
+            message: data.message,
+            hasResult: !!data.result,
+            hasTokens: !!data.result?.tokenResponseDTO,
+            userEmail: data.result?.email
+          });
+
+          if (data.is_success && data.result) {
+            // 백엔드에서 받은 토큰을 저장
+            const { tokenResponseDTO, id, email } = data.result;
+            
+            await AsyncStorage.setItem('accessToken', tokenResponseDTO.accessToken);
+            await AsyncStorage.setItem('refreshToken', tokenResponseDTO.refreshToken);
+            await AsyncStorage.setItem('userData', JSON.stringify({
+              id: id,
+              email: email
+            }));
+
+            console.log('=== 로그인 완료 ===');
+            setIsLoggedIn(true);
+            setShowSplash(false);
+            
+            Alert.alert('로그인 성공', `환영합니다, ${email}님!`);
+          } else {
+            console.error('백엔드 응답 실패:', data.message);
+            Alert.alert('오류', data.message || '로그인에 실패했습니다.');
+          }
+        } catch (error) {
+          console.error('백엔드 API 호출 오류:', error);
+          Alert.alert('오류', '로그인 처리 중 문제가 발생했습니다.');
+          setShowWebView(false);
+        } finally {
+          setLoading(false);
+          setIsProcessing(false);
+        }
+      } else {
+        console.error('카카오 코드를 추출할 수 없음');
+        console.log('URL 전체:', url);
+        Alert.alert('오류', '카카오 인증 코드를 받지 못했습니다.');
+        setShowWebView(false);
+      }
     }
   };
 
+  const getKakaoAuthUrl = () => {
+    const clientId = '54690ce439aabad65181d8b39262d8b9';
+    const redirectUri = 'https://api.busanvibe.site/users/oauth/kakao';
+    const responseType = 'code';
+    
+    const authUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}`;
+    
+    console.log('카카오 OAuth URL 생성:', authUrl);
+    return authUrl;
+  };
+
+  // WebView 표시
+  if (showWebView) {
+    return (
+      <View style={styles.webViewContainer}>
+        <View style={styles.webViewHeader}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowWebView(false)}
+          >
+            <Text style={styles.closeButtonText}>닫기</Text>
+          </TouchableOpacity>
+        </View>
+        <WebView
+          source={{ uri: getKakaoAuthUrl() }}
+          onNavigationStateChange={handleWebViewNavigationStateChange}
+          onLoadEnd={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.log('WebView 로드 완료:', nativeEvent.url);
+            
+            // onLoadEnd에서는 처리하지 않음 (중복 방지)
+            // onNavigationStateChange에서만 처리
+          }}
+          onError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView 에러:', nativeEvent);
+          }}
+          onLoadStart={() => {
+            console.log('WebView 로드 시작');
+          }}
+          style={styles.webView}
+        />
+      </View>
+    );
+  }
+
+  // 로딩 중
+  if (loading) {
+    return (
+      <LinearGradient
+        colors={['#B8D4F0', '#4A90E2']}
+        style={styles.splashContainer}
+      >
+        <View style={styles.contentContainer}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={[styles.subTitle, { marginTop: 20 }]}>로그인 처리 중...</Text>
+        </View>
+      </LinearGradient>
+    );
+  }
+
+  // 스플래시 화면
   if (showSplash) {
     return (
       <LinearGradient
@@ -70,33 +277,6 @@ function App(): React.JSX.Element {
         </View>
 
         {/* 카카오 로그인 버튼 */}
-        <TouchableOpacity 
-          style={styles.kakaoButton}
-          onPress={handleKakaoLogin}
-        >
-          <View style={styles.kakaoButtonContent}>
-            <Text style={styles.kakaoButtonIcon}>💬</Text>
-            <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
-          </View>
-        </TouchableOpacity>
-      </LinearGradient>
-    );
-  }
-
-  if (!isLoggedIn) {
-    // 로그인되지 않은 상태에서는 스플래시 화면 유지
-    return (
-      <LinearGradient
-        colors={['#B8D4F0', '#4A90E2']}
-        style={styles.splashContainer}
-      >
-        <View style={styles.contentContainer}>
-          <View style={styles.iconContainer}>
-            <LogoIcon width={60} height={60} />
-          </View>
-          <Text style={styles.mainTitle}>부산스럽다</Text>
-          <Text style={styles.subTitle}>부산 여행 혼잡도 가이드</Text>
-        </View>
         <TouchableOpacity 
           style={styles.kakaoButton}
           onPress={handleKakaoLogin}
@@ -178,6 +358,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#3C1E1E',
+  },
+  webViewContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  webViewHeader: {
+    height: 50,
+    backgroundColor: '#f8f8f8',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  closeButton: {
+    padding: 10,
+  },
+  closeButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  webView: {
+    flex: 1,
   },
 });
 
