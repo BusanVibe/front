@@ -1,0 +1,185 @@
+/**
+ * 간단한 앱 네비게이터 - 로그인 상태에 따른 화면 분기
+ */
+
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { LoginScreen } from '../screens/LoginScreen';
+import { MyPageScreen } from '../screens/MyPageScreen';
+
+// 홈 화면 컴포넌트
+const HomeScreen: React.FC = () => {
+  const { user } = useAuth();
+
+  return (
+    <View style={styles.homeContainer}>
+      <Text style={styles.welcomeText}>BusanVibe</Text>
+      <Text style={styles.subtitle}>부산의 모든 것을 경험하세요</Text>
+      <Text style={styles.userInfo}>환영합니다, {user?.email}님!</Text>
+      <Text style={styles.userInfo}>사용자 ID: {user?.id}</Text>
+      
+      <View style={styles.comingSoon}>
+        <Text style={styles.comingSoonText}>홈 화면 콘텐츠는</Text>
+        <Text style={styles.comingSoonText}>곧 업데이트 예정입니다!</Text>
+      </View>
+    </View>
+  );
+};
+
+// 메인 앱 (탭 포함)
+const MainApp: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'home' | 'mypage'>('home');
+
+  const renderCurrentScreen = () => {
+    if (activeTab === 'home') {
+      return <HomeScreen />;
+    } else {
+      return <MyPageScreen />;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* 현재 화면 */}
+      <View style={styles.content}>
+        {renderCurrentScreen()}
+      </View>
+
+      {/* 하단 탭 바 */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'home' && styles.activeTabItem]}
+          onPress={() => setActiveTab('home')}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'home' && styles.activeTabIcon]}>🏠</Text>
+          <Text style={[styles.tabText, activeTab === 'home' && styles.activeTabText]}>홈</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'mypage' && styles.activeTabItem]}
+          onPress={() => setActiveTab('mypage')}
+        >
+          <Text style={[styles.tabIcon, activeTab === 'mypage' && styles.activeTabIcon]}>👤</Text>
+          <Text style={[styles.tabText, activeTab === 'mypage' && styles.activeTabText]}>마이페이지</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// 메인 네비게이터
+export const SimpleAppNavigator: React.FC = () => {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  console.log('SimpleAppNavigator 상태:', {
+    isAuthenticated,
+    isLoading,
+    hasUser: !!user,
+    userEmail: user?.email
+  });
+
+  // 로딩 중
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>로딩 중...</Text>
+      </View>
+    );
+  }
+
+  // 로그인 상태에 따른 분기
+  if (isAuthenticated) {
+    return <MainApp />;
+  } else {
+    return <LoginScreen />;
+  }
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  homeContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  welcomeText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  userInfo: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  comingSoon: {
+    marginTop: 50,
+    alignItems: 'center',
+  },
+  comingSoonText: {
+    fontSize: 18,
+    color: '#999',
+    textAlign: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingBottom: 20,
+    paddingTop: 10,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  activeTabItem: {
+    // 활성 탭 스타일은 텍스트/아이콘 색상으로만 구분
+  },
+  tabIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+    color: '#999',
+  },
+  activeTabIcon: {
+    color: '#2196f3',
+  },
+  tabText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  activeTabText: {
+    color: '#2196f3',
+    fontWeight: 'bold',
+  },
+});
