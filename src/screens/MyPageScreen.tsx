@@ -55,18 +55,12 @@ const MyPageScreen: React.FC = () => {
               await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
               
               console.log('=== 로그아웃 완료 ===');
-              Alert.alert('알림', '로그아웃되었습니다.', [
-                {
-                  text: '확인',
-                  onPress: () => {
-                    // 앱 재시작을 위해 RootNavigator를 다시 로드
-                    navigation.reset({
-                      index: 0,
-                      routes: [{ name: 'Main' }],
-                    });
-                  },
-                },
-              ]);
+              console.log('저장소 정리 완료');
+              
+              // 간단한 성공 메시지 후 자동으로 로그인 화면으로 이동
+              Alert.alert('알림', '로그아웃되었습니다.');
+              
+              // App.tsx의 주기적 체크가 로그아웃 상태를 감지하여 자동으로 스플래시 화면으로 이동
             } catch (error) {
               console.error('로그아웃 실패:', error);
               Alert.alert('오류', '로그아웃 중 문제가 발생했습니다.');
