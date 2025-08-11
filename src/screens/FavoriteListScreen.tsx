@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  StatusBar,
 } from 'react-native';
 import {PlaceListItem, PlaceType} from '../types/place';
 import {getPlaceTypeText} from '../utils/placeUtils';
@@ -117,7 +118,9 @@ const FavoriteListScreen: React.FC = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
       {/* 카테고리 필터 */}
       <View style={styles.categoryContainer}>
         {categories.map(category => (
@@ -190,7 +193,8 @@ const FavoriteListScreen: React.FC = () => {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View>
+      </View>
+    </>
   );
 };
 

@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -72,7 +74,9 @@ const MyPageScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* 헤더 */}
         <View style={styles.header}>
@@ -142,6 +146,7 @@ const MyPageScreen: React.FC = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 };
 

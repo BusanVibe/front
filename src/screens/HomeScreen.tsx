@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet, ScrollView} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, StatusBar} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
 import AttractionSection from '../components/home/AttractionSection';
@@ -9,7 +9,9 @@ import colors from '../styles/colors';
 
 const HomeScreen = () => {
   return (
-    <ScrollView style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <ScrollView style={styles.container}>
       <View style={styles.curationSection}>
         <CurationComponent />
       </View>
@@ -25,7 +27,8 @@ const HomeScreen = () => {
           showsVerticalScrollIndicator={false}
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 };
 

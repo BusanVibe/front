@@ -1,5 +1,5 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, FlatList} from 'react-native';
+import {View, Text, StyleSheet, FlatList, StatusBar} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
@@ -134,7 +134,9 @@ const AttractionScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
       <FlatList
         data={headerData}
         renderItem={renderItem}
@@ -144,7 +146,8 @@ const AttractionScreen = () => {
         stickyHeaderIndices={[1]}
         contentContainerStyle={styles.listContent}
       />
-    </View>
+      </View>
+    </>
   );
 };
 
