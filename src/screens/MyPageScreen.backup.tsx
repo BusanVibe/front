@@ -2,7 +2,7 @@
  * 마이페이지 화면
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,30 +11,11 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
-  SafeAreaView,
-  StatusBar,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 
-const MyPageScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    } catch (error) {
-      console.error('사용자 데이터 로드 실패:', error);
-    }
-  };
+export const MyPageScreen: React.FC = () => {
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -53,16 +34,10 @@ const MyPageScreen: React.FC = () => {
               console.log('=== 로그아웃 시작 ===');
               console.log('현재 사용자:', user?.email);
               
-              // AsyncStorage에서 모든 인증 정보 삭제
-              await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+              await logout();
               
               console.log('=== 로그아웃 완료 ===');
-              console.log('저장소 정리 완료');
-              
-              // 간단한 성공 메시지 후 자동으로 로그인 화면으로 이동
               Alert.alert('알림', '로그아웃되었습니다.');
-              
-              // App.tsx의 주기적 체크가 로그아웃 상태를 감지하여 자동으로 스플래시 화면으로 이동
             } catch (error) {
               console.error('로그아웃 실패:', error);
               Alert.alert('오류', '로그아웃 중 문제가 발생했습니다.');
@@ -74,9 +49,7 @@ const MyPageScreen: React.FC = () => {
   };
 
   return (
-    <>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* 헤더 */}
         <View style={styles.header}>
@@ -146,7 +119,6 @@ const MyPageScreen: React.FC = () => {
         </View>
       </ScrollView>
     </SafeAreaView>
-    </>
   );
 };
 
@@ -243,5 +215,3 @@ const styles = StyleSheet.create({
     color: '#ccc',
   },
 });
-
-export default MyPageScreen;
