@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 
@@ -35,7 +36,9 @@ const MyPageScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* 헤더 */}
         <View style={styles.header}>
@@ -91,6 +94,7 @@ const MyPageScreen = () => {
         ))}
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 };
 

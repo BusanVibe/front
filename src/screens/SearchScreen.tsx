@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, StatusBar } from 'react-native';
 
 const recentSearches = [
   { id: '1', term: '해운대' },
@@ -28,7 +28,9 @@ const SearchScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
 
       {/* 카테고리 버튼들 */}
       <View style={styles.categoryContainer}>
@@ -98,6 +100,7 @@ const SearchScreen = () => {
         />
       </View>
     </View>
+    </>
   );
 };
 

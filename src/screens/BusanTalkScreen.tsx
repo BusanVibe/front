@@ -122,9 +122,9 @@ const BusanTalkScreen = () => {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-    {/* <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />  */}
+      return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
       <LinearGradient
         colors={['#D1E2F8', '#8CB6EE']}

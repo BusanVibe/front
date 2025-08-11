@@ -11,6 +11,7 @@ import {
   PermissionsAndroid,
   Platform,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
@@ -302,7 +303,9 @@ const CongestionScreen = () => {
   });
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
       {/* Category Buttons */}
       <View style={styles.categoryContainer}>
         {categories.map(category => (
@@ -520,7 +523,8 @@ const CongestionScreen = () => {
           </ScrollView>
         )}
       </Animated.View>
-    </View>
+      </View>
+    </>
   );
 };
 
