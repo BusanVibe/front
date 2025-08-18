@@ -19,8 +19,39 @@ export const createMapHTML = (config) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=0578d9aa78d051f1c0efa91fe3c2cb6d"></script>
     <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            margin: 0; 
+            padding: 0;
+            /* 매끄러운 렌더링을 위한 최적화 */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            will-change: transform;
+        }
+        
+        #map { 
+            width: 100%; 
+            height: 100vh;
+            /* 지도 컨테이너 렌더링 최적화 */
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            will-change: transform, opacity;
+            /* 매끄러운 터치 및 드래그를 위한 설정 */
+            touch-action: pan-x pan-y;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
         .loading { 
             position: absolute; 
             top: 50%; 
@@ -31,6 +62,17 @@ export const createMapHTML = (config) => {
             border-radius: 5px; 
             font-size: 14px; 
             z-index: 1000;
+            /* 로딩 화면 최적화 */
+            will-change: opacity;
+            transition: opacity 0.3s ease;
+        }
+        
+        /* 마커 및 인포윈도우 렌더링 최적화 */
+        .custom-overlay {
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+            will-change: transform, opacity;
+            transition: opacity 0.2s ease;
         }
     </style>
 </head>
@@ -52,7 +94,13 @@ export const createMapHTML = (config) => {
                 var container = document.getElementById('map');
                 var options = {
                     center: new kakao.maps.LatLng(${centerLat}, ${centerLng}),
-                    level: 3
+                    level: 5, // 기본 줌 레벨 (1=가장넓음 ~ 14=가장세밀함)
+                    draggable: true,
+                    scrollwheel: true,
+                    disableDoubleClick: false,
+                    disableDoubleClickZoom: false,
+                    minLevel: 1, // 최소 줌 레벨 (가장 넓게 볼 수 있는 범위)
+                    maxLevel: 12 // 최대 줌 레벨 (너무 세밀하면 성능 이슈)
                 };
                 
                 var map = new kakao.maps.Map(container, options);
@@ -60,7 +108,15 @@ export const createMapHTML = (config) => {
                 window.apiMarkers = []; // API 마커들을 저장할 배열
                 window.currentLocationMarker = null; // 현재 위치 마커
                 window.currentLocationInfoWindow = null; // 현재 위치 인포윈도우
-                console.log('지도 생성 완료');
+                window.isUpdatingMarkers = false; // 마커 업데이트 상태 초기화
+                window.lastMapCenter = map.getCenter(); // 현재 지도 중심 저장
+                
+                // 매끄러운 렌더링을 위한 성능 최적화
+                if (map.getProjection) {
+                    console.log('지도 투영 설정 활성화');
+                }
+                
+                console.log('지도 생성 및 최적화 설정 완료');
                 
                 // 로딩 메시지 제거
                 var loading = document.getElementById('loadingMessage');
@@ -228,8 +284,10 @@ export const createMapHTML = (config) => {
                 }
                 
                 // 지도 드래그 시작 이벤트
+                window.dragStartCenter = null;
                 kakao.maps.event.addListener(map, 'dragstart', function() {
                     console.log('지도 드래그 시작');
+                    window.dragStartCenter = map.getCenter();
                     if (window.ReactNativeWebView) {
                         window.ReactNativeWebView.postMessage(JSON.stringify({
                             type: 'dragStart'
@@ -237,38 +295,105 @@ export const createMapHTML = (config) => {
                     }
                 });
                 
-                // 지도 드래그 완료 이벤트
+                                // 지도 드래그 완료 이벤트
                 kakao.maps.event.addListener(map, 'dragend', function() {
+                    // 마커 업데이트 중에는 드래그 이벤트 무시
+                    if (window.isUpdatingMarkers) {
+                        console.log('마커 업데이트 중이므로 드래그 이벤트 무시');
+                        return;
+                    }
+                    
                     var center = map.getCenter();
                     var lat = center.getLat();
                     var lng = center.getLng();
-                    console.log('지도 드래그 완료:', lat, lng);
                     
-                    // React Native로 좌표 전달
-                    if (window.ReactNativeWebView) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'dragEnd',
-                            latitude: lat,
-                            longitude: lng
-                        }));
+                    // 현재 지도 중심 업데이트
+                    window.lastMapCenter = center;
+                    
+                    // 드래그 거리 계산 (최소 드래그 거리 확인)
+                    var dragDistance = 0;
+                    if (window.dragStartCenter) {
+                        var startLat = window.dragStartCenter.getLat();
+                        var startLng = window.dragStartCenter.getLng();
+                        dragDistance = Math.sqrt(Math.pow(lat - startLat, 2) + Math.pow(lng - startLng, 2));
+                    }
+                    
+                    console.log('지도 드래그 완료:', lat, lng, '드래그 거리:', dragDistance.toFixed(6));
+                    
+                    // 최소 드래그 거리 이상일 때만 API 호출 (의도치 않은 미세한 이동 방지)
+                    if (dragDistance > 0.001) {
+                        var currentZoomLevel = map.getLevel();
+                        console.log('현재 줌 레벨:', currentZoomLevel);
+                        
+                                                 // 줌 레벨이 7 이상일 때(더 세밀할 때)는 API 호출하지 않음
+                         if (currentZoomLevel >= 7) {
+                             console.log('줌 레벨이 7 이상이어서 API 호출을 생략합니다 (현재:', currentZoomLevel, ')');
+                             return;
+                         }
+                        
+                        // React Native로 좌표 전달
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({
+                                type: 'dragEnd',
+                                latitude: lat,
+                                longitude: lng,
+                                dragDistance: dragDistance,
+                                zoomLevel: currentZoomLevel
+                            }));
+                        }
+                    } else {
+                        console.log('드래그 거리가 너무 작아서 API 호출 생략');
                     }
                 });
                 
-                // 줌 레벨 변경 완료 시에도 API 호출
+                // 줌 레벨 변경 시 디바운스 처리
+                var zoomTimer = null;
                 kakao.maps.event.addListener(map, 'zoom_changed', function() {
-                    var center = map.getCenter();
-                    var lat = center.getLat();
-                    var lng = center.getLng();
-                    console.log('지도 줌 변경 완료:', lat, lng);
-                    
-                    // React Native로 좌표 전달
-                    if (window.ReactNativeWebView) {
-                        window.ReactNativeWebView.postMessage(JSON.stringify({
-                            type: 'zoomChanged',
-                            latitude: lat,
-                            longitude: lng
-                        }));
+                    // 마커 업데이트 중에는 줌 이벤트 무시
+                    if (window.isUpdatingMarkers) {
+                        console.log('마커 업데이트 중이므로 줌 이벤트 무시');
+                        return;
                     }
+                    
+                    // 기존 타이머 취소
+                    if (zoomTimer) {
+                        clearTimeout(zoomTimer);
+                    }
+                    
+                    // 300ms 후에 이벤트 전송 (연속된 줌 변경을 방지)
+                    zoomTimer = setTimeout(function() {
+                        // 다시 한 번 마커 업데이트 중인지 확인
+                        if (window.isUpdatingMarkers) {
+                            console.log('타이머 실행 시점에 마커 업데이트 중이므로 줌 이벤트 무시');
+                            return;
+                        }
+                        
+                        var center = map.getCenter();
+                        var lat = center.getLat();
+                        var lng = center.getLng();
+                        var level = map.getLevel();
+                        
+                        // 현재 지도 중심 업데이트
+                        window.lastMapCenter = center;
+                        
+                        console.log('지도 줌 변경 완료:', lat, lng, '줌 레벨:', level);
+                        
+                        // 줌 레벨이 7 이상일 때(더 세밀할 때)는 API 호출하지 않음
+                        if (level >= 7) {
+                            console.log('줌 레벨이 7 이상이어서 API 호출을 생략합니다 (현재:', level, ')');
+                            return;
+                        }
+                        
+                        // React Native로 좌표 전달
+                        if (window.ReactNativeWebView) {
+                            window.ReactNativeWebView.postMessage(JSON.stringify({
+                                type: 'zoomChanged',
+                                latitude: lat,
+                                longitude: lng,
+                                zoomLevel: level
+                            }));
+                        }
+                    }, 300);
                 });
                 
                 console.log('지도 초기화 완료');
@@ -282,6 +407,14 @@ export const createMapHTML = (config) => {
         // 마커 업데이트 함수
         function updateMarkers(newMarkers) {
             console.log('마커 업데이트 시작:', newMarkers.length);
+            
+            // 현재 지도 상태 저장 (중심 좌표와 줌 레벨 보존)
+            var currentCenter = window.kakaoMap.getCenter();
+            var currentLevel = window.kakaoMap.getLevel();
+            console.log('현재 지도 상태 저장 - 중심:', currentCenter.getLat(), currentCenter.getLng(), '줌:', currentLevel);
+            
+            // 지도 상태 고정 (마커 업데이트 중 변경 방지)
+            window.isUpdatingMarkers = true;
             
             // 기존 API 마커들 제거
             if (window.apiMarkers) {
@@ -380,6 +513,31 @@ export const createMapHTML = (config) => {
                     }
                 });
                 console.log('모든 마커 업데이트 완료');
+                
+                // 지도 상태 복원 (사용자 줌 레벨 유지) - 더 빠르고 안정적으로
+                // 즉시 복원 시도 (애니메이션 없이)
+                if (window.kakaoMap) {
+                    var newCenter = window.kakaoMap.getCenter();
+                    var newLevel = window.kakaoMap.getLevel();
+                    
+                    // 중심 좌표 즉시 복원
+                    if (Math.abs(newCenter.getLat() - currentCenter.getLat()) > 0.001 || 
+                        Math.abs(newCenter.getLng() - currentCenter.getLng()) > 0.001) {
+                        console.log('지도 중심 좌표 즉시 복원:', currentCenter.getLat(), currentCenter.getLng());
+                        window.kakaoMap.panTo(currentCenter); // setCenter 대신 panTo 사용 (더 부드러움)
+                    }
+                    
+                    // 줌 레벨 즉시 복원
+                    if (newLevel !== currentLevel) {
+                        console.log('사용자 줌 레벨 즉시 복원:', currentLevel);
+                        window.kakaoMap.setLevel(currentLevel, {animate: false}); // 애니메이션 없이 즉시 변경
+                    }
+                }
+                
+                // 마커 업데이트 완료 표시
+                window.isUpdatingMarkers = false;
+            } else {
+                console.log('표시할 마커가 없습니다');
             }
         }
 
@@ -406,6 +564,8 @@ export const createMapHTML = (config) => {
              if (window.kakaoMap) {
                  var moveLatLng = new kakao.maps.LatLng(latitude, longitude);
                  window.kakaoMap.setCenter(moveLatLng);
+                 window.kakaoMap.setLevel(5); // 현재위치 버튼 클릭 시 기본 줌 레벨 5로 설정
+                 console.log('줌 레벨을 5로 설정했습니다');
                  
                  // 현재 위치 마커 표시가 필요한 경우
                  if (showCurrentLocation) {

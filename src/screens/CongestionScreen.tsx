@@ -110,12 +110,13 @@ const CongestionScreen = () => {
   };
 
   // 혼잡도 API 호출
-  const fetchCongestionData = async (latitude: number, longitude: number, category: string) => {
+  const fetchCongestionData = async (latitude: number, longitude: number, category: string, zoomLevel?: number) => {
     try {
       console.log('=== 혼잡도 API 호출 ===');
       console.log('위도:', latitude);
       console.log('경도:', longitude);
       console.log('카테고리:', category);
+      console.log('🔍 현재 줌 레벨:', zoomLevel || '알 수 없음');
 
       // AsyncStorage에서 Access Token 가져오기
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -153,7 +154,6 @@ const CongestionScreen = () => {
 
           if (Array.isArray(placeList)) {
             console.log('장소 개수:', placeList.length);
-            setPlaceMarkers(placeList);
 
             // WebView에 새로운 마커 데이터 전송 (WebView 재렌더링 없이)
             if (webViewRef.current && !isMapDragging) {
@@ -162,8 +162,11 @@ const CongestionScreen = () => {
                 markers: placeList
               });
               webViewRef.current.postMessage(updateMessage);
-              console.log('WebView에 마커 업데이트 메시지 전송');
+              console.log('✅ WebView에 마커만 업데이트 - 지도 재렌더링 없음');
             }
+
+            // 상태는 나중에 업데이트 (WebView 재렌더링 방지를 위해)
+            setPlaceMarkers(placeList);
           }
         } else {
           console.error('❌ API 응답 실패:', data.message);
@@ -177,20 +180,22 @@ const CongestionScreen = () => {
   };
 
   // 지도 드래그 완료 시 API 호출
-  const handleMapCenterChange = (latitude: number, longitude: number) => {
+  const handleMapCenterChange = (latitude: number, longitude: number, isZoomOnly: boolean = false, zoomLevel?: number) => {
     console.log('=== 지도 중심 좌표 변경 ===');
-    console.log('새로운 중심:', latitude, longitude);
+    console.log('새로운 중심:', latitude, longitude, '줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
 
-    setMapCenter({ latitude, longitude });
-    
-    // 사용자가 지도를 드래그했으므로 현재 위치 표시 비활성화
-    setShouldShowCurrentLocation(false);
-    
-    // WebView에 현재 위치 마커 숨기기 메시지 전송
-    if (webViewRef.current) {
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'hideCurrentLocation'
-      }));
+    // 지도 재렌더링 방지: mapCenter 상태는 변경하지 않음
+    // 대신 현재 위치 표시만 비활성화하고 API 호출로 마커만 업데이트
+    if (!isZoomOnly) {
+      // 사용자가 지도를 드래그했으므로 현재 위치 표시 비활성화
+      setShouldShowCurrentLocation(false);
+      
+      // WebView에 현재 위치 마커 숨기기 메시지 전송
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'hideCurrentLocation'
+        }));
+      }
     }
 
     // 기존 타이머 취소
@@ -198,11 +203,12 @@ const CongestionScreen = () => {
       clearTimeout(debounceTimerRef.current);
     }
 
-    // 1초 후에 API 호출 (드래그가 완료된 후) - 시간 단축
+    // API 호출 (줌 변경은 더 짧은 딜레이, 드래그는 기존 딜레이)
+    const delay = isZoomOnly ? 500 : 1000;
     debounceTimerRef.current = setTimeout(() => {
-      console.log('드래그 완료 - API 호출 시작');
-      fetchCongestionData(latitude, longitude, selectedCategory);
-    }, 1000);
+      console.log(isZoomOnly ? '줌 변경 완료 - API 호출 시작' : '드래그 완료 - API 호출 시작');
+      fetchCongestionData(latitude, longitude, selectedCategory, zoomLevel);
+    }, delay);
   };
 
     // 현재 위치 가져오기 (실제 기기 위치)
@@ -236,7 +242,7 @@ const CongestionScreen = () => {
           fetchCongestionData(cachedLocation.latitude, cachedLocation.longitude, selectedCategory);
         }, 1000);
 
-        console.log('캐시된 현재 위치로 이동 완료');
+        console.log('📍 캐시된 현재 위치로 이동 완료 - 기본 줌 레벨: 5로 설정');
         return;
       }
 
@@ -284,7 +290,7 @@ const CongestionScreen = () => {
       Geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', accuracy + 'm');
+          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', accuracy + 'm', '- 기본 줌 레벨: 5로 설정 예정');
 
           const currentPos = { latitude, longitude };
 
@@ -551,11 +557,18 @@ const CongestionScreen = () => {
             style={styles.webView}
             javaScriptEnabled={true}
             domStorageEnabled={true}
-            startInLoadingState={true}
-            cacheEnabled={true}
+            startInLoadingState={false} // 더 부드러운 로딩을 위해 false로 변경
+            cacheEnabled={false} // 지도 캐싱 비활성화 (줌/드래그 이슈 방지)
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
             mixedContentMode="compatibility"
+            androidLayerType="software" // 안정성을 위해 software로 복구
+            bounces={false} // iOS에서 바운스 효과 비활성화
+            scrollEnabled={false} // WebView 자체 스크롤 비활성화
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            scalesPageToFit={false} // 페이지 스케일링 비활성화
+            originWhitelist={['*']} // 모든 origin 허용
             renderLoading={() => (
               <View style={styles.loadingContainer}>
                 <Text style={styles.loadingText}>지도 로딩 중...</Text>
@@ -575,13 +588,14 @@ const CongestionScreen = () => {
                   console.log('드래그 시작 - API 호출 일시 중단');
                 } else if (data.type === 'dragEnd') {
                   setIsMapDragging(false);
-                  console.log('드래그 종료 - API 호출 재개');
+                  console.log('📍 드래그 종료 - API 호출 재개, 줌 레벨:', data.zoomLevel || '알 수 없음');
                   // 드래그 완료 후 API 호출
-                  handleMapCenterChange(data.latitude, data.longitude);
+                  handleMapCenterChange(data.latitude, data.longitude, false, data.zoomLevel);
                 } else if (data.type === 'zoomChanged') {
-                  // 줌 변경 시에도 API 호출
+                  console.log('🔍 줌 변경 감지 - 줌 레벨:', data.zoomLevel || '알 수 없음');
+                  // 줌 변경 시에도 API 호출 (단, 드래그 중이 아닐 때만)
                   if (!isMapDragging) {
-                    handleMapCenterChange(data.latitude, data.longitude);
+                    handleMapCenterChange(data.latitude, data.longitude, true, data.zoomLevel); // 줌만 변경됨을 표시
                   }
                 }
               } catch (error) {
