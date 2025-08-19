@@ -5,6 +5,8 @@ import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
 import MyPageScreen from '../screens/MyPageScreen';
 import FavoriteListScreen from '../screens/FavoriteListScreen';
+import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import CustomHeader from '../components/CustomHeader';
 
 type RootStackParamList = {
@@ -12,6 +14,8 @@ type RootStackParamList = {
   Search: undefined;
   MyPage: undefined;
   FavoriteList: undefined;
+  TermsOfService: undefined;
+  PrivacyPolicy: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -54,6 +58,20 @@ const RootNavigator = () => {
               showBackButton={true}
             />
           ),
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
