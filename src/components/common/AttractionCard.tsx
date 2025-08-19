@@ -10,11 +10,13 @@ import IcHeart from '../../assets/icon/ic_heart.svg';
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
   cardType?: CardType;
+  onToggleLike?: (placeId: number) => void;
 }
 
 const AttractionCard: React.FC<AttractionCardProps> = ({
   place,
   cardType = CardType.PLACE,
+  onToggleLike,
 }) => {
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
@@ -44,7 +46,10 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
               />
             )}
           </View>
-          <TouchableOpacity style={styles.favoriteButton}>
+          <TouchableOpacity 
+            style={styles.favoriteButton}
+            onPress={() => onToggleLike && onToggleLike(isPlace ? placeData.place_id : festivalData.festival_id)}
+          >
             <IcHeart
               width={16}
               height={16}
