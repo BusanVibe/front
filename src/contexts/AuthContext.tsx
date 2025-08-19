@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (user: User) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  checkTokenExpiry: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,9 +25,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 토큰 유효시간 (60분)
+  const TOKEN_EXPIRY_TIME = 60 * 60 * 1000; // 60분을 밀리초로 변환
+
   useEffect(() => {
     loadStoredAuth();
-  }, []);
+    
+    // 주기적으로 토큰 만료 확인 (5분마다)
+    const tokenCheckInterval = setInterval(() => {
+      if (user && !checkTokenExpiry()) {
+        console.log('토큰이 만료되었습니다. 자동 로그아웃을 실행합니다.');
+        handleTokenExpiry();
+      }
+    }, 5 * 60 * 1000); // 5분마다 체크
+
+    return () => clearInterval(tokenCheckInterval);
+  }, [user]);
 
   const loadStoredAuth = async () => {
     try {
@@ -36,25 +50,39 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userDataString = await AsyncStorage.getItem('userData');
       const accessToken = await AsyncStorage.getItem('accessToken');
       const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const tokenIssuedAtString = await AsyncStorage.getItem('tokenIssuedAt');
 
       console.log('AsyncStorage 사용자 데이터 존재:', !!userDataString);
       console.log('AsyncStorage 토큰 존재:', !!accessToken, !!refreshToken);
+      console.log('AsyncStorage 토큰 발급시간 존재:', !!tokenIssuedAtString);
 
-      if (userDataString && accessToken && refreshToken) {
+      if (userDataString && accessToken && refreshToken && tokenIssuedAtString) {
         const userData = JSON.parse(userDataString);
+        const tokenIssuedAt = parseInt(tokenIssuedAtString, 10);
+        
         const user = {
           ...userData,
           accessToken,
           refreshToken,
+          tokenIssuedAt,
         };
         
         console.log('저장된 사용자 정보 로드 성공:', { 
           id: user.id, 
           email: user.email,
           hasAccessToken: !!user.accessToken,
-          hasRefreshToken: !!user.refreshToken
+          hasRefreshToken: !!user.refreshToken,
+          tokenIssuedAt: new Date(user.tokenIssuedAt).toISOString()
         });
-        setUser(user);
+        
+        // 토큰 만료 확인
+        if (checkTokenExpiryForUser(user)) {
+          console.log('저장된 토큰이 유효합니다.');
+          setUser(user);
+        } else {
+          console.log('저장된 토큰이 만료되었습니다. 로그인이 필요합니다.');
+          await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
+        }
       } else {
         console.log('저장된 인증 정보 없음 - 로그인 필요');
       }
@@ -70,15 +98,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('로그인 정보 저장 시작:', { id: userData.id, email: userData.email });
       
-      // AsyncStorage에 모든 정보 저장
+      // AsyncStorage에 모든 정보 저장 (토큰 발급 시간 포함)
       await AsyncStorage.setItem('userData', JSON.stringify({
         id: userData.id,
         email: userData.email,
       }));
       await AsyncStorage.setItem('accessToken', userData.accessToken);
       await AsyncStorage.setItem('refreshToken', userData.refreshToken);
+      await AsyncStorage.setItem('tokenIssuedAt', userData.tokenIssuedAt.toString());
       
-      console.log('로그인 정보 저장 완료');
+      console.log('로그인 정보 저장 완료 (토큰 발급시간 포함):', {
+        tokenIssuedAt: new Date(userData.tokenIssuedAt).toISOString()
+      });
       setUser(userData);
     } catch (error) {
       console.error('로그인 정보 저장 실패:', error);
@@ -90,8 +121,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('로그아웃 시작');
       
-      // AsyncStorage에서 모든 정보 삭제
-      await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken']);
+      // AsyncStorage에서 모든 정보 삭제 (토큰 발급시간 포함)
+      await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
       
       console.log('로그아웃 완료');
       setUser(null);
@@ -101,12 +132,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // 토큰 유효성 검사 함수 (현재 사용자용)
+  const checkTokenExpiry = (): boolean => {
+    if (!user) return false;
+    return checkTokenExpiryForUser(user);
+  };
+
+  // 토큰 유효성 검사 함수 (특정 사용자용)
+  const checkTokenExpiryForUser = (userToCheck: User): boolean => {
+    if (!userToCheck.tokenIssuedAt) return false;
+    
+    const currentTime = Date.now();
+    const tokenAge = currentTime - userToCheck.tokenIssuedAt;
+    const isValid = tokenAge < TOKEN_EXPIRY_TIME;
+    
+    console.log('토큰 유효성 검사:', {
+      tokenIssuedAt: new Date(userToCheck.tokenIssuedAt).toISOString(),
+      currentTime: new Date(currentTime).toISOString(),
+      tokenAgeMinutes: Math.floor(tokenAge / (60 * 1000)),
+      maxAgeMinutes: TOKEN_EXPIRY_TIME / (60 * 1000),
+      isValid
+    });
+    
+    return isValid;
+  };
+
+  // 토큰 만료 시 처리 함수
+  const handleTokenExpiry = async () => {
+    try {
+      console.log('=== 토큰 만료로 인한 자동 로그아웃 ===');
+      await logout();
+    } catch (error) {
+      console.error('토큰 만료 처리 중 오류:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     login,
     logout,
     isAuthenticated: !!user,
+    checkTokenExpiry,
   };
 
   return (

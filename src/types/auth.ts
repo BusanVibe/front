@@ -26,4 +26,5 @@ export interface User {
   email: string;
   accessToken: string;
   refreshToken: string;
+  tokenIssuedAt: number; // 토큰 발급 시간 (timestamp)
 }

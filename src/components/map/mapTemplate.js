@@ -81,6 +81,369 @@ export const createMapHTML = (config) => {
         <div class="loading" id="loadingMessage">${isCurrentLocation ? '현재 위치 지도 로딩 중...' : '지도 로딩 중...'}</div>
     </div>
     <script>
+        // PingManager 클래스 정의
+        class PingManager {
+          constructor(map) {
+            this.map = map;
+            this.pings = new Map();
+          }
+
+          getPingStyle(props) {
+            const { type, size = 'medium', color, icon, showPulse = false } = props;
+            
+            const sizeConfig = {
+              small: { size: '0.8rem' },
+              medium: { size: '1.2rem' },
+              large: { size: '1.6rem' }
+            };
+            
+            const currentSize = sizeConfig[size];
+            let baseStyle = {};
+            
+            switch (type) {
+              case 'current-location':
+                baseStyle = {
+                  markerColor: color || '#4285F4',
+                  borderColor: '#ffffff',
+                  icon: icon || '', // 현재 위치는 아이콘 없음
+                  pulseAnimation: showPulse ? 'ping-pulse-blue' : 'none'
+                };
+                break;
+              default:
+                baseStyle = {
+                  markerColor: color || '#9AA0A6',
+                  borderColor: '#ffffff',
+                  icon: icon || '📍',
+                  pulseAnimation: showPulse ? 'ping-pulse-gray' : 'none'
+                };
+                break;
+            }
+            
+            return {
+              markerSize: currentSize.size,
+              markerColor: baseStyle.markerColor,
+              borderColor: baseStyle.borderColor,
+              borderWidth: '0.2rem',
+              icon: baseStyle.icon,
+              pulseAnimation: baseStyle.pulseAnimation,
+              shadowStyle: '0 0.2rem 0.4rem rgba(0,0,0,0.4)'
+            };
+          }
+
+          createInfoWindowContent(props) {
+            const { title, subtitle } = props;
+            const style = this.getPingStyle(props);
+            
+            return \`
+              <div style="
+                padding: 0.8rem 1.2rem;
+                font-size: 0.9rem;
+                text-align: center;
+                background: white;
+                border: 0.15rem solid \${style.markerColor};
+                border-radius: 0.6rem;
+                min-width: 8rem;
+                max-width: 12rem;
+                box-shadow: 0 0.15rem 0.6rem rgba(0,0,0,0.15);
+                position: relative;
+                transform: translateY(-100%);
+                margin-bottom: 1rem;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              ">
+                <div style="
+                  font-size: 1rem;
+                  font-weight: bold;
+                  color: \${style.markerColor};
+                  margin-bottom: \${subtitle ? '0.3rem' : '0'};
+                ">
+                  \${style.icon} \${title}
+                </div>
+                \${subtitle ? \`
+                  <div style="
+                    font-size: 0.75rem;
+                    color: #666;
+                    line-height: 1.2;
+                  ">
+                    \${subtitle}
+                  </div>
+                \` : ''}
+                <div style="
+                  position: absolute;
+                  bottom: -0.5rem;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  width: 0;
+                  height: 0;
+                  border-left: 0.5rem solid transparent;
+                  border-right: 0.5rem solid transparent;
+                  border-top: 0.5rem solid \${style.markerColor};
+                "></div>
+              </div>
+            \`;
+          }
+
+          createPingMarkerHTML(props) {
+            const style = this.getPingStyle(props);
+            
+            return \`
+              <style>
+                @keyframes ping-pulse-blue {
+                  0% { transform: scale(1); opacity: 1; }
+                  50% { transform: scale(1.3); opacity: 0.7; }
+                  100% { transform: scale(1.6); opacity: 0; }
+                }
+                .ping-container-\${props.id} {
+                  position: relative;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                }
+                .ping-marker-\${props.id} {
+                  width: \${style.markerSize};
+                  height: \${style.markerSize};
+                  background-color: \${style.markerColor};
+                  border: \${style.borderWidth} solid \${style.borderColor};
+                  border-radius: 50%;
+                  box-shadow: \${style.shadowStyle};
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: calc(\${style.markerSize} * 0.5);
+                  position: relative;
+                  z-index: 2;
+                  transition: transform 0.2s ease;
+                }
+                .ping-marker-\${props.id}:hover {
+                  transform: scale(1.1);
+                }
+                .ping-pulse-\${props.id} {
+                  position: absolute;
+                  width: \${style.markerSize};
+                  height: \${style.markerSize};
+                  background-color: \${style.markerColor};
+                  border-radius: 50%;
+                  opacity: 0.6;
+                  animation: \${style.pulseAnimation} 2s infinite;
+                  z-index: 1;
+                }
+              </style>
+              <div class="ping-container-\${props.id}">
+                \${style.pulseAnimation !== 'none' ? \`<div class="ping-pulse-\${props.id}"></div>\` : ''}
+                <div class="ping-marker-\${props.id}">
+                  \${style.icon}
+                </div>
+              </div>
+            \`;
+          }
+
+          addPing(pingData) {
+            const { id, location, showInfoWindow = false, autoHideInfo = 0, onClick } = pingData;
+            
+            console.log('핑 추가 시작:', id, location);
+            
+            if (this.pings.has(id)) {
+              this.removePing(id);
+            }
+            
+            const markerHTML = this.createPingMarkerHTML(pingData);
+            console.log('마커 HTML 생성 완료:', markerHTML.length, '글자');
+            
+            const customOverlay = new kakao.maps.CustomOverlay({
+              position: new kakao.maps.LatLng(location.latitude, location.longitude),
+              content: markerHTML,
+              yAnchor: 0.5,
+              zIndex: pingData.zIndex || 100
+            });
+            
+            console.log('CustomOverlay 생성 완료');
+            
+            let infoOverlay = null;
+            if (showInfoWindow) {
+              const infoContent = this.createInfoWindowContent(pingData);
+              infoOverlay = new kakao.maps.CustomOverlay({
+                content: infoContent,
+                position: new kakao.maps.LatLng(location.latitude, location.longitude),
+                yAnchor: 1,
+                zIndex: (pingData.zIndex || 100) + 10
+              });
+            }
+            
+            const pingInstance = {
+              id,
+              data: pingData,
+              marker: customOverlay,
+              infoWindow: infoOverlay,
+              isInfoWindowVisible: false,
+              
+              destroy: () => {
+                if (customOverlay) customOverlay.setMap(null);
+                if (infoOverlay) infoOverlay.setMap(null);
+              },
+              
+              showInfoWindow: () => {
+                if (infoOverlay && !pingInstance.isInfoWindowVisible) {
+                  infoOverlay.setMap(this.map);
+                  pingInstance.isInfoWindowVisible = true;
+                  
+                  if (autoHideInfo > 0) {
+                    setTimeout(() => {
+                      this.hideInfoWindow(id);
+                    }, autoHideInfo);
+                  }
+                }
+              },
+              
+              hideInfoWindow: () => {
+                if (infoOverlay && pingInstance.isInfoWindowVisible) {
+                  infoOverlay.setMap(null);
+                  pingInstance.isInfoWindowVisible = false;
+                }
+              }
+            };
+            
+            console.log('지도에 핑 표시 중...', 'Map 객체:', !!this.map);
+            customOverlay.setMap(this.map);
+            console.log('핑 지도 표시 완료:', id);
+            
+            if (showInfoWindow && infoOverlay) {
+              pingInstance.showInfoWindow();
+            }
+            
+            this.pings.set(id, pingInstance);
+            console.log(\`Ping 추가 완료: \${id} (\${pingData.type})\`);
+            return pingInstance;
+          }
+
+          removePing(id) {
+            const ping = this.pings.get(id);
+            if (ping) {
+              ping.destroy();
+              this.pings.delete(id);
+              console.log(\`Ping 제거 완료: \${id}\`);
+            }
+          }
+
+          hideInfoWindow(id) {
+            const ping = this.pings.get(id);
+            if (ping) {
+              ping.hideInfoWindow();
+            }
+          }
+
+          updateCurrentLocationPing(location, showInfo = true) {
+            const currentLocationPing = {
+              id: 'current-location',
+              location: location,
+              type: 'current-location',
+              title: '현재 위치',
+              size: 'medium',
+              showPulse: true,
+              showInfoWindow: showInfo,
+              autoHideInfo: showInfo ? 7000 : 0
+            };
+            
+            return this.addPing(currentLocationPing);
+          }
+
+          hideCurrentLocationPing() {
+            this.removePing('current-location');
+          }
+
+          // POI 타입 핑들 제거 (API 응답용)
+          removePoiPings() {
+            this.removePingsByType('poi');
+          }
+
+          // API 응답 데이터를 핑으로 변환
+          addPlacePingsFromApiResponse(places) {
+            console.log('API 응답 장소들을 핑으로 변환 시작:', places.length);
+            
+            // 기존 POI 핑들 제거
+            this.removePoiPings();
+            
+            places.forEach((place, index) => {
+              const lat = parseFloat(place.latitude);
+              const lng = parseFloat(place.longitude);
+              
+              console.log(\`장소 \${index + 1}: \${place.name}\`);
+              console.log('  - 좌표:', lat, lng);
+              console.log('  - 혼잡도:', place.congestion_level);
+              console.log('  - 타입:', place.type);
+              
+              if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                const pingData = {
+                  id: \`poi-\${place.id}\`,
+                  location: { latitude: lat, longitude: lng },
+                  type: 'poi',
+                  title: place.name,
+                  subtitle: \`\${this.getCongestionText(place.congestion_level)} · \${place.type}\`,
+                  size: 'small',
+                  color: this.getCongestionColor(place.congestion_level),
+                  icon: this.getPlaceTypeIcon(place.type),
+                  showInfoWindow: false,
+                  onClick: () => {
+                    console.log('장소 핑 클릭:', place.name);
+                  }
+                };
+                
+                console.log('생성된 pingData:', pingData);
+                this.addPing(pingData);
+                console.log('장소 핑 추가 완료:', place.name);
+              } else {
+                console.log('유효하지 않은 좌표로 건너뜀:', lat, lng);
+              }
+            });
+            
+            console.log('API 응답 장소 핑 변환 완료');
+          }
+
+          // 혼잡도 레벨에 따른 색상
+          getCongestionColor(level) {
+            if (level >= 4) return '#ff4444'; // 매우 혼잡 - 빨간색
+            if (level >= 3) return '#ff8800'; // 혼잡 - 주황색
+            if (level >= 2) return '#ffcc00'; // 보통 - 노란색
+            return '#44ff44'; // 여유 - 초록색
+          }
+
+          // 혼잡도 레벨에 따른 텍스트
+          getCongestionText(level) {
+            if (level >= 4) return '매우혼잡';
+            if (level >= 3) return '혼잡';
+            if (level >= 2) return '보통';
+            return '여유';
+          }
+
+          // 장소 타입에 따른 아이콘
+          getPlaceTypeIcon(type) {
+            switch(type) {
+              case 'SIGHT': return '🏛️';
+              case 'RESTAURANT': return '🍽️';
+              case 'CAFE': return '☕';
+              case 'CONVSTORE': return '🏪';
+              case 'CULTURE': return '🎭';
+              case 'ALL': return '🌐';
+              default: return '📍';
+            }
+          }
+
+          // 특정 타입의 핑들 제거
+          removePingsByType(type) {
+            const toRemove = [];
+            this.pings.forEach((ping, id) => {
+              if (ping.data.type === type) {
+                toRemove.push(id);
+              }
+            });
+            
+            toRemove.forEach(id => {
+              this.removePing(id);
+            });
+            
+            console.log(\`\${type} 타입 핑 \${toRemove.length}개 제거 완료\`);
+          }
+        }
+
         console.log('지도 초기화 시작 - 중심: ${centerLat}, ${centerLng}');
         
         function initMap() {
@@ -106,10 +469,13 @@ export const createMapHTML = (config) => {
                 var map = new kakao.maps.Map(container, options);
                 window.kakaoMap = map; // 전역 변수로 저장
                 window.apiMarkers = []; // API 마커들을 저장할 배열
-                window.currentLocationMarker = null; // 현재 위치 마커
-                window.currentLocationInfoWindow = null; // 현재 위치 인포윈도우
                 window.isUpdatingMarkers = false; // 마커 업데이트 상태 초기화
                 window.lastMapCenter = map.getCenter(); // 현재 지도 중심 저장
+                
+                // Ping 매니저 초기화
+                console.log('🎯 PingManager 초기화 시작');
+                window.pingManager = new PingManager(map);
+                console.log('🎯 PingManager 초기화 완료:', !!window.pingManager);
                 
                 // 매끄러운 렌더링을 위한 성능 최적화
                 if (map.getProjection) {
@@ -124,59 +490,13 @@ export const createMapHTML = (config) => {
                     loading.remove();
                 }
                 
-                // 현재 위치 마커 표시 (조건부)
+                // 현재 위치 Ping 표시 (조건부)
                 ${isCurrentLocation && currentLocation ? `
-                window.currentLocationMarker = new kakao.maps.Marker({
-                    position: new kakao.maps.LatLng(${currentLocation.latitude}, ${currentLocation.longitude}),
-                    title: '현재 위치'
-                });
-                window.currentLocationMarker.setMap(map);
-                console.log('현재 위치 마커 생성 완료');
-                
-                // 현재 위치 커스텀 인포윈도우
-                var currentLocationContent = '<div style="' +
-                    'padding:0.8rem 1.2rem;' +
-                    'font-size:0.9rem;' +
-                    'text-align:center;' +
-                    'background:white;' +
-                    'border:0.15rem solid #4285F4;' +
-                    'border-radius:0.6rem;' +
-                    'min-width:8rem;' +
-                    'max-width:10rem;' +
-                    'box-shadow:0 0.15rem 0.6rem rgba(0,0,0,0.15);' +
-                    'position:relative;' +
-                    'transform:translateY(-100%);' +
-                    'margin-bottom:1rem;' +
-                    '">' +
-                    '📍 <strong style="color:#4285F4;font-size:1rem;">현재 위치</strong>' +
-                    // 말풍선 꼬리 추가
-                    '<div style="' +
-                    'position:absolute;' +
-                    'bottom:-0.5rem;' +
-                    'left:50%;' +
-                    'transform:translateX(-50%);' +
-                    'width:0;' +
-                    'height:0;' +
-                    'border-left:0.5rem solid transparent;' +
-                    'border-right:0.5rem solid transparent;' +
-                    'border-top:0.5rem solid #4285F4;' +
-                    '"></div>' +
-                    '</div>';
-                
-                window.currentLocationInfoWindow = new kakao.maps.CustomOverlay({
-                    content: currentLocationContent,
-                    position: new kakao.maps.LatLng(${currentLocation.latitude}, ${currentLocation.longitude}),
-                    yAnchor: 1,
-                    zIndex: 1000
-                });
-                window.currentLocationInfoWindow.setMap(map);
-                
-                // 7초 후 인포윈도우 닫기
-                setTimeout(function() {
-                    if (window.currentLocationInfoWindow) {
-                        window.currentLocationInfoWindow.setMap(null);
-                    }
-                }, 7000);
+                window.pingManager.updateCurrentLocationPing({
+                    latitude: ${currentLocation.latitude},
+                    longitude: ${currentLocation.longitude}
+                }, true);
+                console.log('현재 위치 Ping 생성 완료');
                 ` : ''}
                 
                 // API에서 받은 장소 마커들 표시
@@ -331,14 +651,29 @@ export const createMapHTML = (config) => {
                              return;
                          }
                         
-                        // React Native로 좌표 전달
+                        // 현재 지도의 bounds 계산
+                        var bounds = map.getBounds();
+                        var sw = bounds.getSouthWest(); // 남서쪽 (좌하단)
+                        var ne = bounds.getNorthEast(); // 북동쪽 (우상단)
+                        
+                        var boundsData = {
+                            lat1: ne.getLat(), // 좌상단 위도 (북쪽)
+                            lng1: sw.getLng(), // 좌상단 경도 (서쪽)
+                            lat2: sw.getLat(), // 우하단 위도 (남쪽)
+                            lng2: ne.getLng()  // 우하단 경도 (동쪽)
+                        };
+                        
+                        console.log('지도 bounds 계산:', boundsData);
+                        
+                        // React Native로 bounds 전달
                         if (window.ReactNativeWebView) {
                             window.ReactNativeWebView.postMessage(JSON.stringify({
                                 type: 'dragEnd',
                                 latitude: lat,
                                 longitude: lng,
                                 dragDistance: dragDistance,
-                                zoomLevel: currentZoomLevel
+                                zoomLevel: currentZoomLevel,
+                                bounds: boundsData
                             }));
                         }
                     } else {
@@ -384,13 +719,28 @@ export const createMapHTML = (config) => {
                             return;
                         }
                         
-                        // React Native로 좌표 전달
+                        // 현재 지도의 bounds 계산
+                        var bounds = map.getBounds();
+                        var sw = bounds.getSouthWest(); // 남서쪽 (좌하단)
+                        var ne = bounds.getNorthEast(); // 북동쪽 (우상단)
+                        
+                        var boundsData = {
+                            lat1: ne.getLat(), // 좌상단 위도 (북쪽)
+                            lng1: sw.getLng(), // 좌상단 경도 (서쪽)
+                            lat2: sw.getLat(), // 우하단 위도 (남쪽)
+                            lng2: ne.getLng()  // 우하단 경도 (동쪽)
+                        };
+                        
+                        console.log('줌 변경 - 지도 bounds 계산:', boundsData);
+                        
+                        // React Native로 bounds 전달
                         if (window.ReactNativeWebView) {
                             window.ReactNativeWebView.postMessage(JSON.stringify({
                                 type: 'zoomChanged',
                                 latitude: lat,
                                 longitude: lng,
-                                zoomLevel: level
+                                zoomLevel: level,
+                                bounds: boundsData
                             }));
                         }
                     }, 300);
@@ -543,17 +893,33 @@ export const createMapHTML = (config) => {
 
         // React Native에서 메시지 수신
         window.addEventListener('message', function(event) {
+            console.log('🔵 WebView 메시지 수신:', event.data);
             try {
                 var data = JSON.parse(event.data);
+                console.log('🔵 파싱된 메시지 데이터:', data);
+                
                 if (data.type === 'updateMarkers') {
                     updateMarkers(data.markers);
+                } else if (data.type === 'updatePlacePings') {
+                    // API 응답 장소들을 핑으로 표시
+                    console.log('🎯 updatePlacePings 메시지 수신:', data.places?.length, '개 장소');
+                    console.log('🎯 첫 번째 장소 데이터:', data.places?.[0]);
+                    console.log('🎯 PingManager 존재 여부:', !!window.pingManager);
+                    
+                    if (window.pingManager && data.places) {
+                        window.pingManager.addPlacePingsFromApiResponse(data.places);
+                    } else {
+                        console.error('❌ PingManager 또는 places 데이터 없음');
+                    }
                 } else if (data.type === 'moveToLocation') {
                     moveToLocation(data.latitude, data.longitude, data.showCurrentLocation);
                 } else if (data.type === 'hideCurrentLocation') {
                     hideCurrentLocation();
+                } else {
+                    console.log('🔵 알 수 없는 메시지 타입:', data.type);
                 }
             } catch (error) {
-                console.error('메시지 파싱 오류:', error);
+                console.error('❌ 메시지 파싱 오류:', error);
             }
         });
 
@@ -567,87 +933,26 @@ export const createMapHTML = (config) => {
                  window.kakaoMap.setLevel(5); // 현재위치 버튼 클릭 시 기본 줌 레벨 5로 설정
                  console.log('줌 레벨을 5로 설정했습니다');
                  
-                 // 현재 위치 마커 표시가 필요한 경우
+                 // 현재 위치 Ping 표시가 필요한 경우
                  if (showCurrentLocation) {
-                     // 기존 현재위치 마커 제거
-                     if (window.currentLocationMarker) {
-                         window.currentLocationMarker.setMap(null);
-                     }
-                     if (window.currentLocationInfoWindow) {
-                         window.currentLocationInfoWindow.close();
-                     }
-                     
-                     // 새로운 현재위치 마커 생성
-                     window.currentLocationMarker = new kakao.maps.Marker({
-                         position: moveLatLng,
-                         title: '현재 위치'
-                     });
-                     window.currentLocationMarker.setMap(window.kakaoMap);
-                     
-                     // 현재 위치 커스텀 인포윈도우
-                     var currentLocationContent = '<div style="' +
-                         'padding:0.8rem 1.2rem;' +
-                         'font-size:0.9rem;' +
-                         'text-align:center;' +
-                         'background:white;' +
-                         'border:0.15rem solid #4285F4;' +
-                         'border-radius:0.6rem;' +
-                         'min-width:8rem;' +
-                         'max-width:10rem;' +
-                         'box-shadow:0 0.15rem 0.6rem rgba(0,0,0,0.15);' +
-                         'position:relative;' +
-                         'transform:translateY(-100%);' +
-                         'margin-bottom:1rem;' +
-                         '">' +
-                         '📍 <strong style="color:#4285F4;font-size:1rem;">현재 위치</strong>' +
-                         // 말풍선 꼬리 추가
-                         '<div style="' +
-                         'position:absolute;' +
-                         'bottom:-0.5rem;' +
-                         'left:50%;' +
-                         'transform:translateX(-50%);' +
-                         'width:0;' +
-                         'height:0;' +
-                         'border-left:0.5rem solid transparent;' +
-                         'border-right:0.5rem solid transparent;' +
-                         'border-top:0.5rem solid #4285F4;' +
-                         '"></div>' +
-                         '</div>';
-                     
-                     window.currentLocationInfoWindow = new kakao.maps.CustomOverlay({
-                         content: currentLocationContent,
-                         position: moveLatLng,
-                         yAnchor: 1,
-                         zIndex: 1000
-                     });
-                     window.currentLocationInfoWindow.setMap(window.kakaoMap);
-                     
-                     // 7초 후 인포윈도우 닫기
-                     setTimeout(function() {
-                         if (window.currentLocationInfoWindow) {
-                             window.currentLocationInfoWindow.setMap(null);
-                         }
-                     }, 7000);
+                     window.pingManager.updateCurrentLocationPing({
+                         latitude: latitude,
+                         longitude: longitude
+                     }, true);
+                     console.log('현재 위치 Ping 업데이트 완료');
                  }
                  
                  console.log('지도 중심 이동 완료');
              }
          }
 
-         // 현재 위치 마커 숨기기 함수
+         // 현재 위치 Ping 숨기기 함수
          function hideCurrentLocation() {
-             console.log('현재 위치 마커 숨기기');
+             console.log('현재 위치 Ping 숨기기');
              
-             if (window.currentLocationMarker) {
-                 window.currentLocationMarker.setMap(null);
-                 window.currentLocationMarker = null;
-             }
-             if (window.currentLocationInfoWindow) {
-                 window.currentLocationInfoWindow.setMap(null);
-                 window.currentLocationInfoWindow = null;
-             }
+             window.pingManager.hideCurrentLocationPing();
              
-             console.log('현재 위치 마커 숨기기 완료');
+             console.log('현재 위치 Ping 숨기기 완료');
          }
 
         // 혼잡도 레벨에 따른 마커 색상 결정
@@ -667,9 +972,16 @@ export const createMapHTML = (config) => {
         }
 
         // 지도 초기화 실행
+        console.log('🚀 WebView 스크립트 시작, document.readyState:', document.readyState);
+        
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initMap);
+            console.log('🚀 DOMContentLoaded 이벤트 대기 중...');
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('🚀 DOMContentLoaded 이벤트 발생, 지도 초기화 시작');
+                initMap();
+            });
         } else {
+            console.log('🚀 DOM 이미 로드됨, 즉시 지도 초기화');
             initMap();
         }
     </script>

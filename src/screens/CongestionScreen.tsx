@@ -35,7 +35,7 @@ interface PlaceMarker {
   type: string;
 }
 
-const categories = ['관광명소', '맛집', '카페', '편의점'];
+const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
 
 // 혼잡도 시간별 데이터
@@ -77,7 +77,7 @@ const locationData = [
 ];
 
 const CongestionScreen = () => {
-  const [selectedCategory, setSelectedCategory] = useState('관광명소');
+  const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
   const [mapKey, setMapKey] = useState(0); // WebView 강제 리렌더링용
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
@@ -91,6 +91,7 @@ const CongestionScreen = () => {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLocationRef = useRef<CachedLocation | null>(null);
   const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
+  const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
 
   // 컴포넌트 마운트 시 현재 위치 자동 획득
   React.useEffect(() => {
@@ -101,21 +102,38 @@ const CongestionScreen = () => {
   // 카테고리를 API 타입으로 변환
   const getCategoryType = (category: string): string => {
     const categoryMap: Record<string, string> = {
+      '전체': 'ALL',
       '관광명소': 'SIGHT',
       '맛집': 'RESTAURANT',
       '카페': 'CAFE',
-      '편의점': 'CONVSTORE',
+      '문화시설': 'CULTURE',
     };
     return categoryMap[category] || 'ALL';
   };
 
-  // 혼잡도 API 호출
-  const fetchCongestionData = async (latitude: number, longitude: number, category: string, zoomLevel?: number) => {
+  // 중심 좌표와 줌 레벨을 기반으로 bounds 계산
+  const calculateBounds = (centerLat: number, centerLng: number, zoomLevel: number = 15) => {
+    // 줌 레벨에 따른 대략적인 범위 계산 (킬로미터 단위)
+    const kmPerDegree = 111; // 위도 1도당 약 111km
+    const latRange = Math.pow(2, 20 - zoomLevel) * 0.01; // 줌 레벨에 따른 위도 범위
+    const lngRange = latRange / Math.cos(centerLat * Math.PI / 180); // 경도는 위도에 따라 조정
+
+    return {
+      lat1: centerLat + latRange, // 좌상단 위도 (북쪽)
+      lng1: centerLng - lngRange, // 좌상단 경도 (서쪽)
+      lat2: centerLat - latRange, // 우하단 위도 (남쪽)
+      lng2: centerLng + lngRange  // 우하단 경도 (동쪽)
+    };
+  };
+
+  // 혼잡도 API 호출 (경계 좌표 사용)
+  const fetchCongestionData = async (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, category: string, zoomLevel?: number) => {
     try {
       console.log('=== 혼잡도 API 호출 ===');
-      console.log('위도:', latitude);
-      console.log('경도:', longitude);
-      console.log('카테고리:', category);
+      console.log('좌상단 좌표 (lat1, lng1):', bounds.lat1, bounds.lng1);
+      console.log('우하단 좌표 (lat2, lng2):', bounds.lat2, bounds.lng2);
+      console.log('선택된 카테고리:', category);
+      console.log('API 타입 변환:', getCategoryType(category));
       console.log('🔍 현재 줌 레벨:', zoomLevel || '알 수 없음');
 
       // AsyncStorage에서 Access Token 가져오기
@@ -128,7 +146,7 @@ const CongestionScreen = () => {
       }
 
       const apiType = getCategoryType(category);
-      const url = `https://api.busanvibe.site/api/congestion?type=${apiType}&latitude=${latitude}&longitude=${longitude}`;
+      const url = `https://api.busanvibe.site/api/congestion?type=${apiType}&lat1=${bounds.lat1}&lng1=${bounds.lng1}&lat2=${bounds.lat2}&lng2=${bounds.lng2}`;
       console.log('요청 URL:', url);
 
       const response = await fetch(url, {
@@ -150,23 +168,82 @@ const CongestionScreen = () => {
 
         if (data.is_success) {
           console.log('✅ API 호출 성공!');
-          const placeList = data.result?.place_list;
+          console.log('원본 result 구조:', data.result);
+          
+          // 백엔드에서 Java 객체 형태로 오는 데이터 파싱
+          let placeList = data.result?.place_list;
+          
+          // place_list가 특수 형태인 경우 처리
+          if (placeList && Array.isArray(placeList) && placeList.length === 2 && placeList[0] === "java.util.ArrayList") {
+            placeList = placeList[1]; // 실제 배열 데이터는 두 번째 요소
+            console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
+          }
 
           if (Array.isArray(placeList)) {
             console.log('장소 개수:', placeList.length);
+            
+            // 받아진 장소들 로그로 출력
+            console.log('=== 받아진 장소 목록 ===');
+            console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            
+            // Java 객체 형태의 장소 데이터를 일반 객체로 변환
+            const normalizedPlaces = placeList.map((place: any) => {
+              // latitude와 longitude가 ["java.math.BigDecimal", 값] 형태인 경우 처리
+              const normalizedPlace = {
+                id: place.id,
+                name: place.name,
+                type: place.type,
+                congestion_level: place.congestion_level,
+                latitude: Array.isArray(place.latitude) && place.latitude[0] === "java.math.BigDecimal" 
+                  ? place.latitude[1] 
+                  : place.latitude,
+                longitude: Array.isArray(place.longitude) && place.longitude[0] === "java.math.BigDecimal" 
+                  ? place.longitude[1] 
+                  : place.longitude
+              };
+              return normalizedPlace;
+            });
 
-            // WebView에 새로운 마커 데이터 전송 (WebView 재렌더링 없이)
+            console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
+
+            // 타입별 분류해서 로그 출력
+            const typeGroups: Record<string, any[]> = {};
+            normalizedPlaces.forEach((place) => {
+              if (!typeGroups[place.type]) {
+                typeGroups[place.type] = [];
+              }
+              typeGroups[place.type].push(place);
+            });
+            
+            Object.keys(typeGroups).forEach(type => {
+              console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
+              typeGroups[type].forEach((place, index) => {
+                console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+              });
+            });
+            console.log('========================');
+
+            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용)
             if (webViewRef.current && !isMapDragging) {
               const updateMessage = JSON.stringify({
-                type: 'updateMarkers',
-                markers: placeList
+                type: 'updatePlacePings',
+                places: normalizedPlaces
+              });
+              console.log('📤 WebView로 메시지 전송 중...', {
+                messageType: 'updatePlacePings',
+                placesCount: normalizedPlaces.length,
+                firstPlace: normalizedPlaces[0]
               });
               webViewRef.current.postMessage(updateMessage);
-              console.log('✅ WebView에 마커만 업데이트 - 지도 재렌더링 없음');
+              console.log('✅ WebView에 정규화된 장소 핑 데이터 전송 완료');
+            } else {
+              console.log('❌ WebView 전송 실패 - webViewRef:', !!webViewRef.current, 'isMapDragging:', isMapDragging);
             }
 
-            // 상태는 나중에 업데이트 (WebView 재렌더링 방지를 위해)
-            setPlaceMarkers(placeList);
+            // 상태는 정규화된 데이터로 업데이트
+            setPlaceMarkers(normalizedPlaces);
+          } else {
+            console.error('❌ place_list가 배열이 아님:', typeof placeList, placeList);
           }
         } else {
           console.error('❌ API 응답 실패:', data.message);
@@ -179,10 +256,15 @@ const CongestionScreen = () => {
     }
   };
 
-  // 지도 드래그 완료 시 API 호출
-  const handleMapCenterChange = (latitude: number, longitude: number, isZoomOnly: boolean = false, zoomLevel?: number) => {
-    console.log('=== 지도 중심 좌표 변경 ===');
-    console.log('새로운 중심:', latitude, longitude, '줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
+  // 지도 변경 완료 시 API 호출 (bounds 사용)
+  const handleMapBoundsChange = (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, isZoomOnly: boolean = false, zoomLevel?: number) => {
+    console.log('=== 지도 경계 좌표 변경 ===');
+    console.log('좌상단:', bounds.lat1, bounds.lng1);
+    console.log('우하단:', bounds.lat2, bounds.lng2);
+    console.log('줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
+
+    // 마지막 지도 경계 저장
+    lastMapBoundsRef.current = bounds;
 
     // 지도 재렌더링 방지: mapCenter 상태는 변경하지 않음
     // 대신 현재 위치 표시만 비활성화하고 API 호출로 마커만 업데이트
@@ -207,7 +289,7 @@ const CongestionScreen = () => {
     const delay = isZoomOnly ? 500 : 1000;
     debounceTimerRef.current = setTimeout(() => {
       console.log(isZoomOnly ? '줌 변경 완료 - API 호출 시작' : '드래그 완료 - API 호출 시작');
-      fetchCongestionData(latitude, longitude, selectedCategory, zoomLevel);
+      fetchCongestionData(bounds, selectedCategory, zoomLevel);
     }, delay);
   };
 
@@ -224,10 +306,9 @@ const CongestionScreen = () => {
         const cachedLocation = lastLocationRef.current;
         setCurrentLocation(cachedLocation);
         setShouldShowCurrentLocation(true);
-        setMapCenter({ latitude: cachedLocation.latitude, longitude: cachedLocation.longitude });
         setIsLocationLoading(false);
         
-        // 지도 중심을 캐시된 위치로 이동 (WebView 재렌더링 없이)
+        // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
         if (webViewRef.current) {
           webViewRef.current.postMessage(JSON.stringify({
             type: 'moveToLocation',
@@ -237,9 +318,10 @@ const CongestionScreen = () => {
           }));
         }
 
-        // API 호출
+        // API 호출 (bounds 사용)
         setTimeout(() => {
-          fetchCongestionData(cachedLocation.latitude, cachedLocation.longitude, selectedCategory);
+          const bounds = calculateBounds(cachedLocation.latitude, cachedLocation.longitude, 15);
+          fetchCongestionData(bounds, selectedCategory);
         }, 1000);
 
         console.log('📍 캐시된 현재 위치로 이동 완료 - 기본 줌 레벨: 5로 설정');
@@ -272,7 +354,8 @@ const CongestionScreen = () => {
             setMapKey(prev => prev + 1); // 초기 로드는 재렌더링 필요
 
             setTimeout(() => {
-              fetchCongestionData(defaultLocation.latitude, defaultLocation.longitude, selectedCategory);
+              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+              fetchCongestionData(bounds, selectedCategory);
             }, 1000);
 
             console.log('권한 거부 - 부산 중심으로 설정');
@@ -303,17 +386,17 @@ const CongestionScreen = () => {
 
           setCurrentLocation(currentPos);
           setShouldShowCurrentLocation(true);
-          setMapCenter({ latitude, longitude });
-          setIsInitialLoad(false);
           setIsLocationLoading(false);
 
-          // 초기 로드가 아닌 경우 WebView 재렌더링 없이 지도 중심 이동
+          // 초기 로드인 경우에만 mapCenter 설정하여 WebView 재렌더링
           if (isInitialLoad) {
+            setMapCenter({ latitude, longitude });
+            setIsInitialLoad(false);
             // 초기 로드 시에만 WebView 재렌더링
             isUpdatingMapRef.current = true;
             setMapKey(prev => prev + 1);
           } else {
-            // 이후 현재위치 버튼 클릭 시에는 지도 중심만 이동
+            // 이후 현재위치 버튼 클릭 시에는 지도 중심만 이동 (mapCenter 상태 변경 없음)
             if (webViewRef.current) {
               webViewRef.current.postMessage(JSON.stringify({
                 type: 'moveToLocation',
@@ -324,9 +407,10 @@ const CongestionScreen = () => {
             }
           }
 
-          // API 호출은 지도 로딩 후에
+          // API 호출은 지도 로딩 후에 (bounds 사용)
           setTimeout(() => {
-            fetchCongestionData(latitude, longitude, selectedCategory);
+            const bounds = calculateBounds(latitude, longitude, 15);
+            fetchCongestionData(bounds, selectedCategory);
             isUpdatingMapRef.current = false;
           }, 1000);
 
@@ -366,9 +450,10 @@ const CongestionScreen = () => {
             isUpdatingMapRef.current = true;
             setMapKey(prev => prev + 1);
 
-            // API 호출은 지도 로딩 후에
+            // API 호출은 지도 로딩 후에 (bounds 사용)
             setTimeout(() => {
-              fetchCongestionData(defaultLocation.latitude, defaultLocation.longitude, selectedCategory);
+              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+              fetchCongestionData(bounds, selectedCategory);
               isUpdatingMapRef.current = false;
             }, 1000);
           } else {
@@ -400,7 +485,8 @@ const CongestionScreen = () => {
         setMapKey(prev => prev + 1);
 
         setTimeout(() => {
-          fetchCongestionData(defaultLocation.latitude, defaultLocation.longitude, selectedCategory);
+          const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+          fetchCongestionData(bounds, selectedCategory);
         }, 1000);
 
         console.log('권한 요청 실패 - 부산 중심으로 설정');
@@ -525,9 +611,13 @@ const CongestionScreen = () => {
             ]}
             onPress={() => {
               setSelectedCategory(category);
-              // 카테고리 변경 시 현재 지도 중심으로 API 호출 (즉시 호출)
-              if (mapCenter) {
-                fetchCongestionData(mapCenter.latitude, mapCenter.longitude, category);
+              // 카테고리 변경 시 현재 지도 경계로 API 호출 (즉시 호출)
+              if (lastMapBoundsRef.current) {
+                fetchCongestionData(lastMapBoundsRef.current, category);
+              } else if (mapCenter) {
+                // 초기 로드 시에만 mapCenter 사용
+                const bounds = calculateBounds(mapCenter.latitude, mapCenter.longitude, 15);
+                fetchCongestionData(bounds, category);
               }
             }}>
             <Text
@@ -589,13 +679,15 @@ const CongestionScreen = () => {
                 } else if (data.type === 'dragEnd') {
                   setIsMapDragging(false);
                   console.log('📍 드래그 종료 - API 호출 재개, 줌 레벨:', data.zoomLevel || '알 수 없음');
-                  // 드래그 완료 후 API 호출
-                  handleMapCenterChange(data.latitude, data.longitude, false, data.zoomLevel);
+                  // 드래그 완료 후 API 호출 (bounds 사용)
+                  if (data.bounds) {
+                    handleMapBoundsChange(data.bounds, false, data.zoomLevel);
+                  }
                 } else if (data.type === 'zoomChanged') {
                   console.log('🔍 줌 변경 감지 - 줌 레벨:', data.zoomLevel || '알 수 없음');
                   // 줌 변경 시에도 API 호출 (단, 드래그 중이 아닐 때만)
-                  if (!isMapDragging) {
-                    handleMapCenterChange(data.latitude, data.longitude, true, data.zoomLevel); // 줌만 변경됨을 표시
+                  if (!isMapDragging && data.bounds) {
+                    handleMapBoundsChange(data.bounds, true, data.zoomLevel); // 줌만 변경됨을 표시
                   }
                 }
               } catch (error) {
