@@ -25,12 +25,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
     try {
       console.log('카카오 로그인 성공, 사용자 정보 저장 중:', kakaoUser);
       
+      const currentTime = Date.now(); // 현재 시간을 토큰 발급 시간으로 설정
+      
       const user: User = {
         id: kakaoUser.id,
         email: kakaoUser.email,
         accessToken: kakaoUser.tokenResponseDTO.accessToken,
         refreshToken: kakaoUser.tokenResponseDTO.refreshToken,
+        tokenIssuedAt: currentTime, // 토큰 발급 시간 추가
       };
+      
+      console.log('토큰 발급 시간 설정:', new Date(currentTime).toISOString());
       
       await login(user);
       
@@ -38,7 +43,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       
       Alert.alert(
         '로그인 성공',
-        `환영합니다! ${user.email}${kakaoUser.newUser ? '\n새로운 사용자입니다.' : ''}`,
+        `환영합니다! ${user.email}${kakaoUser.newUser ? '\n새로운 사용자입니다.' : ''}\n\n토큰 유효시간: 60분`,
         [
           {
             text: '확인',

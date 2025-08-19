@@ -15,8 +15,28 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createMapHTML } from '../components/map/mapTemplate';
 
-const categories = ['관광명소', '맛집', '카페', '편의점'];
+// 타입 정의
+interface Location {
+  latitude: number;
+  longitude: number;
+}
+
+interface CachedLocation extends Location {
+  timestamp: number;
+}
+
+interface PlaceMarker {
+  latitude: string | number;
+  longitude: string | number;
+  name: string;
+  congestion_level: number;
+  type: string;
+}
+
+const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
 
 // 혼잡도 시간별 데이터
@@ -58,179 +78,469 @@ const locationData = [
 ];
 
 const CongestionScreen = () => {
-  const [selectedCategory, setSelectedCategory] = useState('관광명소');
+  const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
   const [mapKey, setMapKey] = useState(0); // WebView 강제 리렌더링용
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const webViewRef = useRef(null);
+  const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
+  const [mapCenter, setMapCenter] = useState<Location | null>(null); // 현재 위치 로드 후 설정
+  const [placeMarkers, setPlaceMarkers] = useState<PlaceMarker[]>([]); // API에서 받은 장소들
+  const [isMapDragging, setIsMapDragging] = useState(false); // 지도 드래그 상태
+  const [shouldShowCurrentLocation, setShouldShowCurrentLocation] = useState(false); // 현재위치 표시 여부
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태
+  const [isLocationLoading, setIsLocationLoading] = useState(true); // 위치 로딩 상태
+  const webViewRef = useRef<any>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLocationRef = useRef<CachedLocation | null>(null);
+  const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
+  const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
 
-  // 서울로 이동하기
-  const getCurrentLocation = () => {
-    console.log('서울로 이동 시작');
+  // 컴포넌트 마운트 시 현재 위치 자동 획득
+  React.useEffect(() => {
+    console.log('=== CongestionScreen 마운트 - 현재 위치 자동 획득 시작 ===');
+    getCurrentLocation();
+  }, []);
 
-    // 서울 좌표 (광화문 기준)
-    const seoulLocation = {
-      latitude: 37.5665,
-      longitude: 126.9780
+  // 카테고리를 API 타입으로 변환
+  const getCategoryType = (category: string): string => {
+    const categoryMap: Record<string, string> = {
+      '전체': 'ALL',
+      '관광명소': 'SIGHT',
+      '맛집': 'RESTAURANT',
+      '카페': 'CAFE',
+      '문화시설': 'CULTURE',
     };
-
-    console.log('서울 좌표 설정:', seoulLocation.latitude, seoulLocation.longitude);
-
-    // 서울 위치 저장
-    setCurrentLocation(seoulLocation);
-
-    // WebView 강제 리렌더링으로 새로운 지도 로드
-    setMapKey(prev => prev + 1);
-    console.log('서울 지도 리렌더링 시작');
+    return categoryMap[category] || 'ALL';
   };
 
-  // 동적 지도 HTML 생성
-  const createMapHTML = () => {
-    const centerLat = currentLocation ? currentLocation.latitude : 35.1532;
-    const centerLng = currentLocation ? currentLocation.longitude : 129.1186;
-    const isCurrentLocation = !!currentLocation;
+  // 중심 좌표와 줌 레벨을 기반으로 bounds 계산
+  const calculateBounds = (centerLat: number, centerLng: number, zoomLevel: number = 15) => {
+    // 줌 레벨에 따른 대략적인 범위 계산 (킬로미터 단위)
+    const kmPerDegree = 111; // 위도 1도당 약 111km
+    const latRange = Math.pow(2, 20 - zoomLevel) * 0.01; // 줌 레벨에 따른 위도 범위
+    const lngRange = latRange / Math.cos(centerLat * Math.PI / 180); // 경도는 위도에 따라 조정
 
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>카카오 지도</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=0578d9aa78d051f1c0efa91fe3c2cb6d"></script>
-    <style>
-        body { margin: 0; padding: 0; }
-        #map { width: 100%; height: 100vh; }
-        .loading { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            transform: translate(-50%, -50%); 
-            background: white; 
-            padding: 10px; 
-            border-radius: 5px; 
-            font-size: 14px; 
-            z-index: 1000;
-        }
-    </style>
-</head>
-<body>
-    <div id="map">
-        <div class="loading">${isCurrentLocation ? '현재 위치 지도 로딩 중...' : '지도 로딩 중...'}</div>
-    </div>
-    <script>
-        console.log('지도 초기화 시작 - 중심: ${centerLat}, ${centerLng}');
-        
-        function initMap() {
-            try {
-                if (typeof kakao === 'undefined') {
-                    console.error('카카오 지도 API 로드 실패');
-                    setTimeout(initMap, 1000);
-                    return;
-                }
-                
-                var container = document.getElementById('map');
-                var options = {
-                    center: new kakao.maps.LatLng(${centerLat}, ${centerLng}),
-                    level: 3
-                };
-                
-                var map = new kakao.maps.Map(container, options);
-                console.log('지도 생성 완료');
-                
-                // 로딩 메시지 제거
-                var loading = document.querySelector('.loading');
-                if (loading) {
-                    loading.remove();
-                }
-                
-                ${isCurrentLocation ? `
-                // 현재 위치 마커
-                var currentMarker = new kakao.maps.Marker({
-                    position: new kakao.maps.LatLng(${centerLat}, ${centerLng}),
-                    title: '현재 위치'
-                });
-                currentMarker.setMap(map);
-                console.log('현재 위치 마커 생성 완료');
-                
-                // 현재 위치 인포윈도우
-                var infowindow = new kakao.maps.InfoWindow({
-                    content: '<div style="padding:8px;font-size:12px;text-align:center;background:white;border:1px solid #ccc;border-radius:4px;">📍 현재 위치<br>위도: ${centerLat.toFixed(4)}<br>경도: ${centerLng.toFixed(4)}</div>'
-                });
-                infowindow.open(map, currentMarker);
-                
-                // 5초 후 인포윈도우 닫기
-                setTimeout(function() {
-                    infowindow.close();
-                }, 5000);
-                ` : `
-                // 기본 마커들 (광안리 중심)
-                var locations = [
-                    { lat: 35.1532, lng: 129.1186, title: '광안리 해수욕장', content: '혼잡' },
-                    { lat: 35.1542, lng: 129.1196, title: '카페', content: '보통' },
-                    { lat: 35.1522, lng: 129.1176, title: '편의점', content: '여유' }
-                ];
-                
-                locations.forEach(function(loc) {
-                    var marker = new kakao.maps.Marker({
-                        position: new kakao.maps.LatLng(loc.lat, loc.lng),
-                        title: loc.title
-                    });
-                    marker.setMap(map);
-                    
-                    var infowindow = new kakao.maps.InfoWindow({
-                        content: '<div style="padding:5px;font-size:12px;text-align:center;">' + 
-                                '<strong>' + loc.title + '</strong><br>' + loc.content + '</div>'
-                    });
-                    
-                    kakao.maps.event.addListener(marker, 'click', function() {
-                        infowindow.open(map, marker);
-                    });
-                });
-                console.log('기본 마커들 생성 완료');
-                `}
-                
-                console.log('지도 초기화 완료');
-                
-            } catch (error) {
-                console.error('지도 초기화 오류:', error);
-                setTimeout(initMap, 2000);
+    return {
+      lat1: centerLat + latRange, // 좌상단 위도 (북쪽)
+      lng1: centerLng - lngRange, // 좌상단 경도 (서쪽)
+      lat2: centerLat - latRange, // 우하단 위도 (남쪽)
+      lng2: centerLng + lngRange  // 우하단 경도 (동쪽)
+    };
+  };
+
+  // 혼잡도 API 호출 (경계 좌표 사용)
+  const fetchCongestionData = async (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, category: string, zoomLevel?: number) => {
+    try {
+      console.log('=== 혼잡도 API 호출 ===');
+      console.log('좌상단 좌표 (lat1, lng1):', bounds.lat1, bounds.lng1);
+      console.log('우하단 좌표 (lat2, lng2):', bounds.lat2, bounds.lng2);
+      console.log('선택된 카테고리:', category);
+      console.log('API 타입 변환:', getCategoryType(category));
+      console.log('🔍 현재 줌 레벨:', zoomLevel || '알 수 없음');
+
+      // AsyncStorage에서 Access Token 가져오기
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      console.log('Access Token 확인:', accessToken ? '있음' : '없음');
+
+      if (!accessToken) {
+        console.error('Access Token이 없습니다. 로그인이 필요합니다.');
+        return;
+      }
+
+      const apiType = getCategoryType(category);
+      const url = `https://api.busanvibe.site/api/congestion?type=${apiType}&lat1=${bounds.lat1}&lng1=${bounds.lng1}&lat2=${bounds.lat2}&lng2=${bounds.lng2}`;
+      console.log('요청 URL:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('응답 상태:', response.status);
+      const responseText = await response.text();
+      console.log('응답 원본:', responseText);
+
+      if (response.ok) {
+        const data = JSON.parse(responseText);
+        console.log('=== 혼잡도 데이터 ===');
+
+        if (data.is_success) {
+          console.log('✅ API 호출 성공!');
+          console.log('원본 result 구조:', data.result);
+          
+          // 백엔드에서 Java 객체 형태로 오는 데이터 파싱
+          let placeList = data.result?.place_list;
+          
+          // place_list가 특수 형태인 경우 처리
+          if (placeList && Array.isArray(placeList) && placeList.length === 2 && placeList[0] === "java.util.ArrayList") {
+            placeList = placeList[1]; // 실제 배열 데이터는 두 번째 요소
+            console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
+          }
+
+          if (Array.isArray(placeList)) {
+            console.log('장소 개수:', placeList.length);
+            
+            // 받아진 장소들 로그로 출력
+            console.log('=== 받아진 장소 목록 ===');
+            console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            
+            // Java 객체 형태의 장소 데이터를 일반 객체로 변환
+            const normalizedPlaces = placeList.map((place: any) => {
+              // latitude와 longitude가 ["java.math.BigDecimal", 값] 형태인 경우 처리
+              const normalizedPlace = {
+                id: place.id,
+                name: place.name,
+                type: place.type,
+                congestion_level: place.congestion_level,
+                latitude: Array.isArray(place.latitude) && place.latitude[0] === "java.math.BigDecimal" 
+                  ? place.latitude[1] 
+                  : place.latitude,
+                longitude: Array.isArray(place.longitude) && place.longitude[0] === "java.math.BigDecimal" 
+                  ? place.longitude[1] 
+                  : place.longitude
+              };
+              return normalizedPlace;
+            });
+
+            console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
+
+            // 타입별 분류해서 로그 출력
+            const typeGroups: Record<string, any[]> = {};
+            normalizedPlaces.forEach((place) => {
+              if (!typeGroups[place.type]) {
+                typeGroups[place.type] = [];
+              }
+              typeGroups[place.type].push(place);
+            });
+            
+            Object.keys(typeGroups).forEach(type => {
+              console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
+              typeGroups[type].forEach((place, index) => {
+                console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+              });
+            });
+            console.log('========================');
+
+            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용)
+            if (webViewRef.current && !isMapDragging) {
+              const updateMessage = JSON.stringify({
+                type: 'updatePlacePings',
+                places: normalizedPlaces
+              });
+              console.log('📤 WebView로 메시지 전송 중...', {
+                messageType: 'updatePlacePings',
+                placesCount: normalizedPlaces.length,
+                firstPlace: normalizedPlaces[0]
+              });
+              webViewRef.current.postMessage(updateMessage);
+              console.log('✅ WebView에 정규화된 장소 핑 데이터 전송 완료');
+            } else {
+              console.log('❌ WebView 전송 실패 - webViewRef:', !!webViewRef.current, 'isMapDragging:', isMapDragging);
             }
-        }
-        
-        // 지도 초기화 실행
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initMap);
+
+            // 상태는 정규화된 데이터로 업데이트
+            setPlaceMarkers(normalizedPlaces);
+          } else {
+            console.error('❌ place_list가 배열이 아님:', typeof placeList, placeList);
+          }
         } else {
-            initMap();
+          console.error('❌ API 응답 실패:', data.message);
         }
-    </script>
-</body>
-</html>`;
+      } else {
+        console.error('API 호출 실패:', response.status);
+      }
+    } catch (error) {
+      console.error('혼잡도 API 오류:', error);
+    }
   };
 
-  // 바텀시트 애니메이션
+  // 지도 변경 완료 시 API 호출 (bounds 사용)
+  const handleMapBoundsChange = (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, isZoomOnly: boolean = false, zoomLevel?: number) => {
+    console.log('=== 지도 경계 좌표 변경 ===');
+    console.log('좌상단:', bounds.lat1, bounds.lng1);
+    console.log('우하단:', bounds.lat2, bounds.lng2);
+    console.log('줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
+
+    // 마지막 지도 경계 저장
+    lastMapBoundsRef.current = bounds;
+
+    // 지도 재렌더링 방지: mapCenter 상태는 변경하지 않음
+    // 대신 현재 위치 표시만 비활성화하고 API 호출로 마커만 업데이트
+    if (!isZoomOnly) {
+      // 사용자가 지도를 드래그했으므로 현재 위치 표시 비활성화
+      setShouldShowCurrentLocation(false);
+      
+      // WebView에 현재 위치 마커 숨기기 메시지 전송
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'hideCurrentLocation'
+        }));
+      }
+    }
+
+    // 기존 타이머 취소
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // API 호출 (줌 변경은 더 짧은 딜레이, 드래그는 기존 딜레이)
+    const delay = isZoomOnly ? 500 : 1000;
+    debounceTimerRef.current = setTimeout(() => {
+      console.log(isZoomOnly ? '줌 변경 완료 - API 호출 시작' : '드래그 완료 - API 호출 시작');
+      fetchCongestionData(bounds, selectedCategory, zoomLevel);
+    }, delay);
+  };
+
+    // 현재 위치 가져오기 (실제 기기 위치)
+  const getCurrentLocation = async () => {
+    console.log('=== 현재 위치 가져오기 시작 ===');
+    setIsLocationLoading(true);
+    
+    try {
+      // 최근 위치 캐시 확인 (30초 이내) - 버튼 클릭 시에만 사용
+      const now = Date.now();
+      if (!isInitialLoad && lastLocationRef.current && now - lastLocationRef.current.timestamp < 30000) {
+        console.log('캐시된 위치 사용');
+        const cachedLocation = lastLocationRef.current;
+        setCurrentLocation(cachedLocation);
+        setShouldShowCurrentLocation(true);
+        setIsLocationLoading(false);
+        
+        // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'moveToLocation',
+            latitude: cachedLocation.latitude,
+            longitude: cachedLocation.longitude,
+            showCurrentLocation: true
+          }));
+        }
+
+        // API 호출 (bounds 사용)
+        setTimeout(() => {
+          const bounds = calculateBounds(cachedLocation.latitude, cachedLocation.longitude, 15);
+          fetchCongestionData(bounds, selectedCategory);
+        }, 1000);
+
+        console.log('📍 캐시된 현재 위치로 이동 완료 - 기본 줌 레벨: 5로 설정');
+        return;
+      }
+
+      // Android 권한 요청
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, // 더 정확한 위치를 위해 FINE_LOCATION 사용
+          {
+            title: '위치 권한 요청',
+            message: '현재 위치를 확인하기 위해 위치 권한이 필요합니다.',
+            buttonNeutral: '나중에',
+            buttonNegative: '거부',
+            buttonPositive: '허용',
+          }
+        );
+
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('위치 권한이 거부됨');
+          if (isInitialLoad) {
+            // 초기 로드 시 권한이 거부되면 부산 중심으로 설정 (앱 주제에 맞게)
+            const defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
+            setMapCenter(defaultLocation);
+            setCurrentLocation(null);
+            setShouldShowCurrentLocation(false);
+            setIsInitialLoad(false);
+            setIsLocationLoading(false);
+            setMapKey(prev => prev + 1); // 초기 로드는 재렌더링 필요
+
+            setTimeout(() => {
+              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+              fetchCongestionData(bounds, selectedCategory);
+            }, 1000);
+
+            console.log('권한 거부 - 부산 중심으로 설정');
+          } else {
+            Alert.alert('권한 거부', '위치 권한이 거부되었습니다.');
+            setIsLocationLoading(false);
+          }
+          return;
+        }
+      }
+
+      console.log('위치 정보 요청 중...');
+
+      // 현재 위치 가져오기
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', accuracy + 'm', '- 기본 줌 레벨: 5로 설정 예정');
+
+          const currentPos = { latitude, longitude };
+
+          // 위치 캐시 저장
+          lastLocationRef.current = {
+            latitude,
+            longitude,
+            timestamp: Date.now(),
+          };
+
+          setCurrentLocation(currentPos);
+          setShouldShowCurrentLocation(true);
+          setIsLocationLoading(false);
+
+          // 초기 로드인 경우에만 mapCenter 설정하여 WebView 재렌더링
+          if (isInitialLoad) {
+            setMapCenter({ latitude, longitude });
+            setIsInitialLoad(false);
+            // 초기 로드 시에만 WebView 재렌더링
+            isUpdatingMapRef.current = true;
+            setMapKey(prev => prev + 1);
+          } else {
+            // 이후 현재위치 버튼 클릭 시에는 지도 중심만 이동 (mapCenter 상태 변경 없음)
+            if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({
+                type: 'moveToLocation',
+                latitude,
+                longitude,
+                showCurrentLocation: true
+              }));
+            }
+          }
+
+          // API 호출은 지도 로딩 후에 (bounds 사용)
+          setTimeout(() => {
+            const bounds = calculateBounds(latitude, longitude, 15);
+            fetchCongestionData(bounds, selectedCategory);
+            isUpdatingMapRef.current = false;
+          }, 1000);
+
+          console.log('현재 위치 지도 업데이트 완료');
+        },
+        (error) => {
+          console.error('❌ 위치 가져오기 실패:', error.code, error.message);
+
+          let defaultLocation: Location;
+          let errorMessage = '';
+
+          switch (error.code) {
+            case 1: // PERMISSION_DENIED
+              errorMessage = '위치 권한이 거부되었습니다.';
+              break;
+            case 2: // POSITION_UNAVAILABLE
+              errorMessage = '위치 정보를 사용할 수 없습니다.';
+              break;
+            case 3: // TIMEOUT
+              errorMessage = '위치 요청 시간이 초과되었습니다.';
+              break;
+            default:
+              errorMessage = '위치를 가져올 수 없습니다.';
+          }
+
+          if (isInitialLoad) {
+            // 초기 로드 시 실패하면 부산 중심으로 설정
+            defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
+            console.log('초기 로드 실패 - 부산 중심으로 설정');
+            
+            setCurrentLocation(null);
+            setShouldShowCurrentLocation(false);
+            setMapCenter(defaultLocation);
+            setIsInitialLoad(false);
+            setIsLocationLoading(false);
+
+            isUpdatingMapRef.current = true;
+            setMapKey(prev => prev + 1);
+
+            // API 호출은 지도 로딩 후에 (bounds 사용)
+            setTimeout(() => {
+              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+              fetchCongestionData(bounds, selectedCategory);
+              isUpdatingMapRef.current = false;
+            }, 1000);
+          } else {
+            // 버튼 클릭 시 실패하면 사용자에게 알림
+            Alert.alert('위치 오류', errorMessage);
+            setIsLocationLoading(false);
+            return;
+          }
+
+          console.log('기본 위치로 설정 완료');
+        },
+        {
+          enableHighAccuracy: true, // 더 정확한 위치 요청
+          timeout: 15000, // 15초 타임아웃
+          maximumAge: 60000, // 1분간 캐시된 위치 사용
+        }
+      );
+    } catch (error) {
+      console.error('위치 권한 요청 실패:', error);
+
+      if (isInitialLoad) {
+        // 초기 로드 시 오류가 발생하면 부산 중심으로 설정
+        const defaultLocation: Location = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
+        setMapCenter(defaultLocation);
+        setCurrentLocation(null);
+        setShouldShowCurrentLocation(false);
+        setIsInitialLoad(false);
+        setIsLocationLoading(false);
+        setMapKey(prev => prev + 1);
+
+        setTimeout(() => {
+          const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
+          fetchCongestionData(bounds, selectedCategory);
+        }, 1000);
+
+        console.log('권한 요청 실패 - 부산 중심으로 설정');
+      }
+    }
+  };
+
+  // 혼잡도 레벨에 따른 마커 색상 결정
+  const getCongestionColor = (level: number): string => {
+    if (level >= 4) return '#ff4444'; // 매우 혼잡 - 빨간색
+    if (level >= 3) return '#ff8800'; // 혼잡 - 주황색
+    if (level >= 2) return '#ffcc00'; // 보통 - 노란색
+    return '#44ff44'; // 여유 - 초록색
+  };
+
+  // 지도 HTML 생성
+  const getMapHTML = () => {
+    if (!mapCenter) return '<html><body>Loading...</body></html>';
+    
+    return createMapHTML({
+      centerLat: mapCenter.latitude,
+      centerLng: mapCenter.longitude,
+      currentLocation,
+      shouldShowCurrentLocation,
+      placeMarkers
+    });
+  };
+
+  // 바텀시트 3단계 모드: 'minimized', 'half', 'full'
+  const [bottomSheetMode, setBottomSheetMode] = useState<'minimized' | 'half' | 'full'>('minimized');
   const bottomSheetHeight = useRef(
-    new Animated.Value(screenHeight * 0.75), // 기본 높이를 더 크게 (75%)
+    new Animated.Value(40), // 초기에는 최소화된 상태로 시작 (핸들만 보이게)
   ).current;
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
-  // 바텀시트 최소화 함수
-  const minimizeBottomSheet = () => {
-    setIsMinimized(true);
-    setIsExpanded(false);
-    Animated.spring(bottomSheetHeight, {
-      toValue: 30, // 더 작은 높이 (핸들만 살짝 보이게)
-      useNativeDriver: false,
-    }).start();
+  // 바텀시트 높이 계산
+  const getBottomSheetHeight = (mode: 'minimized' | 'half' | 'full') => {
+    switch (mode) {
+      case 'minimized':
+        return 40; // 핸들만 보이는 높이
+      case 'half':
+        return screenHeight * 0.5; // 화면의 절반
+      case 'full':
+        return screenHeight * 0.9; // 거의 전체 화면
+      default:
+        return 40;
+    }
   };
 
-  // 바텀시트 복원 함수
-  const restoreBottomSheet = () => {
-    setIsMinimized(false);
+  // 바텀시트 모드 변경 함수
+  const changeBottomSheetMode = (mode: 'minimized' | 'half' | 'full') => {
+    setBottomSheetMode(mode);
     Animated.spring(bottomSheetHeight, {
-      toValue: screenHeight * 0.75, // 기본 크기를 더 크게
+      toValue: getBottomSheetHeight(mode),
       useNativeDriver: false,
     }).start();
   };
@@ -240,63 +550,48 @@ const CongestionScreen = () => {
       return Math.abs(gestureState.dy) > 10;
     },
     onPanResponderMove: (evt, gestureState) => {
-      if (isMinimized) {
-        // 최소화 상태에서는 위로만 드래그 가능
-        if (gestureState.dy < 0) {
-          const newHeight = 40 - gestureState.dy;
-          if (newHeight <= screenHeight * 0.75) {
-            bottomSheetHeight.setValue(newHeight);
-          }
-        }
-      } else {
-        const newHeight = isExpanded
-          ? screenHeight * 0.9 - gestureState.dy // 확장 시 더 크게 (90%)
-          : screenHeight * 0.75 - gestureState.dy; // 기본 크기 더 크게 (75%)
-
-        if (newHeight >= 40 && newHeight <= screenHeight * 0.9) {
-          bottomSheetHeight.setValue(newHeight);
-        }
+      const currentHeight = getBottomSheetHeight(bottomSheetMode);
+      const newHeight = currentHeight - gestureState.dy;
+      
+      // 최소 40px, 최대 90% 높이로 제한
+      if (newHeight >= 40 && newHeight <= screenHeight * 0.9) {
+        bottomSheetHeight.setValue(newHeight);
       }
     },
     onPanResponderRelease: (evt, gestureState) => {
-      if (isMinimized) {
-        // 최소화 상태에서 위로 드래그하면 복원
-        if (gestureState.dy < -30) {
-          restoreBottomSheet();
+      const currentHeight = getBottomSheetHeight(bottomSheetMode);
+      const finalHeight = currentHeight - gestureState.dy;
+      
+      // 드래그 거리에 따라 모드 결정
+      if (gestureState.dy > 100) {
+        // 아래로 많이 드래그 - 한 단계 아래로
+        if (bottomSheetMode === 'full') {
+          changeBottomSheetMode('half');
+        } else if (bottomSheetMode === 'half') {
+          changeBottomSheetMode('minimized');
         } else {
-          // 원래 최소화 위치로 복귀
-          Animated.spring(bottomSheetHeight, {
-            toValue: 40,
-            useNativeDriver: false,
-          }).start();
+          changeBottomSheetMode('minimized');
+        }
+      } else if (gestureState.dy < -100) {
+        // 위로 많이 드래그 - 한 단계 위로
+        if (bottomSheetMode === 'minimized') {
+          changeBottomSheetMode('half');
+        } else if (bottomSheetMode === 'half') {
+          changeBottomSheetMode('full');
+        } else {
+          changeBottomSheetMode('full');
         }
       } else {
-        if (gestureState.dy < -50) {
-          // 위로 드래그 - 확장
-          setIsExpanded(true);
-          Animated.spring(bottomSheetHeight, {
-            toValue: screenHeight * 0.9, // 확장 시 더 크게
-            useNativeDriver: false,
-          }).start();
-        } else if (gestureState.dy > 50) {
-          // 아래로 드래그
-          if (isExpanded) {
-            // 확장 상태에서 아래로 드래그 - 기본 크기로
-            setIsExpanded(false);
-            Animated.spring(bottomSheetHeight, {
-              toValue: screenHeight * 0.75, // 기본 크기 더 크게
-              useNativeDriver: false,
-            }).start();
-          } else {
-            // 기본 상태에서 아래로 드래그 - 최소화
-            minimizeBottomSheet();
-          }
+        // 드래그 거리가 적으면 현재 위치에서 가장 가까운 모드로
+        const halfHeight = screenHeight * 0.5;
+        const fullHeight = screenHeight * 0.9;
+        
+        if (finalHeight < halfHeight / 2) {
+          changeBottomSheetMode('minimized');
+        } else if (finalHeight < (halfHeight + fullHeight) / 2) {
+          changeBottomSheetMode('half');
         } else {
-          // 원래 위치로 복귀
-          Animated.spring(bottomSheetHeight, {
-            toValue: isExpanded ? screenHeight * 0.9 : screenHeight * 0.75,
-            useNativeDriver: false,
-          }).start();
+          changeBottomSheetMode('full');
         }
       }
     },
@@ -317,7 +612,17 @@ const CongestionScreen = () => {
                 ? styles.selectedCategory
                 : styles.unselectedCategory,
             ]}
-            onPress={() => setSelectedCategory(category)}>
+            onPress={() => {
+              setSelectedCategory(category);
+              // 카테고리 변경 시 현재 지도 경계로 API 호출 (즉시 호출)
+              if (lastMapBoundsRef.current) {
+                fetchCongestionData(lastMapBoundsRef.current, category);
+              } else if (mapCenter) {
+                // 초기 로드 시에만 mapCenter 사용
+                const bounds = calculateBounds(mapCenter.latitude, mapCenter.longitude, 15);
+                fetchCongestionData(bounds, category);
+              }
+            }}>
             <Text
               style={[
                 styles.categoryText,
@@ -333,33 +638,86 @@ const CongestionScreen = () => {
 
       {/* Map Area */}
       <View style={styles.mapContainer}>
-        <WebView
-          key={mapKey} // 강제 리렌더링
-          ref={webViewRef}
-          source={{ html: createMapHTML() }}
-          style={styles.webView}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>지도 로딩 중...</Text>
-            </View>
-          )}
-          onLoadStart={() => console.log('WebView 로딩 시작')}
-          onLoadEnd={() => console.log('WebView 로딩 완료')}
-          onError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.error('WebView 오류:', nativeEvent);
-          }}
-        />
+        {isLocationLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>현재 위치를 가져오는 중...</Text>
+          </View>
+        ) : mapCenter ? (
+          <WebView
+            key={mapKey} // 강제 리렌더링
+            ref={webViewRef}
+            source={{ html: getMapHTML() }}
+            style={styles.webView}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={false} // 더 부드러운 로딩을 위해 false로 변경
+            cacheEnabled={false} // 지도 캐싱 비활성화 (줌/드래그 이슈 방지)
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            mixedContentMode="compatibility"
+            androidLayerType="software" // 안정성을 위해 software로 복구
+            bounces={false} // iOS에서 바운스 효과 비활성화
+            scrollEnabled={false} // WebView 자체 스크롤 비활성화
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            scalesPageToFit={false} // 페이지 스케일링 비활성화
+            originWhitelist={['*']} // 모든 origin 허용
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>지도 로딩 중...</Text>
+              </View>
+            )}
+            onLoadStart={() => console.log('WebView 로딩 시작')}
+            onLoadEnd={() => console.log('WebView 로딩 완료')}
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error('WebView 오류:', nativeEvent);
+            }}
+            onMessage={(event) => {
+              try {
+                const data = JSON.parse(event.nativeEvent.data);
+                if (data.type === 'dragStart') {
+                  setIsMapDragging(true);
+                  console.log('드래그 시작 - API 호출 일시 중단');
+                } else if (data.type === 'dragEnd') {
+                  setIsMapDragging(false);
+                  console.log('📍 드래그 종료 - API 호출 재개, 줌 레벨:', data.zoomLevel || '알 수 없음');
+                  // 드래그 완료 후 API 호출 (bounds 사용)
+                  if (data.bounds) {
+                    handleMapBoundsChange(data.bounds, false, data.zoomLevel);
+                  }
+                } else if (data.type === 'zoomChanged') {
+                  console.log('🔍 줌 변경 감지 - 줌 레벨:', data.zoomLevel || '알 수 없음');
+                  // 줌 변경 시에도 API 호출 (단, 드래그 중이 아닐 때만)
+                  if (!isMapDragging && data.bounds) {
+                    handleMapBoundsChange(data.bounds, true, data.zoomLevel); // 줌만 변경됨을 표시
+                  }
+                }
+              } catch (error) {
+                console.error('WebView 메시지 파싱 오류:', error);
+              }
+            }}
+          />
+        ) : (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>지도 초기화 중...</Text>
+          </View>
+        )}
 
         {/* Current Location Button */}
-        <TouchableOpacity
-          style={styles.currentLocationButton}
-          onPress={getCurrentLocation}>
-          <Text style={styles.compassText}>⊕</Text>
-        </TouchableOpacity>
+        <Animated.View
+          style={[
+            styles.currentLocationButtonContainer,
+            {
+              bottom: Animated.add(bottomSheetHeight, 20), // 바텀시트 높이 + 20px 여유공간
+            },
+          ]}>
+          <TouchableOpacity
+            style={styles.currentLocationButton}
+            onPress={getCurrentLocation}>
+            <Text style={styles.compassText}>⊕</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
       {/* Bottom Sheet */}
@@ -368,13 +726,23 @@ const CongestionScreen = () => {
         {...panResponder.panHandlers}>
         <TouchableOpacity
           style={styles.bottomSheetHandle}
-          onPress={isMinimized ? restoreBottomSheet : undefined}
-          activeOpacity={isMinimized ? 0.7 : 1}>
+          onPress={() => {
+            if (bottomSheetMode === 'minimized') {
+              changeBottomSheetMode('half');
+            } else if (bottomSheetMode === 'half') {
+              changeBottomSheetMode('full');
+            } else {
+              changeBottomSheetMode('minimized');
+            }
+          }}
+          activeOpacity={0.7}>
           <View style={styles.handle} />
-
+          {bottomSheetMode === 'minimized' && (
+            <Text style={styles.minimizedText}>위로 드래그하여 장소 정보 보기</Text>
+          )}
         </TouchableOpacity>
 
-        {!isMinimized && (
+        {bottomSheetMode !== 'minimized' && (
           <ScrollView
             style={styles.scrollContent}
             showsVerticalScrollIndicator={false}>
@@ -390,7 +758,7 @@ const CongestionScreen = () => {
                 </View>
                 <TouchableOpacity
                   style={styles.closeButton}
-                  onPress={minimizeBottomSheet}>
+                  onPress={() => changeBottomSheetMode('minimized')}>
                   <Text style={styles.closeButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
@@ -581,10 +949,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666666',
   },
-  currentLocationButton: {
+  currentLocationButtonContainer: {
     position: 'absolute',
-    bottom: 20,
     right: 20,
+  },
+  currentLocationButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
