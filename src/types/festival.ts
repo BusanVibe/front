@@ -1,11 +1,12 @@
 export interface FestivalListItem {
-  festival_id: number;
+  id: number;
   name: string;
   img?: string;
   start_date: string;
   end_date: string;
-  address: string;
   is_like: boolean;
+  like_amount: number;
+  address: string;
 }
 
 export interface FestivalDetail {
@@ -24,5 +25,27 @@ export interface FestivalDetail {
 }
 
 export interface FestivalListResult {
-  festival_list: FestivalListItem[];
+  "@class": string;
+  festival_list: [string, FestivalListItem[]];
+}
+
+export enum FestivalSortType {
+  DEFAULT = 'DEFAULT',
+  POPULAR = 'POPULAR',
+  LIKE = 'LIKE',
+  START = 'START',
+  END = 'END',
+}
+
+export enum FestivalStatusType {
+  ALL = 'ALL',
+  IN_PROGRESS = 'IN_PROGRESS',
+  UPCOMING = 'UPCOMING',
+  COMPLETE = 'COMPLETE',
+  UNKNOWN = 'UNKNOWN',
+}
+
+export interface FestivalListParams {
+  sort?: FestivalSortType;
+  status?: FestivalStatusType;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
@@ -31,14 +31,24 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   return (
     <View style={styles.attractionItem}>
       <View style={styles.attractionImageContainer}>
-        <View style={styles.attractionImagePlaceholder}>
-          <Text style={styles.attractionImageText}>이미지</Text>
-        </View>
+        {place.img ? (
+          <Image
+            source={{uri: place.img}}
+            style={styles.attractionImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.attractionImagePlaceholder}>
+            <Text style={styles.attractionImageText}>이미지</Text>
+          </View>
+        )}
       </View>
       <View style={styles.attractionInfo}>
         <View style={styles.attractionHeader}>
           <View style={styles.nameAndBadgeContainer}>
-            <Text style={styles.attractionName}>{place.name}</Text>
+            <Text style={styles.attractionName}>
+              {place.name.split('(')[0]}
+            </Text>
             {isPlace && (
               <CongestionBadge
                 level={placeData.congestion_level}
@@ -46,10 +56,14 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
               />
             )}
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.favoriteButton}
-            onPress={() => onToggleLike && onToggleLike(isPlace ? placeData.place_id : festivalData.festival_id)}
-          >
+            onPress={() =>
+              onToggleLike &&
+              onToggleLike(
+                isPlace ? placeData.place_id : festivalData.festival_id,
+              )
+            }>
             <IcHeart
               width={16}
               height={16}
@@ -71,11 +85,10 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             </>
           )}
           <Text style={styles.attractionLocation}>
-            {isPlace ? (place as PlaceListItem).address : (place as FestivalListItem).address}
+            {isPlace
+              ? (place as PlaceListItem).address
+              : (place as FestivalListItem).address}
           </Text>
-          <TouchableOpacity style={styles.expandButton}>
-            <Text style={styles.expandIcon}>⌄</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -93,6 +106,11 @@ const styles = StyleSheet.create({
   },
   attractionImageContainer: {
     marginRight: 12,
+  },
+  attractionImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
   },
   attractionImagePlaceholder: {
     width: 80,
