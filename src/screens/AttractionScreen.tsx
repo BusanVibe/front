@@ -1,69 +1,86 @@
-import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, FlatList, StatusBar} from 'react-native';
+import React, {useState, useMemo, useEffect, useCallback} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  StatusBar,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
-import {attractionData} from '../mocks/attraction';
-import {PlaceType} from '../types/place';
+import {PlaceListItem} from '../types/place';
+import {
+  getPlaceList,
+  getCategoryFromKorean,
+  getSortFromKorean,
+} from '../services/placeService';
 import colors from '../styles/colors';
 
-const categories = ['전체', '관광명소', '맛집', '카페'];
+const categories = ['전체', '관광명소', '맛집/카페', '문화시설'];
 
 const AttractionScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedSort, setSelectedSort] = useState('기본순');
+  const [placeData, setPlaceData] = useState<PlaceListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const sortOptions = ['기본순', '좋아요순', '혼잡도순'];
+
+  // API 데이터 로드
+  const loadPlaceData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const category = getCategoryFromKorean(selectedCategory);
+      const sort = getSortFromKorean(selectedSort);
+
+      console.log('명소 데이터 로드 시작:', {category, sort});
+
+      const data = await getPlaceList(category, sort);
+      setPlaceData(data);
+
+      console.log('명소 데이터 로드 완료:', data.length, '개');
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : '데이터를 불러오는 중 오류가 발생했습니다.';
+      console.error('명소 데이터 로드 오류:', err);
+      setError(errorMessage);
+
+      // 오류 시 사용자에게 알림
+      Alert.alert('오류', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, selectedSort]);
+
+  // 컴포넌트 마운트 시 데이터 로드
+  useEffect(() => {
+    loadPlaceData();
+  }, [loadPlaceData]);
 
   const handleSortSelect = (option: string) => {
     setSelectedSort(option);
     setShowFilter(false);
   };
 
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+  };
+
   const handleToggleFilter = () => {
     setShowFilter(!showFilter);
   };
 
-  // 카테고리별 데이터 필터링
-  const filteredData = useMemo(() => {
-    let filtered = attractionData;
-
-    // 카테고리 필터링
-    if (selectedCategory !== '전체') {
-      const categoryTypeMap: {[key: string]: PlaceType} = {
-        관광명소: PlaceType.SIGHT,
-        맛집: PlaceType.RESTAURANT,
-        카페: PlaceType.CAFE,
-      };
-
-      const targetType = categoryTypeMap[selectedCategory];
-      if (targetType) {
-        filtered = filtered.filter(place => place.type === targetType);
-      }
-    }
-
-    // 정렬
-    switch (selectedSort) {
-      case '좋아요순':
-        filtered = [...filtered].sort((a, b) => {
-          if (a.is_like && !b.is_like) return -1;
-          if (!a.is_like && b.is_like) return 1;
-          return 0;
-        });
-        break;
-      case '혼잡도순':
-        filtered = [...filtered].sort(
-          (a, b) => a.congestion_level - b.congestion_level,
-        );
-        break;
-      case '기본순':
-      default:
-        break;
-    }
-
-    return filtered;
-  }, [selectedCategory, selectedSort]);
+  // API에서 이미 필터링과 정렬이 적용된 데이터를 사용
+  const filteredData = placeData;
 
   const headerData = useMemo(
     () => [
@@ -91,7 +108,7 @@ const AttractionScreen = () => {
           <FilterComponent
             categories={categories}
             selectedCategory={selectedCategory}
-            onCategorySelect={setSelectedCategory}
+            onCategorySelect={handleCategorySelect}
             selectedSort={selectedSort}
             onSortSelect={handleSortSelect}
             showFilter={showFilter}
@@ -118,7 +135,7 @@ const AttractionScreen = () => {
       <FilterComponent
         categories={categories}
         selectedCategory={selectedCategory}
-        onCategorySelect={setSelectedCategory}
+        onCategorySelect={handleCategorySelect}
         selectedSort={selectedSort}
         onSortSelect={handleSortSelect}
         showFilter={showFilter}
@@ -133,19 +150,47 @@ const AttractionScreen = () => {
     </View>
   );
 
+  // 로딩 중일 때 렌더링
+  if (loading) {
+    return (
+      <>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View style={styles.container}>
+          <View style={styles.curationWrapper}>
+            <CurationComponent />
+          </View>
+          <FilterComponent
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategorySelect={handleCategorySelect}
+            selectedSort={selectedSort}
+            onSortSelect={handleSortSelect}
+            showFilter={showFilter}
+            onToggleFilter={handleToggleFilter}
+            sortOptions={sortOptions}
+          />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary[500]} />
+            <Text style={styles.loadingText}>명소 정보를 불러오는 중...</Text>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.container}>
-      <FlatList
-        data={headerData}
-        renderItem={renderItem}
-        keyExtractor={item => item.id.toString()}
-        ListEmptyComponent={renderEmpty}
-        showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
-        contentContainerStyle={styles.listContent}
-      />
+        <FlatList
+          data={headerData}
+          renderItem={renderItem}
+          keyExtractor={item => item.id.toString()}
+          ListEmptyComponent={renderEmpty}
+          showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[1]}
+          contentContainerStyle={styles.listContent}
+        />
       </View>
     </>
   );
@@ -177,6 +222,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#999999',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    minHeight: 200,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666666',
+    marginTop: 16,
     textAlign: 'center',
   },
 });

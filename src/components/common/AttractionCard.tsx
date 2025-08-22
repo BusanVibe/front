@@ -1,11 +1,19 @@
-import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, Image} from 'react-native';
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
+import IcMapPin from '../../assets/icon/ic_map_pin.svg';
 
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
@@ -18,6 +26,9 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   cardType = CardType.PLACE,
   onToggleLike,
 }) => {
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
   const festivalData = place as FestivalListItem;
@@ -28,18 +39,36 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     };
     return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
   };
+
+  // 이미지 URL이 있는지 확인
+  const imageUrl = place.img;
+  const hasImage = imageUrl && imageUrl.trim() !== '';
+
   return (
     <View style={styles.attractionItem}>
       <View style={styles.attractionImageContainer}>
-        {place.img ? (
-          <Image
-            source={{uri: place.img}}
-            style={styles.attractionImage}
-            resizeMode="cover"
-          />
+        {hasImage && !imageError ? (
+          <View style={styles.imageWrapper}>
+            <Image
+              source={{uri: imageUrl}}
+              style={styles.attractionImage}
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={() => {
+                console.log('이미지 로드 실패:', imageUrl);
+                setImageError(true);
+                setImageLoading(false);
+              }}
+            />
+            {imageLoading && (
+              <View style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              </View>
+            )}
+          </View>
         ) : (
           <View style={styles.attractionImagePlaceholder}>
-            <Text style={styles.attractionImageText}>이미지</Text>
+            <IcMapPin width={32} height={32} color={colors.white} />
           </View>
         )}
       </View>
@@ -78,12 +107,14 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             : formatDateRange(festivalData.start_date, festivalData.end_date)}
         </Text>
         <View style={styles.attractionDetails}>
+          {/*
           {isPlace && (
             <>
               <Text style={styles.attractionDistance}>315m</Text>
               <Text style={styles.attractionSeparator}>|</Text>
             </>
           )}
+            */}
           <Text style={styles.attractionLocation}>
             {isPlace
               ? (place as PlaceListItem).address
@@ -107,9 +138,26 @@ const styles = StyleSheet.create({
   attractionImageContainer: {
     marginRight: 12,
   },
+  imageWrapper: {
+    width: 80,
+    height: 80,
+    position: 'relative',
+  },
   attractionImage: {
     width: 80,
     height: 80,
+    borderRadius: 8,
+    backgroundColor: colors.gray[200],
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.gray[200],
     borderRadius: 8,
   },
   attractionImagePlaceholder: {
@@ -119,10 +167,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  attractionImageText: {
-    fontSize: 12,
-    color: colors.white,
   },
   attractionInfo: {
     flex: 1,

@@ -10,9 +10,9 @@ export const getPlaceTypeText = (type: PlaceType): string => {
     case PlaceType.SIGHT:
       return '관광명소';
     case PlaceType.RESTAURANT:
-      return '맛집';
-    case PlaceType.CAFE:
-      return '카페';
+      return '맛집/카페';
+    case PlaceType.CULTURE:
+      return '문화시설';
     default:
       return '기타';
   }
