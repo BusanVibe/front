@@ -4,16 +4,13 @@
  */
 
 export const API_CONFIG = {
-  BASE_URL: 'https://api.busanVibe.site/',
+  BASE_URL: 'https://api.busanvibe.site/',
   TIMEOUT: 10000, // 10초
 } as const;
 
 // API 엔드포인트들을 여기에 추가할 수 있습니다
 export const API_ENDPOINTS = {
-  // 예시:
-  // AUTH: 'auth',
-  // USER: 'user',
-  // POSTS: 'posts',
+  FESTIVALS: 'api/festivals',
 } as const;
 
 export default API_CONFIG;

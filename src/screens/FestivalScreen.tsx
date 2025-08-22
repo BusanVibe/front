@@ -1,10 +1,23 @@
-import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, FlatList, StatusBar} from 'react-native';
+import React, {useState, useMemo, useEffect} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  StatusBar,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
-import {festivalData} from '../mocks/festival';
 import {CardType} from '../types/place';
+import {FestivalService} from '../services/festivalService';
+import {
+  FestivalListItem,
+  FestivalSortType,
+  FestivalStatusType,
+} from '../types/festival';
 import colors from '../styles/colors';
 
 const categories = ['전체', '진행중', '진행예정', '종료'];
@@ -13,70 +26,113 @@ const FestivalScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedSort, setSelectedSort] = useState('기본순');
+  const [festivalData, setFestivalData] = useState<FestivalListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const sortOptions = ['기본순', '좋아요순', '시작일순', '종료일순'];
+
+  const fetchFestivals = async (isRefresh = false) => {
+    try {
+      console.log('=== FestivalScreen API 요청 시작 ===');
+
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      let status = FestivalStatusType.ALL;
+      switch (selectedCategory) {
+        case '진행중':
+          status = FestivalStatusType.IN_PROGRESS;
+          break;
+        case '진행예정':
+          status = FestivalStatusType.UPCOMING;
+          break;
+        case '종료':
+          status = FestivalStatusType.COMPLETE;
+          break;
+        default:
+          status = FestivalStatusType.ALL;
+      }
+
+      let sort = FestivalSortType.DEFAULT;
+      switch (selectedSort) {
+        case '좋아요순':
+          sort = FestivalSortType.LIKE;
+          break;
+        case '시작일순':
+          sort = FestivalSortType.START;
+          break;
+        case '종료일순':
+          sort = FestivalSortType.END;
+          break;
+        default:
+          sort = FestivalSortType.DEFAULT;
+      }
+
+      console.log('API 파라미터:', {sort, status});
+
+      const response = await FestivalService.getFestivalList({sort, status});
+
+      console.log('=== FestivalScreen API 응답 ===');
+      console.log('response.is_success:', response.is_success);
+      console.log('response.message:', response.message);
+      console.log(
+        '축제 데이터 개수:',
+        response.result?.festival_list?.[1]?.length || 0,
+      );
+
+      if (response.is_success && response.result) {
+        setFestivalData(response.result.festival_list?.[1] || []);
+        console.log('축제 데이터 설정 완료');
+      } else {
+        console.error('API 응답 실패:', response);
+        setFestivalData([]);
+        Alert.alert(
+          '오류',
+          response.message || '축제 데이터를 불러오는 중 오류가 발생했습니다.',
+        );
+      }
+    } catch (error) {
+      console.error('=== FestivalScreen API 에러 ===');
+      console.error('에러 상세:', error);
+      setFestivalData([]);
+      Alert.alert('오류', '네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+    } finally {
+      console.log('=== FestivalScreen API 요청 완료 ===');
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFestivals();
+  }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      fetchFestivals();
+    }
+  }, [selectedCategory, selectedSort]);
 
   const handleSortSelect = (option: string) => {
     setSelectedSort(option);
     setShowFilter(false);
   };
 
+  const handleRefresh = () => {
+    fetchFestivals(true);
+  };
+
   const handleToggleFilter = () => {
     setShowFilter(!showFilter);
   };
 
-  // 카테고리별 데이터 필터링
   const filteredData = useMemo(() => {
-    let filtered = festivalData.festival_list;
-    const currentDate = new Date();
-
-    // 카테고리 필터링
-    if (selectedCategory !== '전체') {
-      filtered = filtered.filter(festival => {
-        const startDate = new Date(festival.start_date);
-        const endDate = new Date(festival.end_date);
-
-        switch (selectedCategory) {
-          case '진행중':
-            return currentDate >= startDate && currentDate <= endDate;
-          case '진행예정':
-            return currentDate < startDate;
-          case '종료':
-            return currentDate > endDate;
-          default:
-            return true;
-        }
-      });
-    }
-
-    // 정렬
-    switch (selectedSort) {
-      case '좋아요순':
-        filtered = [...filtered].sort((a, b) => {
-          if (a.is_like && !b.is_like) return -1;
-          if (!a.is_like && b.is_like) return 1;
-          return 0;
-        });
-        break;
-      case '시작일순':
-        filtered = [...filtered].sort(
-          (a, b) =>
-            new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
-        );
-        break;
-      case '종료일순':
-        filtered = [...filtered].sort(
-          (a, b) =>
-            new Date(a.end_date).getTime() - new Date(b.end_date).getTime(),
-        );
-        break;
-      case '기본순':
-      default:
-        break;
-    }
-
-    return filtered;
-  }, [selectedCategory, selectedSort]);
+    return festivalData;
+  }, [festivalData]);
 
   const headerData = useMemo(
     () => [
@@ -84,14 +140,14 @@ const FestivalScreen = () => {
       {type: 'filter', id: 'filter'},
       ...filteredData.map(item => ({
         type: 'festival',
-        id: item.festival_id,
+        id: item.id,
         data: item,
       })),
     ],
     [filteredData],
   );
 
-  const renderItem = ({item, index}: {item: any; index: number}) => {
+  const renderItem = ({item}: {item: any; index: number}) => {
     switch (item.type) {
       case 'curation':
         return (
@@ -118,7 +174,7 @@ const FestivalScreen = () => {
             <AttractionCard
               place={
                 {
-                  place_id: item.data.festival_id,
+                  place_id: item.data.id,
                   name: item.data.name,
                   is_like: item.data.is_like,
                   address: item.data.address,
@@ -159,19 +215,48 @@ const FestivalScreen = () => {
     </View>
   );
 
+  if (loading && !refreshing) {
+    return (
+      <>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View style={styles.container}>
+          <View style={styles.curationWrapper}>
+            <CurationComponent />
+          </View>
+          <FilterComponent
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategorySelect={setSelectedCategory}
+            selectedSort={selectedSort}
+            onSortSelect={handleSortSelect}
+            showFilter={showFilter}
+            onToggleFilter={handleToggleFilter}
+            sortOptions={sortOptions}
+          />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary[500]} />
+            <Text style={styles.loadingText}>축제 정보를 불러오는 중...</Text>
+          </View>
+        </View>
+      </>
+    );
+  }
+
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.container}>
-      <FlatList
-        data={headerData}
-        renderItem={renderItem}
-        keyExtractor={item => item.id.toString()}
-        ListEmptyComponent={renderEmpty}
-        showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[1]}
-        contentContainerStyle={styles.listContent}
-      />
+        <FlatList
+          data={headerData}
+          renderItem={renderItem}
+          keyExtractor={item => item.id.toString()}
+          ListEmptyComponent={renderEmpty}
+          showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[1]}
+          contentContainerStyle={styles.listContent}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
       </View>
     </>
   );
@@ -203,6 +288,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#999999',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+    minHeight: 200,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666666',
     textAlign: 'center',
   },
 });
