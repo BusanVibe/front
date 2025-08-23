@@ -18,6 +18,7 @@ import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMapHTML } from '../components/map/mapTemplate.ts';
+import CongestionBadge from '../components/common/CongestionBadge';
 
 // 타입 정의
 interface Location {
@@ -66,6 +67,7 @@ const locationData = [
     id: '1',
     name: '광안리 해수욕장',
     congestionLevel: '혼잡',
+    congestionLevelNum: 4,
     rating: 4.2,
     reviewCount: 157,
     distance: '210m',
@@ -214,8 +216,8 @@ const CongestionScreen = () => {
         const unwrapArrayList = (v: any) => (Array.isArray(v) && v.length === 2 && v[0] === 'java.util.ArrayList') ? v[1] : (Array.isArray(v) ? v : []);
         const r = data.result;
         const congestionText = (lvl: number) => {
-          if (lvl >= 4) return '매우혼잡';
-          if (lvl >= 3) return '혼잡';
+          if (lvl >= 4) return '혼잡';
+          if (lvl >= 3) return '약간혼잡';
           if (lvl >= 2) return '보통';
           return '여유';
         };
@@ -226,6 +228,7 @@ const CongestionScreen = () => {
           id: String(r.id),
           name: r.name,
           congestionLevel: congestionText(r.congestion_level),
+          congestionLevelNum: Number(r.congestion_level || 0),
           rating: typeof r.grade === 'number' ? r.grade : Number(r.grade || 0),
           reviewCount: typeof r.review_amount === 'number' ? r.review_amount : Number(r.review_amount || 0),
           distance: '',
@@ -967,11 +970,7 @@ const CongestionScreen = () => {
               <View style={styles.locationHeader}>
                 <View style={styles.nameAndBadge}>
                   <Text style={styles.locationName}>{selectedLocation.name}</Text>
-                  <View style={styles.congestionBadge}>
-                    <Text style={styles.congestionText}>
-                      {selectedLocation.congestionLevel}
-                    </Text>
-                  </View>
+                  <CongestionBadge level={selectedLocation.congestionLevelNum || 0} style={{ marginRight: 8 }} />
                 </View>
                 <TouchableOpacity
                   style={styles.closeButton}
