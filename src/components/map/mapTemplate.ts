@@ -250,13 +250,17 @@ export const createMapHTML = (config: {
               zIndex: pingData.zIndex || 100
             });
             
-            const infoContent = this.createInfoWindowContent(pingData);
-            let infoOverlay = new kakao.maps.CustomOverlay({
-              content: infoContent,
-              position: new kakao.maps.LatLng(location.latitude, location.longitude),
-              yAnchor: 1,
-              zIndex: (pingData.zIndex || 100) + 10
-            });
+            // InfoOverlay는 현재위치 등 필요 케이스에만 생성 (POI는 생성하지 않음)
+            let infoOverlay = null;
+            if (pingData.type !== 'poi' && showInfoWindow) {
+              const infoContent = this.createInfoWindowContent(pingData);
+              infoOverlay = new kakao.maps.CustomOverlay({
+                content: infoContent,
+                position: new kakao.maps.LatLng(location.latitude, location.longitude),
+                yAnchor: 1,
+                zIndex: (pingData.zIndex || 100) + 10
+              });
+            }
             
             const pingInstance = {
               id,
@@ -306,18 +310,37 @@ export const createMapHTML = (config: {
                 customOverlay.setContent(overlayElement);
               }
               overlayElement.addEventListener('click', () => {
-                if (pingInstance.isInfoWindowVisible) {
-                  pingInstance.hideInfoWindow();
-                } else {
-                  pingInstance.showInfoWindow();
+                // POI는 말풍선 토글을 하지 않음
+                if (pingData.type !== 'poi') {
+                  if (pingInstance.isInfoWindowVisible) {
+                    pingInstance.hideInfoWindow();
+                  } else {
+                    pingInstance.showInfoWindow();
+                  }
                 }
+                // RN으로 장소 클릭 이벤트 전달 (현재 위치 제외)
+                try {
+                  if (window.ReactNativeWebView && pingData.type !== 'current-location') {
+                    const placeId = (typeof pingData.placeId !== 'undefined') ? pingData.placeId : (String(pingData.id || '').startsWith('poi-') ? Number(String(pingData.id).replace('poi-','')) : undefined);
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'poiClicked',
+                      placeId: placeId,
+                      id: pingData.id,
+                      name: pingData.title,
+                      latitude: location.latitude,
+                      longitude: location.longitude
+                    }));
+                  }
+                } catch (e) {}
               });
             } catch (e) {}
 
             try {
-              kakao.maps.event.addListener(this.map, 'click', () => {
-                pingInstance.hideInfoWindow();
-              });
+              if (pingData.type !== 'poi') {
+                kakao.maps.event.addListener(this.map, 'click', () => {
+                  pingInstance.hideInfoWindow();
+                });
+              }
             } catch (e) {}
 
             return pingInstance;
@@ -379,7 +402,8 @@ export const createMapHTML = (config: {
                   size: 'small',
                   color: this.getCongestionColor(place.congestion_level),
                   icon: this.getPlaceTypeIcon(place.type),
-                  showInfoWindow: false
+                  showInfoWindow: false,
+                  placeId: place.id
                 };
                 this.addPing(pingData);
               }
@@ -482,21 +506,7 @@ export const createMapHTML = (config: {
                             customOverlay.setMap(map);
                             window.apiMarkers.push(customOverlay);
                             
-                            var congestionText = getCongestionText(place.congestion_level);
-                            var infoContent = '<div style="' +
-                                'padding:0.8rem;font-size:0.9rem;text-align:center;min-width:10rem;max-width:15rem;background:white;border-radius:0.6rem;box-shadow:0 0.15rem 0.6rem rgba(0,0,0,0.15);border:none;position:relative;transform:translateY(-100%);margin-bottom:1rem;">' +
-                                '<strong style="color:#333;font-size:1rem;">' + place.name + '</strong><br>' +
-                                '<span style="color:' + congestionColor + ';font-weight:bold;font-size:0.85rem;margin:0.2rem 0;display:inline-block;">' + congestionText + '</span><br>' +
-                                '<span style="color:#666;font-size:0.75rem;">' + place.type + '</span>' +
-                                '<div style="position:absolute;bottom:-0.5rem;left:50%;transform:translateX(-50%);width:0;height:0;border-left:0.5rem solid transparent;border-right:0.5rem solid transparent;border-top:0.5rem solid white;"></div>' +
-                                '</div>';
-                            var infoOverlay = new kakao.maps.CustomOverlay({
-                                content: infoContent,
-                                position: new kakao.maps.LatLng(lat, lng),
-                                yAnchor: 1,
-                                zIndex: 1000
-                            });
-                            (function(overlay, info, placeName) {
+                            (function(overlay, placeObj) {
                                 var overlayElement = overlay.getContent();
                                 if (typeof overlayElement === 'string') {
                                     var tempDiv = document.createElement('div');
@@ -506,10 +516,20 @@ export const createMapHTML = (config: {
                                 }
                                 
                                 overlayElement.addEventListener('click', function() {
-                                    info.setMap(map);
-                                    setTimeout(function() { info.setMap(null); }, 3000);
+                                    try {
+                                      if (window.ReactNativeWebView) {
+                                        window.ReactNativeWebView.postMessage(JSON.stringify({
+                                          type: 'poiClicked',
+                                          placeId: placeObj.id,
+                                          id: 'poi-' + placeObj.id,
+                                          name: placeObj.name,
+                                          latitude: lat,
+                                          longitude: lng
+                                        }));
+                                      }
+                                    } catch (e) {}
                                 });
-                            })(customOverlay, infoOverlay, place.name);
+                            })(customOverlay, place);
                         }
                     });
                 }
@@ -616,21 +636,7 @@ export const createMapHTML = (config: {
                         });
                         customOverlay.setMap(window.kakaoMap);
 
-                        var congestionText = getCongestionText(place.congestion_level);
-                        var infoContent = '<div style="' +
-                            'padding:0.8rem;font-size:0.9rem;text-align:center;min-width:10rem;max-width:15rem;background:white;border-radius:0.6rem;box-shadow:0 0.15rem 0.6rem rgba(0,0,0,0.15);border:none;position:relative;transform:translateY(-100%);margin-bottom:1rem;">' +
-                            '<strong style="color:#333;font-size:1rem;">' + place.name + '</strong><br>' +
-                            '<span style="color:' + congestionColor + ';font-weight:bold;font-size:0.85rem;margin:0.2rem 0;display:inline-block;">' + congestionText + '</span><br>' +
-                            '<span style="color:#666;font-size:0.75rem;">' + place.type + '</span>' +
-                            '<div style="position:absolute;bottom:-0.5rem;left:50%;transform:translateX(-50%);width:0;height:0;border-left:0.5rem solid transparent;border-right:0.5rem solid transparent;border-top:0.5rem solid white;"></div>' +
-                            '</div>';
-                        var infoOverlay = new kakao.maps.CustomOverlay({
-                            content: infoContent,
-                            position: new kakao.maps.LatLng(lat, lng),
-                            yAnchor: 1,
-                            zIndex: 1000
-                        });
-                        (function(overlay, info, placeName) {
+                        (function(overlay, placeObj) {
                             var overlayElement = overlay.getContent();
                             if (typeof overlayElement === 'string') {
                                 var tempDiv = document.createElement('div');
@@ -639,10 +645,20 @@ export const createMapHTML = (config: {
                                 overlay.setContent(overlayElement);
                             }
                             overlayElement.addEventListener('click', function() {
-                                info.setMap(window.kakaoMap);
-                                setTimeout(function() { info.setMap(null); }, 3000);
+                                try {
+                                  if (window.ReactNativeWebView) {
+                                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                                      type: 'poiClicked',
+                                      placeId: placeObj.id,
+                                      id: 'poi-' + placeObj.id,
+                                      name: placeObj.name,
+                                      latitude: lat,
+                                      longitude: lng
+                                    }));
+                                  }
+                                } catch (e) {}
                             });
-                        })(customOverlay, infoOverlay, place.name);
+                        })(customOverlay, place);
                         window.apiMarkers.push(customOverlay);
                     }
                 });
