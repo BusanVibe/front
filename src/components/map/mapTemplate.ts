@@ -411,10 +411,12 @@ export const createMapHTML = (config: {
           }
 
           getCongestionColor(level) {
-            if (level >= 4) return '#ff4444';
-            if (level >= 3) return '#ff8800';
-            if (level >= 2) return '#ffcc00';
-            return '#44ff44';
+            // CongestionBadge 배경색 팔레트와 동일하게 매핑
+            // 4: 혼잡(red100), 3: 약간혼잡(orange100), 2: 보통(yellow100), 1: 여유(green100)
+            if (level >= 4) return '#ECC3C3';
+            if (level >= 3) return '#EDCFBA';
+            if (level >= 2) return '#E8DDBA';
+            return '#BDD8BA';
           }
 
           getCongestionText(level) {
@@ -728,11 +730,22 @@ export const createMapHTML = (config: {
          }
 
         function getCongestionColor(level) {
-            if (level >= 4) return '#ff4444';
-            if (level >= 3) return '#ff8800';
-            if (level >= 2) return '#ffcc00';
-            return '#44ff44';
+            // CongestionBadge 배경색 (switch 문의 backgroundColor 팔레트와 동일)
+            if (level >= 4) {
+                return { backgroundColor: '#FEE2E2' }; // 혼잡 (red-100)
+            }
+            if (level >= 3) {
+                return { backgroundColor: '#FFEDD5' }; // 약간혼잡 (orange-100)
+            }
+            if (level >= 2) {
+                return { backgroundColor: '#FEF9C3' }; // 보통 (yellow-100)
+            }
+            if (level >= 1) {
+                return { backgroundColor: '#DCFCE7' }; // 여유 (green-100)
+            }
+            return { backgroundColor: '#F3F4F6' }; // 정보없음 (gray-100)
         }
+
 
         function getCongestionText(level) {
             if (level >= 4) return '매우혼잡';
