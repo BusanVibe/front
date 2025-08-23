@@ -5,13 +5,23 @@ import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
 import MyPageScreen from '../screens/MyPageScreen';
 import FavoriteListScreen from '../screens/FavoriteListScreen';
+import PlaceDetailScreen from '../screens/PlaceDetailScreen';
+import FestivalDetailScreen from '../screens/FestivalDetailScreen';
 import CustomHeader from '../components/CustomHeader';
+import {PlaceListItem} from '../types/place';
+import {FestivalListItem} from '../types/festival';
 
-type RootStackParamList = {
+export type RootStackParamList = {
   Main: undefined;
   Search: undefined;
   MyPage: undefined;
   FavoriteList: undefined;
+  PlaceDetail: {
+    place: PlaceListItem;
+  };
+  FestivalDetail: {
+    festival: FestivalListItem;
+  };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -51,6 +61,30 @@ const RootNavigator = () => {
           header: () => (
             <CustomHeader 
               title="좋아요"
+              showBackButton={true}
+            />
+          ),
+        }}
+      />
+      <Stack.Screen
+        name="PlaceDetail"
+        component={PlaceDetailScreen}
+        options={{
+          header: () => (
+            <CustomHeader 
+              title="장소 상세"
+              showBackButton={true}
+            />
+          ),
+        }}
+      />
+      <Stack.Screen
+        name="FestivalDetail"
+        component={FestivalDetailScreen}
+        options={{
+          header: () => (
+            <CustomHeader 
+              title="축제 상세"
               showBackButton={true}
             />
           ),

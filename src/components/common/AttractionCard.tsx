@@ -1,11 +1,16 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
+import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
+
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
@@ -16,6 +21,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   place,
   cardType = CardType.PLACE,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
   const festivalData = place as FestivalListItem;
@@ -26,8 +32,16 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     };
     return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
   };
+
+  const handlePress = () => {
+    if (isPlace) {
+      navigation.navigate('PlaceDetail', {place: placeData});
+    } else {
+      navigation.navigate('FestivalDetail', {festival: festivalData});
+    }
+  };
   return (
-    <View style={styles.attractionItem}>
+    <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
       <View style={styles.attractionImageContainer}>
         <View style={styles.attractionImagePlaceholder}>
           <Text style={styles.attractionImageText}>이미지</Text>
@@ -73,7 +87,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
