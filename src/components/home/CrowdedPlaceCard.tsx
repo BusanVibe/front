@@ -3,6 +3,8 @@ import {View, Text, StyleSheet, Image} from 'react-native';
 import {PlaceListItem, PlaceType} from '../../types/place';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
+import {useLocation} from '../../contexts/LocationContext';
+import {calculateDistance, formatDistance} from '../../utils/locationUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 
@@ -11,6 +13,50 @@ interface CrowdedPlaceCardProps {
 }
 
 const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
+  const {userLocation, hasLocationPermission} = useLocation();
+
+  // 거리 계산
+  const getDistanceText = (): string | null => {
+    if (!hasLocationPermission || !userLocation) {
+      console.log('CrowdedPlaceCard: 위치 권한 없음 또는 사용자 위치 없음', {
+        hasLocationPermission,
+        hasUserLocation: !!userLocation,
+      });
+      return null;
+    }
+
+    // PlaceListItem에 포함된 좌표 정보 사용
+    if (place.latitude && place.longitude) {
+      console.log('CrowdedPlaceCard: 거리 계산 중', {
+        placeName: place.name,
+        placeCoords: [place.latitude, place.longitude],
+        userCoords: [userLocation.latitude, userLocation.longitude],
+      });
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        place.latitude,
+        place.longitude,
+      );
+      const formattedDistance = formatDistance(distance);
+      console.log('CrowdedPlaceCard: 계산된 거리', {
+        placeName: place.name,
+        distance,
+        formattedDistance,
+      });
+      return formattedDistance;
+    }
+
+    console.log('CrowdedPlaceCard: 장소 좌표 정보 없음', {
+      placeName: place.name,
+      hasLatitude: !!place.latitude,
+      hasLongitude: !!place.longitude,
+    });
+    return null;
+  };
+
+  const distanceText = getDistanceText();
+
   return (
     <View style={styles.cardContainer}>
       <View style={styles.imageContainer}>
@@ -29,8 +75,9 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
 
       <View style={styles.infoContainer}>
         <Text style={styles.placeName}>{place.name}</Text>
-        {/* TODO: 거리 정보 API 연동 후 실제 데이터로 교체 */}
-        <Text style={styles.distance}>315m</Text>
+        {distanceText && (
+          <Text style={styles.distance}>{distanceText}</Text>
+        )}
         <View style={styles.typeAddressContainer}>
           <Text style={styles.placeType}>{getPlaceTypeText(place.type)}</Text>
           <Text style={styles.separator}>|</Text>

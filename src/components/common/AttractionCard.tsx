@@ -13,6 +13,8 @@ import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
+import {useLocation} from '../../contexts/LocationContext';
+import {calculateDistance, formatDistance} from '../../utils/locationUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
@@ -34,6 +36,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   const navigation = useNavigation<NavigationProp>();
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const {userLocation, hasLocationPermission} = useLocation();
 
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
@@ -54,9 +57,30 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     }
   };
 
+  // 거리 계산
+  const getDistanceText = (): string | null => {
+    if (!isPlace || !hasLocationPermission || !userLocation) {
+      return null;
+    }
+
+    const placeWithCoords = place as PlaceListItem;
+    if (placeWithCoords.latitude && placeWithCoords.longitude) {
+      const distance = calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        placeWithCoords.latitude,
+        placeWithCoords.longitude,
+      );
+      return formatDistance(distance);
+    }
+
+    return null;
+  };
+
   // 이미지 URL이 있는지 확인
   const imageUrl = place.img;
   const hasImage = imageUrl && imageUrl.trim() !== '';
+  const distanceText = getDistanceText();
 
   return (
     <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
@@ -121,14 +145,12 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             : formatDateRange(festivalData.start_date, festivalData.end_date)}
         </Text>
         <View style={styles.attractionDetails}>
-          {/*
-          {isPlace && (
+          {distanceText && (
             <>
-              <Text style={styles.attractionDistance}>315m</Text>
+              <Text style={styles.attractionDistance}>{distanceText}</Text>
               <Text style={styles.attractionSeparator}>|</Text>
             </>
           )}
-            */}
           <Text style={styles.attractionLocation}>
             {isPlace
               ? (place as PlaceListItem).address
