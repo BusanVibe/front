@@ -17,6 +17,8 @@ export interface PlaceListItem {
   type: PlaceType;
   address: string;
   img?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface FestivalListItem {
@@ -124,4 +126,22 @@ export interface Review {
   grade: number;
   date: string;
   content: string;
+}
+
+export interface HomePlace {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  image: string;
+  congestion_level: number;
+  address: string;
+  is_like: boolean;
+}
+
+export interface HomeResponse {
+  '@class': string;
+  most_crowded: [string, HomePlace[]];
+  recommend_place: [string, HomePlace[]];
 }
