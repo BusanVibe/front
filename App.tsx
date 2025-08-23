@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
+import {LocationProvider} from './src/contexts/LocationContext';
 import {
   View,
   Text,
@@ -471,9 +472,11 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <NavigationContainer>
-      <RootNavigator />
-    </NavigationContainer>
+    <LocationProvider>
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </LocationProvider>
   );
 }
 
