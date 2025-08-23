@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
-  Image,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
 import IcNickname from '../assets/icon/ic_talknickname.svg';
+import { ChatService, ChatMessage } from '../services/chatService';
 
 
 const {width} = Dimensions.get('window');
@@ -23,49 +24,79 @@ interface Message {
   text: string;
   time: string;
   isBot: boolean;
+  name?: string;
 }
 
 const BusanTalkScreen = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: '테스트중입니다',
-      time: '오후 01:30',
-      isBot: true,
-    },
-    {
-      id: '2',
-      text: '부산뭐가유명해요?',
-      time: '오후 01:30',
-      isBot: true,
-    },
-    {
-      id: '3',
-      text: '아 집가고 싶어',
-      time: '오후 01:30',
-      isBot: true,
-    },
-    {
-      id: '4',
-      text: '메세지메세지',
-      time: '오후 01:30',
-      isBot: true,
-    },
-    {
-      id: '5',
-      text: '하기싫어하기싫어하기싫어하기싫어하기싫어하기싫어하기싫어하기싫어하기싫어',
-      time: '오후 01:35',
-      isBot: true,
-    },
-    {
-      id: '6',
-      text: '우왕부산이다',
-      time: '오후 01:35',
-      isBot: true,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [cursorId, setCursorId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isSending, setIsSending] = useState<boolean>(false);
 
   const [inputText, setInputText] = useState('');
+  const listRef = useRef<any>(null);
+
+  const scrollToBottom = (animated: boolean = true) => {
+    try {
+      listRef.current?.scrollToEnd?.({ animated });
+    } catch (e) {}
+  };
+
+  const formatTime = (iso: string) => {
+    try {
+      const d = new Date(iso);
+      return d.toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+    } catch (e) {
+      return iso;
+    }
+  };
+
+  const mapChatToMessage = (chat: ChatMessage, index: number): Message => ({
+    id: `${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    text: chat.message,
+    time: formatTime(chat.time),
+    isBot: chat.type === 'BOT',
+    name: chat.name,
+  });
+
+  const loadInitialHistory = async () => {
+    setIsLoading(true);
+    try {
+      const page = await ChatService.history(null, 30);
+      const mapped = page.messages.map(mapChatToMessage);
+      setMessages(mapped);
+      setCursorId(page.cursorId);
+      setTimeout(() => scrollToBottom(false), 0);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMoreHistory = async () => {
+    if (isLoadingMore || cursorId === null) return;
+    setIsLoadingMore(true);
+    try {
+      const page = await ChatService.history(cursorId, 30);
+      const mapped = page.messages.map(mapChatToMessage);
+      setMessages(prev => [...prev, ...mapped]);
+      setCursorId(page.cursorId);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInitialHistory();
+  }, []);
 
   const renderMessage = ({item}: {item: Message}) => (
     <View
@@ -79,7 +110,7 @@ const BusanTalkScreen = () => {
             <View style={styles.profileIcon}>
               <IcNickname width={30} height={30} stroke="none" />
             </View>
-            <Text style={styles.nickname}>닉네임</Text>
+            <Text style={styles.nickname}>{item.name ?? '닉네임'}</Text>
           </View>
         )}
         <View style={styles.messageContent}>
@@ -105,20 +136,44 @@ const BusanTalkScreen = () => {
     </View>
   );
 
-  const sendMessage = () => {
-    if (inputText.trim()) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text: inputText,
-        time: new Date().toLocaleTimeString('ko-KR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true,
-        }),
-        isBot: false,
-      };
-      setMessages([...messages, newMessage]);
-      setInputText('');
+  const sendMessage = async () => {
+    const text = inputText.trim();
+    if (!text) return;
+    if (text.length > 200) {
+      console.warn('메시지는 200자 이하여야 합니다.');
+      return;
+    }
+
+    const nowText = new Date().toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    // 낙관적 UI 업데이트 (사용자 메시지)
+    const optimistic: Message = {
+      id: Date.now().toString(),
+      text,
+      time: nowText,
+      isBot: false,
+    };
+    setMessages(prev => [...prev, optimistic]);
+    setTimeout(() => scrollToBottom(true), 0);
+    setInputText('');
+
+    setIsSending(true);
+    try {
+      const res = await ChatService.send(text);
+      // 챗봇 질문인 경우 API 응답으로 받은 메시지를 추가
+      if (text.startsWith('/')) {
+        const botMsg: Message = mapChatToMessage(res.result, 0);
+        setMessages(prev => [...prev, botMsg]);
+        setTimeout(() => scrollToBottom(true), 0);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -131,13 +186,27 @@ const BusanTalkScreen = () => {
         style={styles.gradientContainer}
       >
         {/* 메시지 목록 */}
-        <FlatList
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={item => item.id}
-          style={styles.messagesList}
-          showsVerticalScrollIndicator={false}
-        />
+        {isLoading ? (
+          <View style={styles.loaderContainer}>
+            <ActivityIndicator size="small" color="#333" />
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={item => item.id}
+            style={styles.messagesList}
+            showsVerticalScrollIndicator={false}
+            onEndReachedThreshold={0.2}
+            onEndReached={loadMoreHistory}
+            ListFooterComponent={isLoadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color="#333" />
+              </View>
+            ) : null}
+          />
+        )}
 
         {/* 입력창 */}
         <View style={styles.inputContainer}>
@@ -150,7 +219,7 @@ const BusanTalkScreen = () => {
               placeholderTextColor="rgba(255, 255, 255, 0.7)"
               multiline
             />
-            <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+            <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={isSending}>
             <IcSend width={20} height={20} stroke="none" />
             </TouchableOpacity>
           </View>
@@ -292,6 +361,14 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 12,
   },
 
 });
