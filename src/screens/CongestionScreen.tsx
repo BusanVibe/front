@@ -12,11 +12,13 @@ import {
   Platform,
   Alert,
   StatusBar,
+  Image,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createMapHTML } from '../components/map/mapTemplate';
+import { createMapHTML } from '../components/map/mapTemplate.ts';
+import CongestionBadge from '../components/common/CongestionBadge';
 
 // 타입 정의
 interface Location {
@@ -38,6 +40,8 @@ interface PlaceMarker {
 
 const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
+// 혼잡도 응답 상세 로그 소음 방지용 플래그
+const VERBOSE_CONGESTION_LOG = false;
 
 // 혼잡도 시간별 데이터
 const congestionData = [
@@ -63,6 +67,7 @@ const locationData = [
     id: '1',
     name: '광안리 해수욕장',
     congestionLevel: '혼잡',
+    congestionLevelNum: 4,
     rating: 4.2,
     reviewCount: 157,
     distance: '210m',
@@ -88,11 +93,18 @@ const CongestionScreen = () => {
   const [shouldShowCurrentLocation, setShouldShowCurrentLocation] = useState(false); // 현재위치 표시 여부
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태
   const [isLocationLoading, setIsLocationLoading] = useState(true); // 위치 로딩 상태
+  const [realtimeStandardHour, setRealtimeStandardHour] = useState<number | null>(null);
+  const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
+  const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
+  const [visitorDistribution, setVisitorDistribution] = useState<{ age: string; male: number; female: number }[] | null>(null);
   const webViewRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLocationRef = useRef<CachedLocation | null>(null);
   const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
   const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
+  const webViewReloadReasonRef = useRef<string | null>(null); // WebView 재로딩 사유 추적
+  const pendingMoveToLocationRef = useRef<{lat: number, lng: number, show: boolean} | null>(null); // WebView 로드 후 이동 예약
+  const pendingCurrentLocationPingRef = useRef<{lat: number, lng: number} | null>(null); // WebView 로드 후 현재위치 핑 예약
 
   // 컴포넌트 마운트 시 현재 위치 자동 획득
   React.useEffect(() => {
@@ -110,6 +122,129 @@ const CongestionScreen = () => {
       '문화시설': 'CULTURE',
     };
     return categoryMap[category] || 'ALL';
+  };
+
+  const getCongestionTextLocal = (level: number): string => {
+    if (level >= 4) return '매우혼잡';
+    if (level >= 3) return '혼잡';
+    if (level >= 2) return '보통';
+    return '여유';
+  };
+
+  // 실시간 혼잡도 조회
+  const fetchRealtimeCongestion = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+      const now = new Date();
+      const iso = new Date(now.getTime() - now.getMilliseconds()).toISOString().slice(0, 19); // yyyy-MM-ddTHH:mm:ss
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}/real-time?standard-time=${encodeURIComponent(iso)}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+      });
+      const txt = await res.text();
+      console.log('실시간 혼잡도 응답:', txt);
+      const data = JSON.parse(txt);
+      const ok = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && ok && data.result) {
+        const r = data.result;
+        const unwrapArrayList = (v: any) => (Array.isArray(v) && v.length === 2 && v[0] === 'java.util.ArrayList') ? v[1] : (Array.isArray(v) ? v : []);
+        setRealtimeStandardHour(typeof r.standard_time === 'number' ? r.standard_time : Number(r.standard_time || 0));
+        const levelRaw = (r.realtime_congestion_level !== undefined ? r.realtime_congestion_level : r.real_time_congestion_level);
+        setRealtimeLevel(typeof levelRaw === 'number' ? levelRaw : Number(levelRaw || 0));
+        const arr = unwrapArrayList(r.by_time_percent);
+        setRealtimeByPercent(arr.map((n: any) => Number(n)));
+      }
+    } catch (e) {
+      console.warn('실시간 혼잡도 조회 실패', e);
+    }
+  };
+
+  // 성별·연령 분포 조회
+  const fetchVisitorDistribution = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}/distribution`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+      });
+      const txt = await res.text();
+      console.log('이용객 분포 응답:', txt);
+      const data = JSON.parse(txt);
+      const ok = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && ok && data.result) {
+        const r = data.result;
+        const toNum = (v: any) => typeof v === 'number' ? v : Number(v || 0);
+        const mapped = [
+          { age: '10·20대', male: toNum(r.male1020), female: toNum(r.female1020) },
+          { age: '30·40대', male: toNum(r.male3040), female: toNum(r.female3040) },
+          { age: '50·60대', male: toNum(r.male5060), female: toNum(r.female5060) },
+          { age: '70대 이상', male: toNum(r.male70), female: toNum(r.female70) },
+        ];
+        setVisitorDistribution(mapped);
+      }
+    } catch (e) {
+      console.warn('이용객 분포 조회 실패', e);
+    }
+  };
+
+  // 장소 상세 조회
+  const fetchPlaceDetail = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) {
+        Alert.alert('알림', '로그인이 필요합니다.');
+        return;
+      }
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
+        }
+      });
+      const text = await res.text();
+      console.log('장소 상세 응답 원본:', text);
+      const data = JSON.parse(text);
+      const isSuccess = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && isSuccess && data.result) {
+        const unwrapBigDecimal = (v: any) => (Array.isArray(v) && v[0] === 'java.math.BigDecimal') ? v[1] : v;
+        const unwrapArrayList = (v: any) => (Array.isArray(v) && v.length === 2 && v[0] === 'java.util.ArrayList') ? v[1] : (Array.isArray(v) ? v : []);
+        const r = data.result;
+        const congestionText = (lvl: number) => {
+          if (lvl >= 4) return '혼잡';
+          if (lvl >= 3) return '약간혼잡';
+          if (lvl >= 2) return '보통';
+          return '여유';
+        };
+        const lat = unwrapBigDecimal(r.latitude);
+        const lng = unwrapBigDecimal(r.longitude ?? r.longtitude);
+        const images = unwrapArrayList(r.img_list);
+        const mapped = {
+          id: String(r.id),
+          name: r.name,
+          congestionLevel: congestionText(r.congestion_level),
+          congestionLevelNum: Number(r.congestion_level || 0),
+          rating: typeof r.grade === 'number' ? r.grade : Number(r.grade || 0),
+          reviewCount: typeof r.review_amount === 'number' ? r.review_amount : Number(r.review_amount || 0),
+          distance: '',
+          address: r.address,
+          status: r.is_open ? '영업 중' : '영업 종료',
+          images: images
+        } as any;
+        setSelectedLocation(mapped);
+        changeBottomSheetMode('half');
+      } else {
+        console.warn('장소 상세 비정상 응답:', data);
+      }
+    } catch (e) {
+      console.error('장소 상세 API 오류:', e);
+      // 실패 시에도 알림은 띄우지 않음
+    }
   };
 
   // 중심 좌표와 줌 레벨을 기반으로 bounds 계산
@@ -148,7 +283,7 @@ const CongestionScreen = () => {
 
       const apiType = getCategoryType(category);
       const url = `https://api.busanvibe.site/api/congestion?type=${apiType}&lat1=${bounds.lat1}&lng1=${bounds.lng1}&lat2=${bounds.lat2}&lng2=${bounds.lng2}`;
-      console.log('요청 URL:', url);
+      // console.log('요청 URL:', url);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -169,7 +304,7 @@ const CongestionScreen = () => {
 
         if (data.is_success) {
           console.log('✅ API 호출 성공!');
-          console.log('원본 result 구조:', data.result);
+          if (VERBOSE_CONGESTION_LOG) console.log('원본 result 구조:', data.result);
           
           // 백엔드에서 Java 객체 형태로 오는 데이터 파싱
           let placeList = data.result?.place_list;
@@ -177,15 +312,17 @@ const CongestionScreen = () => {
           // place_list가 특수 형태인 경우 처리
           if (placeList && Array.isArray(placeList) && placeList.length === 2 && placeList[0] === "java.util.ArrayList") {
             placeList = placeList[1]; // 실제 배열 데이터는 두 번째 요소
-            console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
+            if (VERBOSE_CONGESTION_LOG) console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
           }
 
           if (Array.isArray(placeList)) {
             console.log('장소 개수:', placeList.length);
             
-            // 받아진 장소들 로그로 출력
-            console.log('=== 받아진 장소 목록 ===');
-            console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            // 받아진 장소들 로그로 출력 (소음 방지)
+            if (VERBOSE_CONGESTION_LOG) {
+              console.log('=== 받아진 장소 목록 ===');
+              console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            }
             
             // Java 객체 형태의 장소 데이터를 일반 객체로 변환
             const normalizedPlaces = placeList.map((place: any) => {
@@ -205,7 +342,7 @@ const CongestionScreen = () => {
               return normalizedPlace;
             });
 
-            console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
+            if (VERBOSE_CONGESTION_LOG) console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
 
             // 타입별 분류해서 로그 출력
             const typeGroups: Record<string, any[]> = {};
@@ -216,16 +353,18 @@ const CongestionScreen = () => {
               typeGroups[place.type].push(place);
             });
             
-            Object.keys(typeGroups).forEach(type => {
-              console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
-              typeGroups[type].forEach((place, index) => {
-                console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+            if (VERBOSE_CONGESTION_LOG) {
+              Object.keys(typeGroups).forEach(type => {
+                console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
+                typeGroups[type].forEach((place, index) => {
+                  console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+                });
               });
-            });
-            console.log('========================');
+              console.log('========================');
+            }
 
-            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용)
-            if (webViewRef.current && !isMapDragging) {
+            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용) - 장소가 있을 때만
+            if (webViewRef.current && normalizedPlaces.length > 0) {
               const updateMessage = JSON.stringify({
                 type: 'updatePlacePings',
                 places: normalizedPlaces
@@ -237,8 +376,10 @@ const CongestionScreen = () => {
               });
               webViewRef.current.postMessage(updateMessage);
               console.log('✅ WebView에 정규화된 장소 핑 데이터 전송 완료');
-            } else {
-              console.log('❌ WebView 전송 실패 - webViewRef:', !!webViewRef.current, 'isMapDragging:', isMapDragging);
+            } else if (!webViewRef.current) {
+              console.log('❌ WebView 전송 실패 - webViewRef 없음');
+            } else if (normalizedPlaces.length === 0) {
+              console.log('ℹ️ 반환된 장소 없음 - WebView로 핑 전송 생략');
             }
 
             // 상태는 정규화된 데이터로 업데이트
@@ -259,27 +400,12 @@ const CongestionScreen = () => {
 
   // 지도 변경 완료 시 API 호출 (bounds 사용)
   const handleMapBoundsChange = (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, isZoomOnly: boolean = false, zoomLevel?: number) => {
-    console.log('=== 지도 경계 좌표 변경 ===');
-    console.log('좌상단:', bounds.lat1, bounds.lng1);
-    console.log('우하단:', bounds.lat2, bounds.lng2);
-    console.log('줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
 
     // 마지막 지도 경계 저장
     lastMapBoundsRef.current = bounds;
 
     // 지도 재렌더링 방지: mapCenter 상태는 변경하지 않음
-    // 대신 현재 위치 표시만 비활성화하고 API 호출로 마커만 업데이트
-    if (!isZoomOnly) {
-      // 사용자가 지도를 드래그했으므로 현재 위치 표시 비활성화
-      setShouldShowCurrentLocation(false);
-      
-      // WebView에 현재 위치 마커 숨기기 메시지 전송
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'hideCurrentLocation'
-        }));
-      }
-    }
+    // 현재 위치 핑은 드래그/줌과 무관하게 계속 보이도록, 숨기지 않음
 
     // 기존 타이머 취소
     if (debounceTimerRef.current) {
@@ -310,13 +436,23 @@ const CongestionScreen = () => {
         setIsLocationLoading(false);
         
         // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
+        // 항상 현재위치 핑 표시
         if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'setCurrentLocationPing',
+            latitude: cachedLocation.latitude,
+            longitude: cachedLocation.longitude
+          }));
+          // 지도도 현재위치로 이동
           webViewRef.current.postMessage(JSON.stringify({
             type: 'moveToLocation',
             latitude: cachedLocation.latitude,
             longitude: cachedLocation.longitude,
-            showCurrentLocation: true
+            showCurrentLocation: false
           }));
+        } else {
+          pendingCurrentLocationPingRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude };
+          pendingMoveToLocationRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude, show: false };
         }
 
         // API 호출 (bounds 사용)
@@ -352,12 +488,15 @@ const CongestionScreen = () => {
             setShouldShowCurrentLocation(false);
             setIsInitialLoad(false);
             setIsLocationLoading(false);
+            webViewReloadReasonRef.current = 'initialPermissionDeniedDefaultBusan';
             setMapKey(prev => prev + 1); // 초기 로드는 재렌더링 필요
 
             setTimeout(() => {
               const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
               fetchCongestionData(bounds, selectedCategory);
             }, 1000);
+            // 기본 위치로 이동 예약(현재위치 핑은 표시하지 않음)
+            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
 
             console.log('권한 거부 - 부산 중심으로 설정');
           } else {
@@ -395,16 +534,28 @@ const CongestionScreen = () => {
             setIsInitialLoad(false);
             // 초기 로드 시에만 WebView 재렌더링
             isUpdatingMapRef.current = true;
+            webViewReloadReasonRef.current = 'initialCurrentLocation';
             setMapKey(prev => prev + 1);
+            // 로드 완료 후 이동 예약 + 현재위치 점 표시 예약
+            pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
+            pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
           } else {
-            // 이후 현재위치 버튼 클릭 시에는 지도 중심만 이동 (mapCenter 상태 변경 없음)
+            // 현재위치 핑은 항상 유지하고 지도 이동도 수행
             if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({
+                type: 'setCurrentLocationPing',
+                latitude,
+                longitude
+              }));
               webViewRef.current.postMessage(JSON.stringify({
                 type: 'moveToLocation',
                 latitude,
                 longitude,
-                showCurrentLocation: true
+                showCurrentLocation: false
               }));
+            } else {
+              pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
+              pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
             }
           }
 
@@ -449,6 +600,7 @@ const CongestionScreen = () => {
             setIsLocationLoading(false);
 
             isUpdatingMapRef.current = true;
+            webViewReloadReasonRef.current = 'initialGetLocationFailedDefaultBusan';
             setMapKey(prev => prev + 1);
 
             // API 호출은 지도 로딩 후에 (bounds 사용)
@@ -457,6 +609,7 @@ const CongestionScreen = () => {
               fetchCongestionData(bounds, selectedCategory);
               isUpdatingMapRef.current = false;
             }, 1000);
+            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
           } else {
             // 버튼 클릭 시 실패하면 사용자에게 알림
             Alert.alert('위치 오류', errorMessage);
@@ -483,6 +636,7 @@ const CongestionScreen = () => {
         setShouldShowCurrentLocation(false);
         setIsInitialLoad(false);
         setIsLocationLoading(false);
+        webViewReloadReasonRef.current = 'initialPermissionRequestErrorDefaultBusan';
         setMapKey(prev => prev + 1);
 
         setTimeout(() => {
@@ -506,13 +660,13 @@ const CongestionScreen = () => {
   // 지도 HTML 생성
   const getMapHTML = () => {
     if (!mapCenter) return '<html><body>Loading...</body></html>';
-    
+    // 초기 렌더는 중심좌표만 넘기고, 현재위치/마커는 postMessage로만 제어 (재로딩 방지)
     return createMapHTML({
       centerLat: mapCenter.latitude,
       centerLng: mapCenter.longitude,
-      currentLocation,
-      shouldShowCurrentLocation,
-      placeMarkers
+      currentLocation: null,
+      shouldShowCurrentLocation: false,
+      placeMarkers: []
     });
   };
 
@@ -667,8 +821,50 @@ const CongestionScreen = () => {
                 <Text style={styles.loadingText}>지도 로딩 중...</Text>
               </View>
             )}
-            onLoadStart={() => console.log('WebView 로딩 시작')}
-            onLoadEnd={() => console.log('WebView 로딩 완료')}
+            onLoadStart={() => {
+              console.log('WebView 로딩 시작', {
+                reason: webViewReloadReasonRef.current || 'unknown',
+                mapCenter,
+                isInitialLoad,
+                isLocationLoading
+              });
+            }}
+            onLoadEnd={() => {
+              console.log('WebView 로딩 완료', {
+                reason: webViewReloadReasonRef.current || 'unknown',
+                mapCenter
+              });
+              // 로드 완료 후 대기 중이던 moveToLocation 실행
+              if (webViewRef.current && pendingMoveToLocationRef.current) {
+                const { lat, lng, show } = pendingMoveToLocationRef.current;
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'moveToLocation',
+                  latitude: lat,
+                  longitude: lng,
+                  showCurrentLocation: show
+                }));
+                pendingMoveToLocationRef.current = null;
+              }
+              // 로드 완료 후 현재위치 핑 예약 실행
+              if (webViewRef.current && pendingCurrentLocationPingRef.current) {
+                const { lat, lng } = pendingCurrentLocationPingRef.current;
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'setCurrentLocationPing',
+                  latitude: lat,
+                  longitude: lng
+                }));
+                pendingCurrentLocationPingRef.current = null;
+              }
+              // 혹시 예약이 없더라도 현재위치가 있다면 점을 보장
+              if (webViewRef.current && currentLocation) {
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'setCurrentLocationPing',
+                  latitude: currentLocation.latitude,
+                  longitude: currentLocation.longitude
+                }));
+              }
+              webViewReloadReasonRef.current = null;
+            }}
             onError={(syntheticEvent) => {
               const { nativeEvent } = syntheticEvent;
               console.error('WebView 오류:', nativeEvent);
@@ -691,6 +887,30 @@ const CongestionScreen = () => {
                   // 줌 변경 시에도 API 호출 (단, 드래그 중이 아닐 때만)
                   if (!isMapDragging && data.bounds) {
                     handleMapBoundsChange(data.bounds, true, data.zoomLevel); // 줌만 변경됨을 표시
+                  }
+                } else if (data.type === 'poiClicked') {
+                  console.log('📌 장소 핑 클릭 수신:', data);
+                  // 우선 이름이라도 보이게 즉시 바텀시트 열기
+                  if (data && data.name) {
+                    setSelectedLocation({
+                      id: String(data.placeId || data.id || ''),
+                      name: data.name,
+                      congestionLevel: '',
+                      rating: 0,
+                      reviewCount: 0,
+                      distance: '',
+                      address: '',
+                      status: '',
+                      images: []
+                    } as any);
+                    changeBottomSheetMode('half');
+                  }
+                  const pid = typeof data.placeId === 'number' ? data.placeId : (typeof data.id === 'string' && data.id.startsWith('poi-') ? Number(data.id.replace('poi-', '')) : NaN);
+                  if (!isNaN(pid)) {
+                    // 상세 + 실시간 + 분포 병렬 호출
+                    fetchPlaceDetail(pid);
+                    fetchRealtimeCongestion(pid);
+                    fetchVisitorDistribution(pid);
                   }
                 }
               } catch (error) {
@@ -750,11 +970,7 @@ const CongestionScreen = () => {
               <View style={styles.locationHeader}>
                 <View style={styles.nameAndBadge}>
                   <Text style={styles.locationName}>{selectedLocation.name}</Text>
-                  <View style={styles.congestionBadge}>
-                    <Text style={styles.congestionText}>
-                      {selectedLocation.congestionLevel}
-                    </Text>
-                  </View>
+                  <CongestionBadge level={selectedLocation.congestionLevelNum || 0} style={{ marginRight: 8 }} />
                 </View>
                 <TouchableOpacity
                   style={styles.closeButton}
@@ -790,41 +1006,59 @@ const CongestionScreen = () => {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.imageScrollView}>
-                {selectedLocation.images.map((_, index) => (
-                  <View key={index} style={styles.imageContainer}>
-                    <View style={styles.imagePlaceholder}>
-                      <Text style={styles.imageText}>Image {index + 1}</Text>
+                {selectedLocation.images && selectedLocation.images.length > 0 ? (
+                  selectedLocation.images.map((uri: string, index: number) => (
+                    <View key={index} style={styles.imageContainer}>
+                      <Image source={{ uri }} style={styles.image} resizeMode="cover" />
                     </View>
-                  </View>
-                ))}
+                  ))
+                ) : (
+                  [0,1,2,3].map((i) => (
+                    <View key={i} style={styles.imageContainer}>
+                      <View style={styles.imagePlaceholder}>
+                        <Text style={styles.imageText}>이미지 없음</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
               </ScrollView>
 
               {/* 실시간 혼잡도 */}
               <View style={styles.chartSection}>
                 <View style={styles.chartHeader}>
                   <Text style={styles.chartTitle}>실시간 혼잡도</Text>
-                  <Text style={styles.chartTime}>16:00 기준</Text>
+                  <Text style={styles.chartTime}>
+                    {realtimeStandardHour !== null ? `${String(realtimeStandardHour).padStart(2,'0')}:00 기준` : '실시간'}
+                  </Text>
                 </View>
                 <View style={styles.congestionStatus}>
-                  <View style={styles.congestionIndicator} />
-                  <Text style={styles.congestionStatusText}>혼잡</Text>
+                  <View style={[styles.congestionIndicator, { backgroundColor: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]} />
+                  <Text style={[styles.congestionStatusText, { color: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]}>
+                    {realtimeLevel !== null ? getCongestionTextLocal(realtimeLevel) : '혼잡'}
+                  </Text>
                 </View>
 
                 <View style={styles.chartContainer}>
-                  {congestionData.map((item, index) => (
-                    <View key={index} style={styles.barContainer}>
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: item.level,
-                            backgroundColor: index === 3 ? '#ff4444' : '#cccccc',
-                          },
-                        ]}
-                      />
-                      <Text style={styles.barLabel}>{item.time}</Text>
-                    </View>
-                  ))}
+                  {(realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent : congestionData.map(d => d.level)).map((val: any, index: number) => {
+                    const arr = realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent as number[] : congestionData.map(d => d.level);
+                    const max = Math.max(...arr.map((n: any) => Number(n) || 0), 1);
+                    const scale = max <= 5 ? 20 : 1;
+                    const height = Math.max(6, Math.min(100, Math.round((Number(val) || 0) * scale)));
+                    let label = '';
+                    if (realtimeByPercent && realtimeByPercent.length > 0 && realtimeStandardHour !== null) {
+                      // index 0 -> standard-6, ..., last -> standard
+                      const hour = (realtimeStandardHour - (arr.length - 1 - index) + 24 * 4) % 24;
+                      label = index === (arr.length - 1) ? '현재' : `${String(hour).padStart(2,'0')}시`;
+                    } else if (!realtimeByPercent || realtimeByPercent.length === 0) {
+                      label = congestionData[index]?.time;
+                    }
+                    return (
+                      <View key={index} style={styles.barContainer}>
+                        <View style={[styles.bar, { height, backgroundColor: index === (arr.length - 1) ? (realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444') : '#cccccc' }]} />
+                        <Text style={styles.barLabel}>{label}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
 
                 <View style={styles.infoBox}>
@@ -856,25 +1090,32 @@ const CongestionScreen = () => {
                 </View>
 
                 <View style={styles.visitorChartContainer}>
-                  {visitorData.map((item, index) => (
-                    <View key={index} style={styles.visitorBarGroup}>
-                      <View style={styles.visitorBars}>
-                        <View
-                          style={[
-                            styles.visitorBar,
-                            { height: item.male * 2, backgroundColor: '#6bb6ff' },
-                          ]}
-                        />
-                        <View
-                          style={[
-                            styles.visitorBar,
-                            { height: item.female * 2, backgroundColor: '#ff9999' },
-                          ]}
-                        />
+                  {(() => {
+                    const dist = visitorDistribution || visitorData;
+                    const maxVal = Math.max(
+                      ...dist.map((d: any) => Math.max(Number(d.male) || 0, Number(d.female) || 0)),
+                      1
+                    );
+                    return dist.map((item: any, index: number) => (
+                      <View key={index} style={styles.visitorBarGroup}>
+                        <View style={styles.visitorBars}>
+                          <View
+                            style={[
+                              styles.visitorBar,
+                              { height: Math.max(4, Math.round(((Number(item.male) || 0) / maxVal) * 100)), backgroundColor: '#6bb6ff' },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.visitorBar,
+                              { height: Math.max(4, Math.round(((Number(item.female) || 0) / maxVal) * 100)), backgroundColor: '#ff9999' },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.visitorLabel}>{item.age}</Text>
                       </View>
-                      <Text style={styles.visitorLabel}>{item.age}</Text>
-                    </View>
-                  ))}
+                    ));
+                  })()}
                 </View>
               </View>
 
@@ -1116,6 +1357,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  image: {
+    width: 120,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#eaeaea',
   },
   imageText: {
     fontSize: 12,

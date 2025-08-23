@@ -138,6 +138,7 @@ function createInfoWindowContent(props) {
 function createPingMarkerHTML(props) {
   const style = getPingStyle(props);
   const { customStyle } = props;
+  const label = props.title || '';
 
   const pulseKeyframes = `
     @keyframes ping-pulse-blue {
@@ -173,8 +174,9 @@ function createPingMarkerHTML(props) {
       .ping-container-${props.id} {
         position: relative;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
       }
       .ping-marker-${props.id} {
         width: ${style.markerSize};
@@ -205,12 +207,26 @@ function createPingMarkerHTML(props) {
         animation: ${style.pulseAnimation} 2s infinite;
         z-index: 1;
       }
+      .ping-label-${props.id} {
+        margin-top: 6px;
+        background: #ffffff;
+        color: #333333;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        white-space: nowrap;
+        border: 1px solid rgba(0,0,0,0.08);
+        z-index: 3;
+        pointer-events: none;
+      }
     </style>
     <div class="ping-container-${props.id}" ${customStyle ? `style="${customStyle}"` : ''}>
       ${style.pulseAnimation !== 'none' ? `<div class="ping-pulse-${props.id}"></div>` : ''}
       <div class="ping-marker-${props.id}">
         ${style.icon}
       </div>
+      ${label ? `<div class="ping-label-${props.id}">${label}</div>` : ''}
     </div>
   `;
 }
@@ -237,10 +253,17 @@ class PingManager {
 
     // 마커 생성
     const markerHTML = createPingMarkerHTML(pingData);
+    // yAnchor를 마커 중심에 맞추도록 계산 (라벨 포함 높이 고려)
+    const sizeMap = { small: 14, medium: 18, large: 24 };
+    const markerPx = sizeMap[pingData.size || 'small'] || 14;
+    const gapPx = 6; const labelH = 18; const totalH = markerPx + gapPx + labelH;
+    const yAnchorVal = (markerPx / 2) / totalH;
+
     const customOverlay = new kakao.maps.CustomOverlay({
       position: new kakao.maps.LatLng(location.latitude, location.longitude),
       content: markerHTML,
-      yAnchor: 0.5,
+      yAnchor: yAnchorVal,
+      xAnchor: 0.5,
       zIndex: pingData.zIndex || 100
     });
 
@@ -285,6 +308,21 @@ class PingManager {
         if (onClick) {
           onClick();
         }
+
+        // RN으로 장소 클릭 이벤트 전달 (현재 위치 제외)
+        try {
+          if (typeof window !== 'undefined' && window.ReactNativeWebView && pingData.type !== 'current-location') {
+            const guessedId = (typeof pingData.placeId !== 'undefined') ? pingData.placeId : (String(id || '').startsWith('poi-') ? Number(String(id).replace('poi-','')) : undefined);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'poiClicked',
+              placeId: guessedId,
+              id: id,
+              name: pingData.title,
+              latitude: location.latitude,
+              longitude: location.longitude
+            }));
+          }
+        } catch (e) {}
       });
     }
 
