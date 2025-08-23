@@ -118,9 +118,9 @@ export const getCurrentLocation = (): Promise<UserLocation | null> => {
         resolve(null);
       },
       {
-        enableHighAccuracy: false,
+        enableHighAccuracy: true,
         timeout: 15000,
-        maximumAge: 300000, // 5분
+        maximumAge: 60000, // 1분
       },
     );
   });
