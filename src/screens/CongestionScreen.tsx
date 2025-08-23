@@ -38,6 +38,8 @@ interface PlaceMarker {
 
 const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
+// 혼잡도 응답 상세 로그 소음 방지용 플래그
+const VERBOSE_CONGESTION_LOG = false;
 
 // 혼잡도 시간별 데이터
 const congestionData = [
@@ -93,6 +95,9 @@ const CongestionScreen = () => {
   const lastLocationRef = useRef<CachedLocation | null>(null);
   const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
   const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
+  const webViewReloadReasonRef = useRef<string | null>(null); // WebView 재로딩 사유 추적
+  const pendingMoveToLocationRef = useRef<{lat: number, lng: number, show: boolean} | null>(null); // WebView 로드 후 이동 예약
+  const pendingCurrentLocationPingRef = useRef<{lat: number, lng: number} | null>(null); // WebView 로드 후 현재위치 핑 예약
 
   // 컴포넌트 마운트 시 현재 위치 자동 획득
   React.useEffect(() => {
@@ -148,7 +153,7 @@ const CongestionScreen = () => {
 
       const apiType = getCategoryType(category);
       const url = `https://api.busanvibe.site/api/congestion?type=${apiType}&lat1=${bounds.lat1}&lng1=${bounds.lng1}&lat2=${bounds.lat2}&lng2=${bounds.lng2}`;
-      console.log('요청 URL:', url);
+      // console.log('요청 URL:', url);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -169,7 +174,7 @@ const CongestionScreen = () => {
 
         if (data.is_success) {
           console.log('✅ API 호출 성공!');
-          console.log('원본 result 구조:', data.result);
+          if (VERBOSE_CONGESTION_LOG) console.log('원본 result 구조:', data.result);
           
           // 백엔드에서 Java 객체 형태로 오는 데이터 파싱
           let placeList = data.result?.place_list;
@@ -177,15 +182,17 @@ const CongestionScreen = () => {
           // place_list가 특수 형태인 경우 처리
           if (placeList && Array.isArray(placeList) && placeList.length === 2 && placeList[0] === "java.util.ArrayList") {
             placeList = placeList[1]; // 실제 배열 데이터는 두 번째 요소
-            console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
+            if (VERBOSE_CONGESTION_LOG) console.log('Java ArrayList 형태 감지 - 실제 데이터 추출');
           }
 
           if (Array.isArray(placeList)) {
             console.log('장소 개수:', placeList.length);
             
-            // 받아진 장소들 로그로 출력
-            console.log('=== 받아진 장소 목록 ===');
-            console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            // 받아진 장소들 로그로 출력 (소음 방지)
+            if (VERBOSE_CONGESTION_LOG) {
+              console.log('=== 받아진 장소 목록 ===');
+              console.log(`요청한 카테고리: ${category} → API 타입: ${getCategoryType(category)}`);
+            }
             
             // Java 객체 형태의 장소 데이터를 일반 객체로 변환
             const normalizedPlaces = placeList.map((place: any) => {
@@ -205,7 +212,7 @@ const CongestionScreen = () => {
               return normalizedPlace;
             });
 
-            console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
+            if (VERBOSE_CONGESTION_LOG) console.log('정규화된 장소 데이터 샘플:', normalizedPlaces.slice(0, 2));
 
             // 타입별 분류해서 로그 출력
             const typeGroups: Record<string, any[]> = {};
@@ -216,16 +223,18 @@ const CongestionScreen = () => {
               typeGroups[place.type].push(place);
             });
             
-            Object.keys(typeGroups).forEach(type => {
-              console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
-              typeGroups[type].forEach((place, index) => {
-                console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+            if (VERBOSE_CONGESTION_LOG) {
+              Object.keys(typeGroups).forEach(type => {
+                console.log(`\n📍 ${type} 타입 (${typeGroups[type].length}개):`);
+                typeGroups[type].forEach((place, index) => {
+                  console.log(`  ${index + 1}. ${place.name} - 혼잡도: ${place.congestion_level} - 위치: ${place.latitude}, ${place.longitude}`);
+                });
               });
-            });
-            console.log('========================');
+              console.log('========================');
+            }
 
-            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용)
-            if (webViewRef.current && !isMapDragging) {
+            // WebView에 장소 핑 데이터 전송 (정규화된 데이터 사용) - 장소가 있을 때만
+            if (webViewRef.current && normalizedPlaces.length > 0) {
               const updateMessage = JSON.stringify({
                 type: 'updatePlacePings',
                 places: normalizedPlaces
@@ -237,8 +246,10 @@ const CongestionScreen = () => {
               });
               webViewRef.current.postMessage(updateMessage);
               console.log('✅ WebView에 정규화된 장소 핑 데이터 전송 완료');
-            } else {
-              console.log('❌ WebView 전송 실패 - webViewRef:', !!webViewRef.current, 'isMapDragging:', isMapDragging);
+            } else if (!webViewRef.current) {
+              console.log('❌ WebView 전송 실패 - webViewRef 없음');
+            } else if (normalizedPlaces.length === 0) {
+              console.log('ℹ️ 반환된 장소 없음 - WebView로 핑 전송 생략');
             }
 
             // 상태는 정규화된 데이터로 업데이트
@@ -259,27 +270,12 @@ const CongestionScreen = () => {
 
   // 지도 변경 완료 시 API 호출 (bounds 사용)
   const handleMapBoundsChange = (bounds: {lat1: number, lng1: number, lat2: number, lng2: number}, isZoomOnly: boolean = false, zoomLevel?: number) => {
-    console.log('=== 지도 경계 좌표 변경 ===');
-    console.log('좌상단:', bounds.lat1, bounds.lng1);
-    console.log('우하단:', bounds.lat2, bounds.lng2);
-    console.log('줌만 변경:', isZoomOnly, '줌 레벨:', zoomLevel || '알 수 없음');
 
     // 마지막 지도 경계 저장
     lastMapBoundsRef.current = bounds;
 
     // 지도 재렌더링 방지: mapCenter 상태는 변경하지 않음
-    // 대신 현재 위치 표시만 비활성화하고 API 호출로 마커만 업데이트
-    if (!isZoomOnly) {
-      // 사용자가 지도를 드래그했으므로 현재 위치 표시 비활성화
-      setShouldShowCurrentLocation(false);
-      
-      // WebView에 현재 위치 마커 숨기기 메시지 전송
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'hideCurrentLocation'
-        }));
-      }
-    }
+    // 현재 위치 핑은 드래그/줌과 무관하게 계속 보이도록, 숨기지 않음
 
     // 기존 타이머 취소
     if (debounceTimerRef.current) {
@@ -310,13 +306,23 @@ const CongestionScreen = () => {
         setIsLocationLoading(false);
         
         // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
+        // 항상 현재위치 핑 표시
         if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'setCurrentLocationPing',
+            latitude: cachedLocation.latitude,
+            longitude: cachedLocation.longitude
+          }));
+          // 지도도 현재위치로 이동
           webViewRef.current.postMessage(JSON.stringify({
             type: 'moveToLocation',
             latitude: cachedLocation.latitude,
             longitude: cachedLocation.longitude,
-            showCurrentLocation: true
+            showCurrentLocation: false
           }));
+        } else {
+          pendingCurrentLocationPingRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude };
+          pendingMoveToLocationRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude, show: false };
         }
 
         // API 호출 (bounds 사용)
@@ -352,12 +358,15 @@ const CongestionScreen = () => {
             setShouldShowCurrentLocation(false);
             setIsInitialLoad(false);
             setIsLocationLoading(false);
+            webViewReloadReasonRef.current = 'initialPermissionDeniedDefaultBusan';
             setMapKey(prev => prev + 1); // 초기 로드는 재렌더링 필요
 
             setTimeout(() => {
               const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
               fetchCongestionData(bounds, selectedCategory);
             }, 1000);
+            // 기본 위치로 이동 예약(현재위치 핑은 표시하지 않음)
+            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
 
             console.log('권한 거부 - 부산 중심으로 설정');
           } else {
@@ -395,16 +404,28 @@ const CongestionScreen = () => {
             setIsInitialLoad(false);
             // 초기 로드 시에만 WebView 재렌더링
             isUpdatingMapRef.current = true;
+            webViewReloadReasonRef.current = 'initialCurrentLocation';
             setMapKey(prev => prev + 1);
+            // 로드 완료 후 이동 예약 + 현재위치 점 표시 예약
+            pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
+            pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
           } else {
-            // 이후 현재위치 버튼 클릭 시에는 지도 중심만 이동 (mapCenter 상태 변경 없음)
+            // 현재위치 핑은 항상 유지하고 지도 이동도 수행
             if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({
+                type: 'setCurrentLocationPing',
+                latitude,
+                longitude
+              }));
               webViewRef.current.postMessage(JSON.stringify({
                 type: 'moveToLocation',
                 latitude,
                 longitude,
-                showCurrentLocation: true
+                showCurrentLocation: false
               }));
+            } else {
+              pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
+              pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
             }
           }
 
@@ -449,6 +470,7 @@ const CongestionScreen = () => {
             setIsLocationLoading(false);
 
             isUpdatingMapRef.current = true;
+            webViewReloadReasonRef.current = 'initialGetLocationFailedDefaultBusan';
             setMapKey(prev => prev + 1);
 
             // API 호출은 지도 로딩 후에 (bounds 사용)
@@ -457,6 +479,7 @@ const CongestionScreen = () => {
               fetchCongestionData(bounds, selectedCategory);
               isUpdatingMapRef.current = false;
             }, 1000);
+            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
           } else {
             // 버튼 클릭 시 실패하면 사용자에게 알림
             Alert.alert('위치 오류', errorMessage);
@@ -483,6 +506,7 @@ const CongestionScreen = () => {
         setShouldShowCurrentLocation(false);
         setIsInitialLoad(false);
         setIsLocationLoading(false);
+        webViewReloadReasonRef.current = 'initialPermissionRequestErrorDefaultBusan';
         setMapKey(prev => prev + 1);
 
         setTimeout(() => {
@@ -506,13 +530,13 @@ const CongestionScreen = () => {
   // 지도 HTML 생성
   const getMapHTML = () => {
     if (!mapCenter) return '<html><body>Loading...</body></html>';
-    
+    // 초기 렌더는 중심좌표만 넘기고, 현재위치/마커는 postMessage로만 제어 (재로딩 방지)
     return createMapHTML({
       centerLat: mapCenter.latitude,
       centerLng: mapCenter.longitude,
-      currentLocation,
-      shouldShowCurrentLocation,
-      placeMarkers
+      currentLocation: null,
+      shouldShowCurrentLocation: false,
+      placeMarkers: []
     });
   };
 
@@ -667,8 +691,50 @@ const CongestionScreen = () => {
                 <Text style={styles.loadingText}>지도 로딩 중...</Text>
               </View>
             )}
-            onLoadStart={() => console.log('WebView 로딩 시작')}
-            onLoadEnd={() => console.log('WebView 로딩 완료')}
+            onLoadStart={() => {
+              console.log('WebView 로딩 시작', {
+                reason: webViewReloadReasonRef.current || 'unknown',
+                mapCenter,
+                isInitialLoad,
+                isLocationLoading
+              });
+            }}
+            onLoadEnd={() => {
+              console.log('WebView 로딩 완료', {
+                reason: webViewReloadReasonRef.current || 'unknown',
+                mapCenter
+              });
+              // 로드 완료 후 대기 중이던 moveToLocation 실행
+              if (webViewRef.current && pendingMoveToLocationRef.current) {
+                const { lat, lng, show } = pendingMoveToLocationRef.current;
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'moveToLocation',
+                  latitude: lat,
+                  longitude: lng,
+                  showCurrentLocation: show
+                }));
+                pendingMoveToLocationRef.current = null;
+              }
+              // 로드 완료 후 현재위치 핑 예약 실행
+              if (webViewRef.current && pendingCurrentLocationPingRef.current) {
+                const { lat, lng } = pendingCurrentLocationPingRef.current;
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'setCurrentLocationPing',
+                  latitude: lat,
+                  longitude: lng
+                }));
+                pendingCurrentLocationPingRef.current = null;
+              }
+              // 혹시 예약이 없더라도 현재위치가 있다면 점을 보장
+              if (webViewRef.current && currentLocation) {
+                webViewRef.current.postMessage(JSON.stringify({
+                  type: 'setCurrentLocationPing',
+                  latitude: currentLocation.latitude,
+                  longitude: currentLocation.longitude
+                }));
+              }
+              webViewReloadReasonRef.current = null;
+            }}
             onError={(syntheticEvent) => {
               const { nativeEvent } = syntheticEvent;
               console.error('WebView 오류:', nativeEvent);
