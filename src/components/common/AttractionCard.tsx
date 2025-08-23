@@ -1,5 +1,12 @@
-import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
@@ -9,19 +16,25 @@ import {getPlaceTypeText} from '../../utils/placeUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
+import IcMapPin from '../../assets/icon/ic_map_pin.svg';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
   cardType?: CardType;
+  onToggleLike?: (placeId: number) => void;
 }
 
 const AttractionCard: React.FC<AttractionCardProps> = ({
   place,
   cardType = CardType.PLACE,
+  onToggleLike,
 }) => {
   const navigation = useNavigation<NavigationProp>();
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
   const festivalData = place as FestivalListItem;
@@ -40,17 +53,45 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
       navigation.navigate('FestivalDetail', {festival: festivalData});
     }
   };
+
+  // 이미지 URL이 있는지 확인
+  const imageUrl = place.img;
+  const hasImage = imageUrl && imageUrl.trim() !== '';
+
   return (
     <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
       <View style={styles.attractionImageContainer}>
-        <View style={styles.attractionImagePlaceholder}>
-          <Text style={styles.attractionImageText}>이미지</Text>
-        </View>
+        {hasImage && !imageError ? (
+          <View style={styles.imageWrapper}>
+            <Image
+              source={{uri: imageUrl}}
+              style={styles.attractionImage}
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={() => {
+                console.log('이미지 로드 실패:', imageUrl);
+                setImageError(true);
+                setImageLoading(false);
+              }}
+            />
+            {imageLoading && (
+              <View style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.attractionImagePlaceholder}>
+            <IcMapPin width={32} height={32} color={colors.white} />
+          </View>
+        )}
       </View>
       <View style={styles.attractionInfo}>
         <View style={styles.attractionHeader}>
           <View style={styles.nameAndBadgeContainer}>
-            <Text style={styles.attractionName}>{place.name}</Text>
+            <Text style={styles.attractionName}>
+              {place.name.split('(')[0]}
+            </Text>
             {isPlace && (
               <CongestionBadge
                 level={placeData.congestion_level}
@@ -58,7 +99,14 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
               />
             )}
           </View>
-          <TouchableOpacity style={styles.favoriteButton}>
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() =>
+              onToggleLike &&
+              onToggleLike(
+                isPlace ? placeData.place_id : festivalData.festival_id,
+              )
+            }>
             <IcHeart
               width={16}
               height={16}
@@ -73,18 +121,19 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             : formatDateRange(festivalData.start_date, festivalData.end_date)}
         </Text>
         <View style={styles.attractionDetails}>
+          {/*
           {isPlace && (
             <>
               <Text style={styles.attractionDistance}>315m</Text>
               <Text style={styles.attractionSeparator}>|</Text>
             </>
           )}
+            */}
           <Text style={styles.attractionLocation}>
-            {isPlace ? (place as PlaceListItem).address : (place as FestivalListItem).address}
+            {isPlace
+              ? (place as PlaceListItem).address
+              : (place as FestivalListItem).address}
           </Text>
-          <TouchableOpacity style={styles.expandButton}>
-            <Text style={styles.expandIcon}>⌄</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </TouchableOpacity>
@@ -103,6 +152,28 @@ const styles = StyleSheet.create({
   attractionImageContainer: {
     marginRight: 12,
   },
+  imageWrapper: {
+    width: 80,
+    height: 80,
+    position: 'relative',
+  },
+  attractionImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: colors.gray[200],
+  },
+  imageLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.gray[200],
+    borderRadius: 8,
+  },
   attractionImagePlaceholder: {
     width: 80,
     height: 80,
@@ -110,10 +181,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  attractionImageText: {
-    fontSize: 12,
-    color: colors.white,
   },
   attractionInfo: {
     flex: 1,

@@ -1,5 +1,5 @@
 export interface BaseApiResponse<T = any> {
-  isSuccess: boolean;
+  is_success: boolean;
   code: string;
   message: string;
   result?: T;

@@ -1,230 +1,336 @@
+/**
+ * 마이페이지 화면
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   SafeAreaView,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  StatusBar,
+  Linking,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 
-const MyPageScreen = () => {
+const MyPageScreen: React.FC = () => {
   const navigation = useNavigation();
+  const [user, setUser] = useState<any>(null);
 
-  const menuItems = [
-    {
-      category: '이용안내',
-      items: [
-        {icon: '✉️', title: '문의하기'},
-        {icon: '📄', title: '서비스 이용약관'},
-        {icon: '🔒', title: '개인정보 처리방침'},
-      ],
-    },
-    {
-      category: '기타',
-      items: [
-        {icon: '👥', title: '회원 탈퇴'},
-        {icon: '🚪', title: '로그아웃'},
-      ],
-    },
-  ];
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
-  const handleMenuPress = (title: string) => {
-    console.log(`${title} 메뉴 클릭됨`);
-    // 각 메뉴별 기능 구현
+  const loadUserData = async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (error) {
+      console.error('사용자 데이터 로드 실패:', error);
+    }
+  };
+
+  const handleInquiry = () => {
+    const email = 'psh2968@naver.com';
+    const subject = '문의사항';
+    const body = '안녕하세요.\n\n문의사항을 작성해주세요.';
+    
+    const emailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    Linking.canOpenURL(emailUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(emailUrl);
+        } else {
+          Alert.alert('알림', '관리자에게 이메일을 보내주세요.\n\n이메일: psh2968@naver.com');
+        }
+      })
+      .catch((err) => {
+        console.error('이메일 앱 열기 실패:', err);
+        Alert.alert('알림', '관리자에게 이메일을 보내주세요.\n\n이메일: psh2968@naver.com');
+      });
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      '로그아웃',
+      '정말 로그아웃 하시겠습니까?',
+      [
+        {
+          text: '취소',
+          style: 'cancel',
+        },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('=== 로그아웃 시작 ===');
+              console.log('현재 사용자:', user?.email);
+              
+              // AsyncStorage에서 모든 인증 정보 삭제
+              await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+              
+              console.log('=== 로그아웃 완료 ===');
+              console.log('저장소 정리 완료');
+              
+              // 간단한 성공 메시지 후 자동으로 로그인 화면으로 이동
+              Alert.alert('알림', '로그아웃되었습니다.');
+              
+              // App.tsx의 주기적 체크가 로그아웃 상태를 감지하여 자동으로 스플래시 화면으로 이동
+            } catch (error) {
+              console.error('로그아웃 실패:', error);
+              Alert.alert('오류', '로그아웃 중 문제가 발생했습니다.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>마이페이지</Text>
-          <TouchableOpacity
-            style={styles.settingsButton}
-            onPress={() => navigation.goBack()}>
-            <Text style={styles.settingsIcon}>👤</Text>
-          </TouchableOpacity>
+          <View style={styles.headerProfileIcon}>
+            <IcUserCircle width={24} height={24} />
+          </View>
         </View>
 
-        {/* 사용자 정보 카드 */}
-        <View style={styles.userCard}>
-          <View style={styles.userInfo}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>👤</Text>
-            </View>
-            <View style={styles.userDetails}>
-              <Text style={styles.userName}>사용자명</Text>
-              <Text style={styles.userEmail}>user@example.com</Text>
-            </View>
+        {/* 사용자 정보 */}
+        <View style={styles.userSection}>
+          <View style={styles.profileIcon}>
+          </View>
+          <View style={styles.userDetails}>
+            <Text style={styles.userName}>사용자명</Text>
+            <Text style={styles.userEmail}>user@example.com</Text>
           </View>
         </View>
 
         {/* 내 좋아요 목록 */}
         <TouchableOpacity 
           style={styles.favoriteSection}
-          onPress={() => navigation.navigate('FavoriteList' as never)}>
-          <View style={styles.favoriteContent}>
-            <Text style={styles.favoriteIcon}>🤍</Text>
-            <Text style={styles.favoriteText}>내 좋아요 목록</Text>
+          onPress={() => navigation.navigate('FavoriteList' as never)}
+        >
+          <View style={styles.favoriteIcon}>
+            <Text style={styles.favoriteIconText}>❤️</Text>
           </View>
-          <Text style={styles.arrow}>›</Text>
+          <Text style={styles.favoriteText}>내 좋아요 목록</Text>
+          <Text style={styles.favoriteArrow}>›</Text>
         </TouchableOpacity>
 
-        {/* 메뉴 섹션들 */}
-        {menuItems.map((section, sectionIndex) => (
-          <View key={sectionIndex} style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>{section.category}</Text>
-            {section.items.map((item, itemIndex) => (
-              <TouchableOpacity
-                key={itemIndex}
-                style={styles.menuItem}
-                onPress={() => handleMenuPress(item.title)}>
-                <View style={styles.menuContent}>
-                  <Text style={styles.menuIcon}>{item.icon}</Text>
-                  <Text style={styles.menuText}>{item.title}</Text>
-                </View>
-                <Text style={styles.arrow}>›</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
+        {/* 이용안내 */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>이용안내</Text>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={handleInquiry}>
+            <View style={styles.menuIconContainer}>
+              <Text style={styles.menuIcon}>📧</Text>
+            </View>
+            <Text style={styles.menuText}>문의하기</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('TermsOfService' as never)}
+          >
+            <View style={styles.menuIconContainer}>
+              <Text style={styles.menuIcon}>📄</Text>
+            </View>
+            <Text style={styles.menuText}>서비스 이용약관</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('PrivacyPolicy' as never)}
+          >
+            <View style={styles.menuIconContainer}>
+              <Text style={styles.menuIcon}>🔒</Text>
+            </View>
+            <Text style={styles.menuText}>개인정보 처리방침</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 기타 */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>기타</Text>
+          
+          <TouchableOpacity style={styles.menuItem}>
+            <View style={styles.menuIconContainer}>
+              <Text style={styles.menuIcon}>👥</Text>
+            </View>
+            <Text style={styles.menuText}>회원 탈퇴</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+            <View style={styles.menuIconContainer}>
+              <Text style={styles.menuIcon}>📱</Text>
+            </View>
+            <Text style={styles.menuText}>로그아웃</Text>
+            <Text style={styles.menuArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f9fa',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontWeight: '600',
+    color: '#333',
   },
-  settingsButton: {
-    padding: 4,
-  },
-  settingsIcon: {
-    fontSize: 24,
-    color: '#666666',
-  },
-  userCard: {
-    backgroundColor: '#e8f4fd',
-    marginHorizontal: 20,
-    marginTop: 20,
+  headerProfileIcon: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  userInfo: {
+  userSection: {
+    backgroundColor: '#D1E2F8',
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#d0d0d0',
+  profileIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#c8c8c8',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  avatarText: {
-    fontSize: 20,
-    color: '#888888',
+  profileIconText: {
+    fontSize: 32,
+    color: '#888',
   },
   userDetails: {
     flex: 1,
   },
   userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 14,
-    color: '#888888',
+    color: '#666',
   },
   favoriteSection: {
     backgroundColor: '#ffffff',
-    marginHorizontal: 20,
-    marginTop: 20,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  favoriteContent: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
   },
   favoriteIcon: {
-    fontSize: 24,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  favoriteIconText: {
+    fontSize: 20,
   },
   favoriteText: {
+    flex: 1,
     fontSize: 16,
-    color: '#000000',
+    fontWeight: '500',
+    color: '#333',
   },
-  arrow: {
-    fontSize: 20,
-    color: '#cccccc',
+  favoriteArrow: {
+    fontSize: 18,
+    color: '#ccc',
   },
-  menuSection: {
-    marginTop: 40,
-    paddingHorizontal: 20,
+  sectionContainer: {
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 20,
+    marginBottom: 8,
   },
   menuItem: {
     backgroundColor: '#ffffff',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    marginBottom: 1,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  menuContent: {
-    flexDirection: 'row',
+  menuIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   menuIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    width: 24,
-    textAlign: 'center',
-    color: '#cccccc',
+    fontSize: 18,
   },
   menuText: {
+    flex: 1,
     fontSize: 16,
-    color: '#000000',
+    fontWeight: '500',
+    color: '#333',
+  },
+  menuArrow: {
+    fontSize: 18,
+    color: '#ccc',
   },
 });
 

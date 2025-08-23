@@ -1,7 +1,7 @@
 export enum PlaceType {
   SIGHT = 'SIGHT',
   RESTAURANT = 'RESTAURANT',
-  CAFE = 'CAFE',
+  CULTURE = 'CULTURE',
 }
 
 export enum CardType {
@@ -53,15 +53,51 @@ export interface RestaurantDetail extends PlaceDetailBase, WeeklyHours {
   review: Review[];
 }
 
-export interface CafeDetail extends PlaceDetailBase, WeeklyHours {
-  type: PlaceType.CAFE;
+export interface CultureDetail extends PlaceDetailBase, WeeklyHours {
+  type: PlaceType.CULTURE;
   review: Review[];
 }
 
-export type PlaceDetail = SightDetail | RestaurantDetail | CafeDetail;
+export type PlaceDetail = SightDetail | RestaurantDetail | CultureDetail;
 
 export interface PlaceListResult {
   place_list: PlaceListItem[];
+}
+
+export interface ApiPlaceItem {
+  id: number;
+  name: string;
+  congestion_level: number;
+  is_like: boolean;
+  like_amount: number;
+  type: string;
+  address: string;
+  img?: string;
+}
+
+export interface ApiPlaceListResponse {
+  '@class': string;
+  place_list: ApiPlaceItem[] | [string, ApiPlaceItem[]];
+}
+
+export interface ApiResponse<T> {
+  is_success: boolean;
+  code: string;
+  message: string;
+  result: T;
+}
+
+export enum PlaceCategory {
+  ALL = 'ALL',
+  SIGHT = 'SIGHT',
+  RESTAURANT = 'RESTAURANT',
+  CULTURE = 'CULTURE',
+}
+
+export enum PlaceSort {
+  DEFAULT = 'DEFAULT',
+  LIKE = 'LIKE',
+  CONGESTION = 'CONGESTION',
 }
 
 export interface WeeklyHours {

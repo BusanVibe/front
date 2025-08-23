@@ -5,6 +5,8 @@ import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
 import MyPageScreen from '../screens/MyPageScreen';
 import FavoriteListScreen from '../screens/FavoriteListScreen';
+import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import PlaceDetailScreen from '../screens/PlaceDetailScreen';
 import FestivalDetailScreen from '../screens/FestivalDetailScreen';
 import CustomHeader from '../components/CustomHeader';
@@ -16,6 +18,8 @@ export type RootStackParamList = {
   Search: undefined;
   MyPage: undefined;
   FavoriteList: undefined;
+  TermsOfService: undefined;
+  PrivacyPolicy: undefined;
   PlaceDetail: {
     place: PlaceListItem;
   };
@@ -34,12 +38,12 @@ const RootNavigator = () => {
         component={TabNavigator}
         options={{headerShown: false}}
       />
-      <Stack.Screen 
-        name="Search" 
+      <Stack.Screen
+        name="Search"
         component={SearchScreen}
         options={{
           header: () => (
-            <CustomHeader 
+            <CustomHeader
               showSearchInput={true}
               searchPlaceholder="관광지 · 장소 · 축제 검색"
             />
@@ -58,12 +62,21 @@ const RootNavigator = () => {
         name="FavoriteList"
         component={FavoriteListScreen}
         options={{
-          header: () => (
-            <CustomHeader 
-              title="좋아요"
-              showBackButton={true}
-            />
-          ),
+          header: () => <CustomHeader title="좋아요" showBackButton={true} />,
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerShown: false,
         }}
       />
       <Stack.Screen
@@ -71,10 +84,7 @@ const RootNavigator = () => {
         component={PlaceDetailScreen}
         options={{
           header: () => (
-            <CustomHeader 
-              title="장소 상세"
-              showBackButton={true}
-            />
+            <CustomHeader title="장소 상세" showBackButton={true} />
           ),
         }}
       />
@@ -83,10 +93,7 @@ const RootNavigator = () => {
         component={FestivalDetailScreen}
         options={{
           header: () => (
-            <CustomHeader 
-              title="축제 상세"
-              showBackButton={true}
-            />
+            <CustomHeader title="축제 상세" showBackButton={true} />
           ),
         }}
       />

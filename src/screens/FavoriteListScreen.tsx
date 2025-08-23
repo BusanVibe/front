@@ -5,13 +5,11 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
-  Modal,
+  StatusBar,
 } from 'react-native';
 import {PlaceListItem, PlaceType} from '../types/place';
-import {getPlaceTypeText} from '../utils/placeUtils';
 import {favoriteData} from '../mocks/dummy';
-import CongestionBadge from '../components/common/CongestionBadge';
+import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
 
@@ -78,46 +76,13 @@ const FavoriteListScreen: React.FC = () => {
 
 
   const renderFavoriteItem = ({item}: {item: PlaceListItem}) => (
-    <View style={styles.itemContainer}>
-      <View style={styles.imageContainer}>
-        {item.img ? (
-          <Image source={{uri: item.img}} style={styles.itemImage} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>이미지</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.contentContainer}>
-        <View style={styles.titleRow}>
-          <Text style={styles.itemTitle}>{item.name}</Text>
-          {item.congestion_level > 0 && (
-            <CongestionBadge level={item.congestion_level} />
-          )}
-        </View>
-
-        <Text style={styles.itemType}>{getPlaceTypeText(item.type)}</Text>
-
-        <View style={styles.locationRow}>
-          <Text style={styles.distance}>15m</Text>
-          <Text style={styles.separator}>|</Text>
-          <Text style={styles.address}>{item.address}</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={styles.heartButton}
-        onPress={() => toggleLike(item.place_id)}>
-        <Text style={[styles.heart, item.is_like && styles.heartActive]}>
-          {item.is_like ? '❤️' : '🤍'}
-        </Text>
-      </TouchableOpacity>
-    </View>
+    <AttractionCard place={item} onToggleLike={toggleLike} />
   );
 
   return (
-    <View style={styles.container}>
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.container}>
       {/* 카테고리 필터 */}
       <View style={styles.categoryContainer}>
         {categories.map(category => (
@@ -154,19 +119,14 @@ const FavoriteListScreen: React.FC = () => {
         contentContainerStyle={styles.listContainer}
       />
 
-      {/* 정렬 모달 */}
-      <Modal
-        visible={showSortModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSortModal(false)}
-      >
+      {/* 정렬 드롭다운 */}
+      {showSortModal && (
         <TouchableOpacity 
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setShowSortModal(false)}
         >
-          <View style={styles.modalContent}>
+          <View style={styles.dropdownContent}>
             {sortOptions.map((option) => (
               <TouchableOpacity
                 key={option}
@@ -189,8 +149,9 @@ const FavoriteListScreen: React.FC = () => {
             ))}
           </View>
         </TouchableOpacity>
-      </Modal>
-    </View>
+      )}
+      </View>
+    </>
   );
 };
 
@@ -232,93 +193,22 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: 16,
   },
-  itemContainer: {
-    flexDirection: 'row',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
-    alignItems: 'flex-start',
-  },
-  imageContainer: {
-    marginRight: 12,
-  },
-  itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-  },
-  imagePlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: colors.gray[200],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    ...typography.bodyMd,
-    color: colors.gray[500],
-  },
-  contentContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    gap: 8,
-  },
-  itemTitle: {
-    ...typography.subHeadingMd,
-    color: colors.black,
-    flex: 1,
-  },
-
-  itemType: {
-    ...typography.bodyMd,
-    color: colors.gray[600],
-    marginBottom: 4,
-  },
-
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  distance: {
-    ...typography.bodyMd,
-    color: colors.gray[600],
-  },
-  separator: {
-    ...typography.bodyMd,
-    color: colors.gray[600],
-    marginHorizontal: 4,
-  },
-  address: {
-    ...typography.bodyMd,
-    color: colors.gray[600],
-    flex: 1,
-  },
-  heartButton: {
-    padding: 4,
-  },
-  heart: {
-    fontSize: 20,
-  },
-  heartActive: {
-    color: colors.red[500],
-  },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
   },
-  modalContent: {
+  dropdownContent: {
+    position: 'absolute',
+    top: 40, // 카테고리 컨테이너 높이보다 조금 위로 올림
+    right: 16,
     backgroundColor: colors.white,
-    borderRadius: 12,
-    paddingVertical: 8,
-    minWidth: 120,
+    borderRadius: 8,
+    paddingVertical: 4,
+    minWidth: 100,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -327,10 +217,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: colors.gray[200],
   },
   sortOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   sortOptionActive: {
     backgroundColor: colors.primary[100],
