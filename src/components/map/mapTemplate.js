@@ -183,58 +183,43 @@ export const createMapHTML = (config) => {
           }
 
           createPingMarkerHTML(props) {
-            const style = this.getPingStyle(props);
-            
-            return \`
-              <style>
-                @keyframes ping-pulse-blue {
-                  0% { transform: scale(1); opacity: 1; }
-                  50% { transform: scale(1.3); opacity: 0.7; }
-                  100% { transform: scale(1.6); opacity: 0; }
-                }
-                .ping-container-\${props.id} {
-                  position: relative;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                }
-                .ping-marker-\${props.id} {
-                  width: \${style.markerSize};
-                  height: \${style.markerSize};
-                  background-color: \${style.markerColor};
-                  border: \${style.borderWidth} solid \${style.borderColor};
-                  border-radius: 50%;
-                  box-shadow: \${style.shadowStyle};
-                  cursor: pointer;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: calc(\${style.markerSize} * 0.5);
-                  position: relative;
-                  z-index: 2;
-                  transition: transform 0.2s ease;
-                }
-                .ping-marker-\${props.id}:hover {
-                  transform: scale(1.1);
-                }
-                .ping-pulse-\${props.id} {
-                  position: absolute;
-                  width: \${style.markerSize};
-                  height: \${style.markerSize};
-                  background-color: \${style.markerColor};
-                  border-radius: 50%;
-                  opacity: 0.6;
-                  animation: \${style.pulseAnimation} 2s infinite;
-                  z-index: 1;
-                }
-              </style>
-              <div class="ping-container-\${props.id}">
-                \${style.pulseAnimation !== 'none' ? \`<div class="ping-pulse-\${props.id}"></div>\` : ''}
-                <div class="ping-marker-\${props.id}">
-                  \${style.icon}
-                </div>
-              </div>
-            \`;
+            if (props.type === 'current-location') {
+              const idSafe = String(props.id || 'current-location').replace(/[^a-zA-Z0-9_-]/g, '');
+              const core = 18;         // 파란 점 내부 지름(px)
+              const border = 3;        // 흰 테두리(px)
+              const color = '#4285F4';
+              // 단일 엘리먼트(파란 점)만 사용하고 box-shadow 확장 애니메이션으로 웨이브 표현 → 중심 완전 일치
+              return (
+                '<div style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);width:0;height:0;pointer-events:auto;">' +
+                  '<style>' +
+                    '@keyframes bvibe-ripple-' + idSafe + ' {' +
+                      // 중심 고정, 그림자 반경만 확장해서 파동 표현
+                      '0%{box-shadow:0 0 0 0 rgba(66,133,244,0.35);}' +
+                      '70%{box-shadow:0 0 0 22px rgba(66,133,244,0);}' +
+                      '100%{box-shadow:0 0 0 26px rgba(66,133,244,0);}' +
+                    '}' +
+                    '.cl-' + idSafe + ' {' +
+                      'position:absolute;left:0;top:0;transform:translate(-50%,-50%);' +
+                      'width:' + core + 'px;height:' + core + 'px;background:' + color + ';' +
+                      'border:' + border + 'px solid #ffffff;border-radius:50%;' +
+                      // 기본 드롭쉐도 + 리플 애니메이션 동시 적용
+                      'box-shadow:0 2px 4px rgba(0,0,0,0.3);' +
+                      'animation:bvibe-ripple-' + idSafe + ' 1.8s ease-out infinite;' +
+                    '}' +
+                  '</style>' +
+                  '<div class="cl-' + idSafe + '"></div>' +
+                '</div>'
+              );
+            }
+
+            // POI: 간단 점 (중앙 정렬을 위해 0x0 래퍼 + translate)
+            const sizePx = 14;
+            const borderPx = 2;
+            const color = props.color || '#9AA0A6';
+            return '<div style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);width:0;height:0;pointer-events:auto;">' +
+              '<div style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);' +
+              'width:' + sizePx + 'px;height:' + sizePx + 'px;background:' + color + ';border:' + borderPx + 'px solid #ffffff;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>' +
+            '</div>';
           }
 
           addPing(pingData) {
@@ -253,21 +238,19 @@ export const createMapHTML = (config) => {
               position: new kakao.maps.LatLng(location.latitude, location.longitude),
               content: markerHTML,
               yAnchor: 0.5,
+              xAnchor: 0.5,
               zIndex: pingData.zIndex || 100
             });
             
             console.log('CustomOverlay 생성 완료');
             
-            let infoOverlay = null;
-            if (showInfoWindow) {
-              const infoContent = this.createInfoWindowContent(pingData);
-              infoOverlay = new kakao.maps.CustomOverlay({
-                content: infoContent,
-                position: new kakao.maps.LatLng(location.latitude, location.longitude),
-                yAnchor: 1,
-                zIndex: (pingData.zIndex || 100) + 10
-              });
-            }
+            const infoContent = this.createInfoWindowContent(pingData);
+            let infoOverlay = new kakao.maps.CustomOverlay({
+              content: infoContent,
+              position: new kakao.maps.LatLng(location.latitude, location.longitude),
+              yAnchor: 1,
+              zIndex: (pingData.zIndex || 100) + 10
+            });
             
             const pingInstance = {
               id,
@@ -306,12 +289,40 @@ export const createMapHTML = (config) => {
             customOverlay.setMap(this.map);
             console.log('핑 지도 표시 완료:', id);
             
-            if (showInfoWindow && infoOverlay) {
-              pingInstance.showInfoWindow();
-            }
+            // 초기에는 표시 옵션에 따라만 보여줌
+            if (showInfoWindow && infoOverlay) pingInstance.showInfoWindow();
             
             this.pings.set(id, pingInstance);
             console.log(\`Ping 추가 완료: \${id} (\${pingData.type})\`);
+            // 마커 클릭 시 현재 인포윈도우 토글
+            try {
+              var overlayElement = customOverlay.getContent();
+              if (typeof overlayElement === 'string') {
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = overlayElement;
+                overlayElement = tempDiv.firstChild;
+                customOverlay.setContent(overlayElement);
+              }
+              overlayElement.addEventListener('click', () => {
+                if (pingInstance.isInfoWindowVisible) {
+                  pingInstance.hideInfoWindow();
+                } else {
+                  pingInstance.showInfoWindow();
+                }
+              });
+            } catch (e) {
+              console.warn('현재위치 마커 클릭 핸들러 설정 실패', e);
+            }
+
+            // 지도 다른 영역 클릭 시 인포윈도우 닫기
+            try {
+              kakao.maps.event.addListener(this.map, 'click', () => {
+                pingInstance.hideInfoWindow();
+              });
+            } catch (e) {
+              console.warn('지도 클릭 핸들러 설정 실패', e);
+            }
+
             return pingInstance;
           }
 
@@ -331,16 +342,17 @@ export const createMapHTML = (config) => {
             }
           }
 
-          updateCurrentLocationPing(location, showInfo = true) {
+          updateCurrentLocationPing(location, showInfo = false) {
             const currentLocationPing = {
               id: 'current-location',
               location: location,
               type: 'current-location',
               title: '현재 위치',
-              size: 'medium',
+              size: 'large',
               showPulse: true,
               showInfoWindow: showInfo,
-              autoHideInfo: showInfo ? 7000 : 0
+              autoHideInfo: 0,
+              zIndex: 2000
             };
             
             return this.addPing(currentLocationPing);
@@ -526,7 +538,8 @@ export const createMapHTML = (config) => {
                             var customOverlay = new kakao.maps.CustomOverlay({
                                 position: new kakao.maps.LatLng(lat, lng),
                                 content: markerContent,
-                                yAnchor: 0.5
+                                yAnchor: 0.5,
+                                xAnchor: 0.5
                             });
                             customOverlay.setMap(map);
                             window.apiMarkers.push(customOverlay);
@@ -795,7 +808,8 @@ export const createMapHTML = (config) => {
                         var customOverlay = new kakao.maps.CustomOverlay({
                             position: new kakao.maps.LatLng(lat, lng),
                             content: markerContent,
-                            yAnchor: 0.5
+                            yAnchor: 0.5,
+                            xAnchor: 0.5
                         });
                         customOverlay.setMap(window.kakaoMap);
                         
@@ -891,8 +905,8 @@ export const createMapHTML = (config) => {
             }
         }
 
-        // React Native에서 메시지 수신
-        window.addEventListener('message', function(event) {
+        // React Native에서 메시지 수신 (window/document 모두 리스닝)
+        function handleRNMessage(event) {
             console.log('🔵 WebView 메시지 수신:', event.data);
             try {
                 var data = JSON.parse(event.data);
@@ -901,27 +915,41 @@ export const createMapHTML = (config) => {
                 if (data.type === 'updateMarkers') {
                     updateMarkers(data.markers);
                 } else if (data.type === 'updatePlacePings') {
-                    // API 응답 장소들을 핑으로 표시
-                    console.log('🎯 updatePlacePings 메시지 수신:', data.places?.length, '개 장소');
-                    console.log('🎯 첫 번째 장소 데이터:', data.places?.[0]);
-                    console.log('🎯 PingManager 존재 여부:', !!window.pingManager);
-                    
-                    if (window.pingManager && data.places) {
+                    var len = (data.places && Array.isArray(data.places)) ? data.places.length : 0;
+                    console.log('🎯 updatePlacePings 메시지 수신:', len, '개 장소');
+                    if (window.pingManager && len > 0) {
                         window.pingManager.addPlacePingsFromApiResponse(data.places);
+                    } else if (len === 0) {
+                        console.log('ℹ️ 전달된 장소 없음 - 핑 업데이트 생략');
+                        if (window.pingManager) {
+                            window.pingManager.removePoiPings();
+                        }
                     } else {
-                        console.error('❌ PingManager 또는 places 데이터 없음');
+                        console.error('❌ PingManager 없음');
                     }
                 } else if (data.type === 'moveToLocation') {
                     moveToLocation(data.latitude, data.longitude, data.showCurrentLocation);
                 } else if (data.type === 'hideCurrentLocation') {
                     hideCurrentLocation();
+                } else if (data.type === 'setCurrentLocationPing') {
+                    if (window.pingManager && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+                        window.pingManager.updateCurrentLocationPing({
+                            latitude: data.latitude,
+                            longitude: data.longitude
+                        }, false);
+                        console.log('현재 위치 Ping 업데이트(이동 없음) 완료');
+                    }
                 } else {
                     console.log('🔵 알 수 없는 메시지 타입:', data.type);
                 }
             } catch (error) {
                 console.error('❌ 메시지 파싱 오류:', error);
             }
-        });
+        }
+        window.addEventListener('message', handleRNMessage);
+        if (document && document.addEventListener) {
+            document.addEventListener('message', handleRNMessage);
+        }
 
                  // 지도 중심 이동 함수
          function moveToLocation(latitude, longitude, showCurrentLocation) {
@@ -933,13 +961,13 @@ export const createMapHTML = (config) => {
                  window.kakaoMap.setLevel(5); // 현재위치 버튼 클릭 시 기본 줌 레벨 5로 설정
                  console.log('줌 레벨을 5로 설정했습니다');
                  
-                 // 현재 위치 Ping 표시가 필요한 경우
-                 if (showCurrentLocation) {
+                 // 현재 위치 Ping은 항상 업데이트 (팻말은 showCurrentLocation에 따라 제어)
+                 if (window.pingManager) {
                      window.pingManager.updateCurrentLocationPing({
                          latitude: latitude,
                          longitude: longitude
-                     }, true);
-                     console.log('현재 위치 Ping 업데이트 완료');
+                     }, false);
+                     console.log('현재 위치 Ping 업데이트 완료(항상)');
                  }
                  
                  console.log('지도 중심 이동 완료');
