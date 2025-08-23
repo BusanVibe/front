@@ -308,6 +308,21 @@ class PingManager {
         if (onClick) {
           onClick();
         }
+
+        // RN으로 장소 클릭 이벤트 전달 (현재 위치 제외)
+        try {
+          if (typeof window !== 'undefined' && window.ReactNativeWebView && pingData.type !== 'current-location') {
+            const guessedId = (typeof pingData.placeId !== 'undefined') ? pingData.placeId : (String(id || '').startsWith('poi-') ? Number(String(id).replace('poi-','')) : undefined);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'poiClicked',
+              placeId: guessedId,
+              id: id,
+              name: pingData.title,
+              latitude: location.latitude,
+              longitude: location.longitude
+            }));
+          }
+        } catch (e) {}
       });
     }
 
