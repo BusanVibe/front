@@ -10,5 +10,9 @@
     "paths": {
       "@screens/*": ["./screens/*"]
     }
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
 }

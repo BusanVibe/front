@@ -16,7 +16,7 @@ import {
 import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createMapHTML } from '../components/map/mapTemplate';
+import { createMapHTML } from '../components/map/mapTemplate.ts';
 
 // 타입 정의
 interface Location {

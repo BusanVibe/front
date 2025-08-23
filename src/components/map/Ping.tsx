@@ -165,6 +165,7 @@ export const createInfoWindowContent = (props: PingProps): string => {
 export const createPingMarkerHTML = (props: PingProps): string => {
   const style = getPingStyle(props);
   const { customStyle } = props;
+  const showLabel = props.type !== 'current-location' && !!props.title;
 
   const pulseKeyframes = `
     @keyframes ping-pulse-blue {
@@ -200,8 +201,9 @@ export const createPingMarkerHTML = (props: PingProps): string => {
       .ping-container-${props.id} {
         position: relative;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
       }
       .ping-marker-${props.id} {
         width: ${style.markerSize};
@@ -232,12 +234,26 @@ export const createPingMarkerHTML = (props: PingProps): string => {
         animation: ${style.pulseAnimation} 2s infinite;
         z-index: 1;
       }
+      .ping-label-${props.id} {
+        margin-top: 6px;
+        background: #ffffff;
+        color: #333333;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        white-space: nowrap;
+        border: 1px solid rgba(0,0,0,0.08);
+        pointer-events: none;
+        z-index: 3;
+      }
     </style>
     <div class="ping-container-${props.id}" ${customStyle ? `style="${customStyle}"` : ''}>
       ${style.pulseAnimation !== 'none' ? `<div class="ping-pulse-${props.id}"></div>` : ''}
       <div class="ping-marker-${props.id}">
         ${style.icon}
       </div>
+      ${showLabel ? `<div class="ping-label-${props.id}">${props.title}</div>` : ''}
     </div>
   `;
 };
