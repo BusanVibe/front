@@ -94,6 +94,7 @@ const CongestionScreen = () => {
   const [realtimeStandardHour, setRealtimeStandardHour] = useState<number | null>(null);
   const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
   const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
+  const [visitorDistribution, setVisitorDistribution] = useState<{ age: string; male: number; female: number }[] | null>(null);
   const webViewRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastLocationRef = useRef<CachedLocation | null>(null);
@@ -155,6 +156,36 @@ const CongestionScreen = () => {
       }
     } catch (e) {
       console.warn('실시간 혼잡도 조회 실패', e);
+    }
+  };
+
+  // 성별·연령 분포 조회
+  const fetchVisitorDistribution = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}/distribution`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+      });
+      const txt = await res.text();
+      console.log('이용객 분포 응답:', txt);
+      const data = JSON.parse(txt);
+      const ok = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && ok && data.result) {
+        const r = data.result;
+        const toNum = (v: any) => typeof v === 'number' ? v : Number(v || 0);
+        const mapped = [
+          { age: '10·20대', male: toNum(r.male1020), female: toNum(r.female1020) },
+          { age: '30·40대', male: toNum(r.male3040), female: toNum(r.female3040) },
+          { age: '50·60대', male: toNum(r.male5060), female: toNum(r.female5060) },
+          { age: '70대 이상', male: toNum(r.male70), female: toNum(r.female70) },
+        ];
+        setVisitorDistribution(mapped);
+      }
+    } catch (e) {
+      console.warn('이용객 분포 조회 실패', e);
     }
   };
 
@@ -873,9 +904,10 @@ const CongestionScreen = () => {
                   }
                   const pid = typeof data.placeId === 'number' ? data.placeId : (typeof data.id === 'string' && data.id.startsWith('poi-') ? Number(data.id.replace('poi-', '')) : NaN);
                   if (!isNaN(pid)) {
-                    // 상세 + 실시간 병렬 호출
+                    // 상세 + 실시간 + 분포 병렬 호출
                     fetchPlaceDetail(pid);
                     fetchRealtimeCongestion(pid);
+                    fetchVisitorDistribution(pid);
                   }
                 }
               } catch (error) {
@@ -1059,25 +1091,32 @@ const CongestionScreen = () => {
                 </View>
 
                 <View style={styles.visitorChartContainer}>
-                  {visitorData.map((item, index) => (
-                    <View key={index} style={styles.visitorBarGroup}>
-                      <View style={styles.visitorBars}>
-                        <View
-                          style={[
-                            styles.visitorBar,
-                            { height: item.male * 2, backgroundColor: '#6bb6ff' },
-                          ]}
-                        />
-                        <View
-                          style={[
-                            styles.visitorBar,
-                            { height: item.female * 2, backgroundColor: '#ff9999' },
-                          ]}
-                        />
+                  {(() => {
+                    const dist = visitorDistribution || visitorData;
+                    const maxVal = Math.max(
+                      ...dist.map((d: any) => Math.max(Number(d.male) || 0, Number(d.female) || 0)),
+                      1
+                    );
+                    return dist.map((item: any, index: number) => (
+                      <View key={index} style={styles.visitorBarGroup}>
+                        <View style={styles.visitorBars}>
+                          <View
+                            style={[
+                              styles.visitorBar,
+                              { height: Math.max(4, Math.round(((Number(item.male) || 0) / maxVal) * 100)), backgroundColor: '#6bb6ff' },
+                            ]}
+                          />
+                          <View
+                            style={[
+                              styles.visitorBar,
+                              { height: Math.max(4, Math.round(((Number(item.female) || 0) / maxVal) * 100)), backgroundColor: '#ff9999' },
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.visitorLabel}>{item.age}</Text>
                       </View>
-                      <Text style={styles.visitorLabel}>{item.age}</Text>
-                    </View>
-                  ))}
+                    ));
+                  })()}
                 </View>
               </View>
 
