@@ -57,6 +57,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     }
   };
 
+
   // 거리 계산
   const getDistanceText = (): string | null => {
     if (!isPlace || !hasLocationPermission || !userLocation) {
