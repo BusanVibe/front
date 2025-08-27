@@ -7,7 +7,10 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
+import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
 import {useLocation} from '../../contexts/LocationContext';
@@ -16,6 +19,8 @@ import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
 import IcMapPin from '../../assets/icon/ic_map_pin.svg';
+
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
@@ -28,6 +33,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   cardType = CardType.PLACE,
   onToggleLike,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const {userLocation, hasLocationPermission} = useLocation();
@@ -42,6 +48,15 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     };
     return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
   };
+
+  const handlePress = () => {
+    if (isPlace) {
+      navigation.navigate('PlaceDetail', {place: placeData});
+    } else {
+      navigation.navigate('FestivalDetail', {festival: festivalData});
+    }
+  };
+
 
   // 거리 계산
   const getDistanceText = (): string | null => {
@@ -69,7 +84,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   const distanceText = getDistanceText();
 
   return (
-    <View style={styles.attractionItem}>
+    <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
       <View style={styles.attractionImageContainer}>
         {hasImage && !imageError ? (
           <View style={styles.imageWrapper}>
@@ -144,7 +159,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
