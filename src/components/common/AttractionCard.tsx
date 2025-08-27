@@ -129,7 +129,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             onPress={() =>
               onToggleLike &&
               onToggleLike(
-                isPlace ? placeData.place_id : festivalData.festival_id,
+                isPlace ? placeData.place_id : festivalData.id,
               )
             }>
             <IcHeart

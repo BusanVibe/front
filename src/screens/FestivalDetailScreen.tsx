@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
 } from 'react-native';
 import {RouteProp, useRoute} from '@react-navigation/native';
-import {FestivalListItem} from '../types/festival';
+import {FestivalListItem, FestivalDetailResult} from '../types/festival';
 import {RootStackParamList} from '../navigation/RootNavigator';
+import {FestivalService} from '../services/festivalService';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
 import IcHeart from '../assets/icon/ic_heart.svg';
@@ -25,6 +30,9 @@ const FestivalDetailScreen = () => {
   const route = useRoute<FestivalDetailScreenRouteProp>();
   const {festival} = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [festivalDetail, setFestivalDetail] = useState<FestivalDetailResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const formatDateRange = (startDate: string, endDate: string) => {
     const formatDate = (dateStr: string) => {
@@ -47,51 +55,153 @@ const FestivalDetailScreen = () => {
     }
   };
 
-  const status = getStatus(festival.start_date, festival.end_date);
+  const currentFestival = festivalDetail || festival;
+  const status = getStatus(currentFestival.start_date, currentFestival.end_date);
+  
+  const images = festivalDetail?.img?.[1] || [];
 
-  // 임시 이미지 배열 (실제로는 API에서 받아올 데이터)
-  const images = [
-    'https://via.placeholder.com/400x300/4A90E2/FFFFFF?text=축제+이미지+1',
-    'https://via.placeholder.com/400x300/8CB6EE/FFFFFF?text=축제+이미지+2',
-    'https://via.placeholder.com/400x300/B8D4F0/FFFFFF?text=축제+이미지+3',
-  ];
+  const handleIndicatorPress = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
+  const handleImagePress = () => {
+    if (images.length > 1) {
+      const nextIndex = currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1;
+      setCurrentImageIndex(nextIndex);
+    }
+  };
+
+  const handleSiteUrlPress = async () => {
+    if (festivalDetail?.site_url) {
+      try {
+        const url = festivalDetail.site_url.startsWith('http') 
+          ? festivalDetail.site_url 
+          : `https://${festivalDetail.site_url}`;
+        
+        const canOpen = await Linking.canOpenURL(url);
+        if (canOpen) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert('오류', '링크를 열 수 없습니다.');
+        }
+      } catch (error) {
+        console.error('링크 열기 오류:', error);
+        Alert.alert('오류', '링크를 열 수 없습니다.');
+      }
+    }
+  };
+
+  const handlePhonePress = async () => {
+    if (festivalDetail?.phone) {
+      try {
+        // 전화번호에서 숫자만 추출
+        const phoneNumber = festivalDetail.phone.replace(/[^0-9]/g, '');
+        const phoneUrl = `tel:${phoneNumber}`;
+        
+        const canOpen = await Linking.canOpenURL(phoneUrl);
+        if (canOpen) {
+          await Linking.openURL(phoneUrl);
+        } else {
+          Alert.alert('오류', '전화 기능을 사용할 수 없습니다.');
+        }
+      } catch (error) {
+        console.error('전화 걸기 오류:', error);
+        Alert.alert('오류', '전화 기능을 사용할 수 없습니다.');
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchFestivalDetail();
+  }, []);
+
+  const fetchFestivalDetail = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await FestivalService.getFestivalDetail(festival.id);
+      if (response.is_success) {
+        setFestivalDetail(response.result || null);
+      } else {
+        setError('축제 상세 정보를 불러올 수 없습니다.');
+      }
+    } catch (error) {
+      console.error('축제 상세 조회 에러:', error);
+      setError('네트워크 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>축제 정보를 불러오는 중...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchFestivalDetail}>
+          <Text style={styles.retryButtonText}>다시 시도</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imageText}>축제 이미지</Text>
-        </View>
+        {images.length > 0 ? (
+          <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+            <Image
+              source={{uri: images[currentImageIndex]}}
+              style={styles.festivalImage}
+              onError={() => console.log('이미지 로드 실패:', images[currentImageIndex])}
+            />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imageText}>축제 이미지</Text>
+          </View>
+        )}
 
         {/* 이미지 인디케이터 */}
-        <View style={styles.imageIndicator}>
-          {images.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.indicatorDot,
-                index === currentImageIndex
-                  ? styles.activeDot
-                  : styles.inactiveDot,
-              ]}
-            />
-          ))}
-        </View>
+        {images.length > 1 && (
+          <View style={styles.imageIndicator}>
+            {images.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.indicatorDot,
+                  index === currentImageIndex
+                    ? styles.activeDot
+                    : styles.inactiveDot,
+                ]}
+                onPress={() => handleIndicatorPress(index)}
+              />
+            ))}
+          </View>
+        )}
 
         {/* 좋아요 버튼 */}
         <TouchableOpacity style={styles.favoriteButton}>
           <IcHeart
             width={24}
             height={24}
-            color={festival.is_like ? colors.red[500] : colors.white}
-            fill={festival.is_like ? colors.red[500] : 'none'}
+            color={currentFestival.is_like ? colors.red[500] : colors.white}
+            fill={currentFestival.is_like ? colors.red[500] : 'none'}
           />
         </TouchableOpacity>
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <Text style={styles.likeCount}>210</Text>
+          <Text style={styles.likeCount}>{festivalDetail?.like_amount || currentFestival.like_amount || 0}</Text>
         </View>
       </View>
 
@@ -99,7 +209,7 @@ const FestivalDetailScreen = () => {
       <View style={styles.infoContainer}>
         {/* 축제명과 상태 */}
         <View style={styles.headerContainer}>
-          <Text style={styles.festivalName}>{festival.name}</Text>
+          <Text style={styles.festivalName}>{currentFestival.name.split('(')[0]}</Text>
           <View style={[styles.statusBadge, {backgroundColor: status.color}]}>
             <Text style={styles.statusText}>{status.text}</Text>
           </View>
@@ -111,46 +221,49 @@ const FestivalDetailScreen = () => {
           <View style={styles.detailRow}>
             <IcCalendar width={16} height={16} color={colors.gray[600]} />
             <Text style={styles.detailText}>
-              {formatDateRange(festival.start_date, festival.end_date)}
+              {formatDateRange(currentFestival.start_date, currentFestival.end_date)}
             </Text>
           </View>
 
           {/* 위치 */}
-          <View style={styles.detailRow}>
-            <IcMapPin width={16} height={16} color={colors.gray[600]} />
-            <Text style={styles.detailText}>{festival.address}</Text>
-          </View>
+          {currentFestival.address && currentFestival.address.trim() !== '' && (
+            <View style={styles.detailRow}>
+              <IcMapPin width={16} height={16} color={colors.gray[600]} />
+              <Text style={styles.detailText}>{currentFestival.address}</Text>
+            </View>
+          )}
 
           {/* 전화번호 */}
-          <View style={styles.detailRow}>
-            <Text style={styles.iconText}>📞</Text>
-            <Text style={styles.detailText}>051-622-4251</Text>
-          </View>
+          {festivalDetail?.phone && festivalDetail.phone.trim() !== '' && (
+            <TouchableOpacity style={styles.detailRow} onPress={handlePhonePress}>
+              <Text style={styles.iconText}>📞</Text>
+              <Text style={[styles.detailText, styles.phoneText]}>{festivalDetail.phone}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* 가격 */}
-          <View style={styles.detailRow}>
-            <Text style={styles.iconText}>💰</Text>
-            <Text style={styles.detailText}>무료</Text>
-          </View>
+          {festivalDetail?.fee && festivalDetail.fee.trim() !== '' && (
+            <View style={styles.detailRow}>
+              <Text style={styles.iconText}>💰</Text>
+              <Text style={styles.detailText}>{festivalDetail.fee}</Text>
+            </View>
+          )}
         </View>
 
         {/* 소개 섹션 */}
         <View style={styles.introSection}>
           <Text style={styles.sectionTitle}>소개</Text>
           <Text style={styles.description}>
-            「광안리 M 드론라이트쇼」는 전국 최초로 개최되는 상설 드론라이트쇼로
-            매주 토요일, 매회 12분 내외로 광안리해변 어디서나 관람이 가능합니다.
-            {'\n\n'}
-            매주 새롭고 다채로운 콘텐츠와 다양한 시민참여 프로젝트를 통해
-            전세계에 희망과 행복의 메시지를 보내고, 관광객분들께는 잊지 못할
-            추억을 선사할 것입니다.
+            {festivalDetail?.introduce || '축제 소개 정보가 없습니다.'}
           </Text>
         </View>
 
         {/* 상세보기 버튼 */}
-        <TouchableOpacity style={styles.detailButton}>
-          <Text style={styles.detailButtonText}>상세보기</Text>
-        </TouchableOpacity>
+        {festivalDetail?.site_url && (
+          <TouchableOpacity style={styles.detailButton} onPress={handleSiteUrlPress}>
+            <Text style={styles.detailButtonText}>상세보기</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -171,6 +284,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a2e',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  festivalImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageWrapper: {
+    width: '100%',
+    height: '100%',
   },
   imageText: {
     fontSize: 18,
@@ -211,7 +333,8 @@ const styles = StyleSheet.create({
   likeCountContainer: {
     position: 'absolute',
     top: 68,
-    right: 30,
+    right: 20,
+    width: 40,
     alignItems: 'center',
   },
   likeCount: {
@@ -287,6 +410,45 @@ const styles = StyleSheet.create({
     ...typography.subHeadingMd,
     color: colors.white,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+  loadingText: {
+    ...typography.bodyLg,
+    color: colors.gray[700],
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 20,
+  },
+  errorText: {
+    ...typography.bodyLg,
+    color: colors.red[500],
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...typography.subHeadingMd,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  phoneText: {
+    color: colors.primary[500],
+    textDecorationLine: 'underline',
   },
 });
 

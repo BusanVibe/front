@@ -12,16 +12,32 @@ export interface FestivalListItem {
 export interface FestivalDetail {
   id: number;
   name: string;
-  like_count: number;
+  like_amount: number;
   start_date: string;
   end_date: string;
   address: string;
   phone: string;
-  fee: number;
+  fee: string;
   introduce: string;
-  img?: string;
+  img?: [string, string[]];
   is_like: boolean;
   site_url?: string;
+}
+
+export interface FestivalDetailResult {
+  "@class": string;
+  id: number;
+  img: [string, string[]];
+  name: string;
+  like_amount: number;
+  is_like: boolean;
+  start_date: string;
+  end_date: string;
+  address: string;
+  phone: string;
+  fee: string;
+  site_url: string;
+  introduce: string;
 }
 
 export interface FestivalListResult {

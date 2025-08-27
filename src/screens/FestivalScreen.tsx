@@ -174,13 +174,14 @@ const FestivalScreen = () => {
             <AttractionCard
               place={
                 {
-                  place_id: item.data.id,
+                  id: item.data.id,
                   name: item.data.name,
                   is_like: item.data.is_like,
                   address: item.data.address,
                   img: item.data.img,
                   start_date: item.data.start_date,
                   end_date: item.data.end_date,
+                  like_amount: item.data.like_amount,
                 } as any
               }
               cardType={CardType.FESTIVAL}
