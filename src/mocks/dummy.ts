@@ -3,22 +3,24 @@ import {PlaceListItem, PlaceType} from '../types/place';
 // 큐레이션 데이터
 export const curationData = [
   {
-    id: '1',
-    title: '광안리 M(Marvelous) 드론 라이트쇼',
-    period: '2022.04.02 ~ 2025.12.31',
-    image: 'https://picsum.photos/400/360?random=1',
+    id: '225',
+    title: '다대포 해수욕장 부산 바다 축제 ',
+    period: '2025.08.18 ~ 2025.08.18',
+    image:
+      'https://www.visitbusan.net/uploadImgs/files/cntnts/20191213191711585_thumbL',
   },
   {
-    id: '2',
-    title: '해변의 낭만과 아름다운 자연 경관, 해운대 해수욕장',
-    time: '매일 09:00 - 18:00',
-    image: 'https://picsum.photos/400/360?random=2',
+    id: '322',
+    title: '가야공원 - 도심 속 지친 마음의 짧은 쉼을 허락하는 공원',
+    time: '연중무휴',
+    image: 'http://tong.visitkorea.or.kr/cms/resource/10/3495510_image3_1.jpg',
   },
   {
-    id: '3',
-    title: '부산의 대표 관광지와 맛집 투어',
-    time: '매일 10:00 - 17:00',
-    image: 'https://picsum.photos/400/360?random=3',
+    id: '251',
+    title: '부산 국제 영화제',
+    period: '2025.08.18 ~ 2025.08.18',
+    image:
+      'https://www.visitbusan.net/uploadImgs/files/cntnts/20200110131702589_thumbL',
   },
 ];
 
