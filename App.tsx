@@ -28,6 +28,8 @@ const AppContent: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCode, setProcessedCode] = useState<string | null>(null);
+  const [attemptedEmailRefresh, setAttemptedEmailRefresh] = useState(false);
+  
 
   useEffect(() => {
     // 딥링크 처리 설정
@@ -58,6 +60,42 @@ const AppContent: React.FC = () => {
   }, []);
 
 
+
+  // 이메일이 'unknown'인 경우, 토큰으로 사용자 정보 재조회하여 이메일 갱신
+  useEffect(() => {
+    const refreshEmailIfUnknown = async () => {
+      try {
+        if (!user?.accessToken) return;
+        const response = await fetch('https://api.busanvibe.site/users/me', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`,
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const fetchedEmail = data?.result?.email;
+        if (fetchedEmail && fetchedEmail !== 'unknown') {
+          await login({
+            id: data?.result?.id || user.id || 0,
+            email: fetchedEmail,
+            accessToken: user.accessToken,
+            refreshToken: user.refreshToken,
+            tokenIssuedAt: user.tokenIssuedAt,
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    if (isAuthenticated && user?.email === 'unknown' && !attemptedEmailRefresh) {
+      setAttemptedEmailRefresh(true);
+      refreshEmailIfUnknown();
+    }
+  }, [isAuthenticated, user?.email, user?.accessToken]);
 
   const handleKakaoDeepLink = async (url: string) => {
     console.log('=== 카카오 딥링크 처리 시작 ===');
@@ -161,6 +199,48 @@ const AppContent: React.FC = () => {
     setProcessedCode(null);
     setShowWebView(true);
   };
+
+  const handleIdLogin = async () => {
+    console.log('=== 심사용(게스트) 로그인 시작 ===');
+    try {
+      setLoading(true);
+      const response = await fetch('https://api.busanvibe.site/users/login/guest', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const responseText = await response.text();
+      console.log('심사용 로그인 응답:', response.status, responseText);
+
+      if (!response.ok) {
+        throw new Error(responseText || '심사용 로그인 실패');
+      }
+
+      const data = JSON.parse(responseText);
+      if (data?.is_success && data?.result?.accessToken && data?.result?.refreshToken) {
+        await login({
+          id: 0,
+          email: 'guest@busanvibe',
+          accessToken: data.result.accessToken,
+          refreshToken: data.result.refreshToken,
+          tokenIssuedAt: Date.now(),
+        });
+        Alert.alert('심사용 로그인 완료', '1회용 계정으로 로그인되었습니다.');
+      } else {
+        Alert.alert('오류', data?.message || '심사용 로그인에 실패했습니다.');
+      }
+    } catch (e) {
+      console.error('심사용 로그인 오류:', e);
+      Alert.alert('오류', '심사용 로그인 처리 중 문제가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
 
   const handleWebViewNavigationStateChange = async (navState: any) => {
     const { url, loading } = navState;
@@ -397,10 +477,20 @@ const AppContent: React.FC = () => {
         {/* 카카오 로그인 버튼 */}
         <TouchableOpacity style={styles.kakaoButton} onPress={handleKakaoLogin}>
           <View style={styles.kakaoButtonContent}>
-            <Text style={styles.kakaoButtonIcon}>💬</Text>
+            <Text style={styles.leftIconText}>💬</Text>
             <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
           </View>
         </TouchableOpacity>
+
+        {/* 아이디 로그인 버튼 */}
+        <TouchableOpacity style={styles.idButton} onPress={handleIdLogin}>
+          <View style={styles.kakaoButtonContent}>
+            <LogoIcon width={28} height={28} style={styles.leftIcon} />
+            <Text style={styles.idButtonText}>심사용 로그인</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* 심사용 로그인은 게스트 API로 즉시 진행되므로 모달이 필요 없습니다. */}
       </LinearGradient>
     );
   }
@@ -476,15 +566,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  kakaoButtonIcon: {
-    fontSize: 24,
-    marginRight: 10,
+  leftIcon: {
+    position: 'absolute',
+    left: 16,
+  },
+  leftIconText: {
+    position: 'absolute',
+    left: 16,
+    fontSize: 22,
   },
   kakaoButtonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#3C1E1E',
+    textAlign: 'center',
+    width: '100%',
+  },
+  idButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    width: width - 40,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  idButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#202124',
+    textAlign: 'center',
+    width: '100%',
   },
   webViewContainer: {
     flex: 1,

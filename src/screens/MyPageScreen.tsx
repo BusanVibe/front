@@ -21,6 +21,9 @@ import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 const MyPageScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user: authUser, logout } = useAuth();
+  const isEmailKnown = !!authUser?.email && authUser.email !== 'unknown';
+  const displayName = isEmailKnown ? authUser!.email.split('@')[0] : '사용자';
+  const emailToShow = isEmailKnown ? authUser!.email : 'user@example.com';
 
   const handleInquiry = () => {
     const email = 'psh2968@naver.com';
@@ -95,8 +98,8 @@ const MyPageScreen: React.FC = () => {
           <View style={styles.profileIcon}>
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>사용자명</Text>
-            <Text style={styles.userEmail}>{authUser?.email || 'user@example.com'}</Text>
+            <Text style={styles.userName}>{displayName}</Text>
+            <Text style={styles.userEmail}>{emailToShow}</Text>
           </View>
         </View>
 
