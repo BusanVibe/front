@@ -2,7 +2,7 @@
  * 마이페이지 화면
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,28 +14,13 @@ import {
   StatusBar,
   Linking,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 
 const MyPageScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      const userData = await AsyncStorage.getItem('userData');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    } catch (error) {
-      console.error('사용자 데이터 로드 실패:', error);
-    }
-  };
+  const { user: authUser, logout } = useAuth();
 
   const handleInquiry = () => {
     const email = 'psh2968@naver.com';
@@ -73,18 +58,15 @@ const MyPageScreen: React.FC = () => {
           onPress: async () => {
             try {
               console.log('=== 로그아웃 시작 ===');
-              console.log('현재 사용자:', user?.email);
+              console.log('현재 사용자:', authUser?.email);
               
-              // AsyncStorage에서 모든 인증 정보 삭제
-              await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+              // AuthContext의 logout 함수 사용
+              await logout();
               
               console.log('=== 로그아웃 완료 ===');
-              console.log('저장소 정리 완료');
-              
-              // 간단한 성공 메시지 후 자동으로 로그인 화면으로 이동
               Alert.alert('알림', '로그아웃되었습니다.');
               
-              // App.tsx의 주기적 체크가 로그아웃 상태를 감지하여 자동으로 스플래시 화면으로 이동
+              // AuthContext 상태가 변경되면 App.tsx에서 자동으로 로그인 화면으로 이동
             } catch (error) {
               console.error('로그아웃 실패:', error);
               Alert.alert('오류', '로그아웃 중 문제가 발생했습니다.');
@@ -114,7 +96,7 @@ const MyPageScreen: React.FC = () => {
           </View>
           <View style={styles.userDetails}>
             <Text style={styles.userName}>사용자명</Text>
-            <Text style={styles.userEmail}>user@example.com</Text>
+            <Text style={styles.userEmail}>{authUser?.email || 'user@example.com'}</Text>
           </View>
         </View>
 

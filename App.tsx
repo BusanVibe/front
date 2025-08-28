@@ -1,8 +1,9 @@
-import React, {useEffect, useState} from 'react';
-import {NavigationContainer} from '@react-navigation/native';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
 import 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
-import {LocationProvider} from './src/contexts/LocationContext';
+import { LocationProvider } from './src/contexts/LocationContext';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import {
   View,
   Text,
@@ -13,25 +14,22 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import {WebView} from 'react-native-webview';
+import { WebView } from 'react-native-webview';
 import LinearGradient from 'react-native-linear-gradient';
 import LogoIcon from './src/assets/logo.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-function App(): React.JSX.Element {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+// 메인 앱 컴포넌트 (AuthProvider 내부)
+const AppContent: React.FC = () => {
+  const { user, isLoading, login, isAuthenticated } = useAuth();
   const [showWebView, setShowWebView] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCode, setProcessedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    // 로그인 상태 체크
-    checkLoginStatus();
-
     // 딥링크 처리 설정
     const handleDeepLink = (url: string) => {
       console.log('=== 딥링크 수신 ===');
@@ -54,66 +52,12 @@ function App(): React.JSX.Element {
       }
     });
 
-    // 로그아웃 상태 감지를 위한 주기적 체크 (로그인된 상태에서만)
-    let checkInterval: NodeJS.Timeout | null = null;
-
-    const startLogoutCheck = () => {
-      if (checkInterval) return; // 이미 실행 중이면 중복 실행 방지
-
-      checkInterval = setInterval(async () => {
-        const accessToken = await AsyncStorage.getItem('accessToken');
-        const userData = await AsyncStorage.getItem('userData');
-
-        // 로그인 상태에서 토큰이 사라졌을 때만 상태 업데이트
-        if (isLoggedIn && (!accessToken || !userData)) {
-          console.log('=== 로그아웃 감지 ===');
-          setIsLoggedIn(false);
-          setShowSplash(true);
-          if (checkInterval) {
-            clearInterval(checkInterval);
-            checkInterval = null;
-          }
-        }
-      }, 1000);
-    };
-
-    // 로그인 상태일 때만 로그아웃 감지 시작
-    if (isLoggedIn) {
-      startLogoutCheck();
-    }
-
     return () => {
       linkingListener.remove();
-      if (checkInterval) {
-        clearInterval(checkInterval);
-      }
     };
   }, []);
 
-  const checkLoginStatus = async () => {
-    try {
-      const accessToken = await AsyncStorage.getItem('accessToken');
-      const userData = await AsyncStorage.getItem('userData');
 
-      // 초기 로드 시에만 로그 출력
-      if (showSplash) {
-        console.log('저장된 토큰 확인:', !!accessToken);
-        console.log('저장된 사용자 데이터 확인:', !!userData);
-      }
-
-      if (accessToken && userData) {
-        setIsLoggedIn(true);
-        setShowSplash(false);
-      } else {
-        setIsLoggedIn(false);
-        setShowSplash(true);
-      }
-    } catch (error) {
-      console.error('로그인 상태 확인 오류:', error);
-      setIsLoggedIn(false);
-      setShowSplash(true);
-    }
-  };
 
   const handleKakaoDeepLink = async (url: string) => {
     console.log('=== 카카오 딥링크 처리 시작 ===');
@@ -122,8 +66,8 @@ function App(): React.JSX.Element {
     try {
       // URL에서 토큰 추출 (React Native 호환 방식)
       const queryString = url.split('?')[1];
-      let accessToken = null;
-      let refreshToken = null;
+      let accessToken: string | null = null;
+      let refreshToken: string | null = null;
 
       if (queryString) {
         const params = queryString.split('&');
@@ -165,38 +109,39 @@ function App(): React.JSX.Element {
 
           if (userResponse.ok) {
             const userData = await userResponse.json();
-            await AsyncStorage.setItem(
-              'userData',
-              JSON.stringify(userData.result),
-            );
+
+            // AuthContext의 login 함수 사용
+            await login({
+              id: userData.result.id || 0,
+              email: userData.result.email || 'unknown',
+              accessToken,
+              refreshToken,
+              tokenIssuedAt: Date.now(),
+            });
 
             console.log('=== 딥링크 로그인 완료 ===');
-            setIsLoggedIn(true);
-            setShowSplash(false);
-
-            Alert.alert('로그인 성공', '카카오 로그인이 완료되었습니다!');
           } else {
             // 사용자 정보를 가져올 수 없어도 토큰이 있으면 로그인 처리
-            await AsyncStorage.setItem(
-              'userData',
-              JSON.stringify({id: 'unknown', email: 'unknown'}),
-            );
-            setIsLoggedIn(true);
-            setShowSplash(false);
+            await login({
+              id: 0,
+              email: 'unknown',
+              accessToken,
+              refreshToken,
+              tokenIssuedAt: Date.now(),
+            });
 
-            Alert.alert('로그인 성공', '카카오 로그인이 완료되었습니다!');
           }
         } catch (userError) {
           console.error('사용자 정보 조회 오류:', userError);
           // 사용자 정보 조회 실패해도 토큰이 있으면 로그인 처리
-          await AsyncStorage.setItem(
-            'userData',
-            JSON.stringify({id: 'unknown', email: 'unknown'}),
-          );
-          setIsLoggedIn(true);
-          setShowSplash(false);
+          await login({
+            id: 0,
+            email: 'unknown',
+            accessToken,
+            refreshToken,
+            tokenIssuedAt: Date.now(),
+          });
 
-          Alert.alert('로그인 성공', '카카오 로그인이 완료되었습니다!');
         }
       } else {
         console.error('딥링크에서 토큰을 찾을 수 없음');
@@ -218,7 +163,7 @@ function App(): React.JSX.Element {
   };
 
   const handleWebViewNavigationStateChange = async (navState: any) => {
-    const {url, loading} = navState;
+    const { url, loading } = navState;
     console.log('=== WebView URL 변경 ===');
     console.log('URL:', url);
     console.log('Loading:', loading);
@@ -239,7 +184,7 @@ function App(): React.JSX.Element {
       console.log('=== 카카오 콜백 URL 감지 ===');
 
       // URL에서 code 파라미터 추출 (React Native 호환 방식)
-      let code = null;
+      let code: string | null = null;
       const codeMatch = url.match(/code=([^&]+)/);
       if (codeMatch) {
         code = decodeURIComponent(codeMatch[1]);
@@ -335,29 +280,18 @@ function App(): React.JSX.Element {
           });
 
           if (data.is_success && data.result) {
-            // 백엔드에서 받은 토큰을 저장
-            const {tokenResponseDTO, id, email} = data.result;
+            // 백엔드에서 받은 토큰을 저장 (AuthContext 사용)
+            const { tokenResponseDTO, id, email } = data.result;
 
-            await AsyncStorage.setItem(
-              'accessToken',
-              tokenResponseDTO.accessToken,
-            );
-            await AsyncStorage.setItem(
-              'refreshToken',
-              tokenResponseDTO.refreshToken,
-            );
-            await AsyncStorage.setItem(
-              'userData',
-              JSON.stringify({
-                id: id,
-                email: email,
-              }),
-            );
+            await login({
+              id: id,
+              email: email,
+              accessToken: tokenResponseDTO.accessToken,
+              refreshToken: tokenResponseDTO.refreshToken,
+              tokenIssuedAt: Date.now(),
+            });
 
             console.log('=== 로그인 완료 ===');
-            setIsLoggedIn(true);
-            setShowSplash(false);
-
             Alert.alert('로그인 성공', `환영합니다, ${email}님!`);
           } else {
             console.error('백엔드 응답 실패:', data.message);
@@ -403,17 +337,17 @@ function App(): React.JSX.Element {
           </TouchableOpacity>
         </View>
         <WebView
-          source={{uri: getKakaoAuthUrl()}}
+          source={{ uri: getKakaoAuthUrl() }}
           onNavigationStateChange={handleWebViewNavigationStateChange}
           onLoadEnd={syntheticEvent => {
-            const {nativeEvent} = syntheticEvent;
+            const { nativeEvent } = syntheticEvent;
             console.log('WebView 로드 완료:', nativeEvent.url);
 
             // onLoadEnd에서는 처리하지 않음 (중복 방지)
             // onNavigationStateChange에서만 처리
           }}
           onError={syntheticEvent => {
-            const {nativeEvent} = syntheticEvent;
+            const { nativeEvent } = syntheticEvent;
             console.error('WebView 에러:', nativeEvent);
           }}
           onLoadStart={() => {
@@ -425,24 +359,24 @@ function App(): React.JSX.Element {
     );
   }
 
-  // 로딩 중
-  if (loading) {
+  // AuthContext 로딩 중이거나 로그인 처리 중
+  if (isLoading || loading) {
     return (
       <LinearGradient
         colors={['#B8D4F0', '#4A90E2']}
         style={styles.splashContainer}>
         <View style={styles.contentContainer}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={[styles.subTitle, {marginTop: 20}]}>
-            로그인 처리 중...
+          <Text style={[styles.subTitle, { marginTop: 20 }]}>
+            {loading ? '로그인 처리 중...' : '앱 로딩 중...'}
           </Text>
         </View>
       </LinearGradient>
     );
   }
 
-  // 스플래시 화면
-  if (showSplash) {
+  // 로그인되지 않은 상태 - 로그인 화면 표시
+  if (!isAuthenticated) {
     return (
       <LinearGradient
         colors={['#B8D4F0', '#4A90E2']}
@@ -471,12 +405,22 @@ function App(): React.JSX.Element {
     );
   }
 
+  // 로그인된 상태 - 메인 앱 표시
   return (
     <LocationProvider>
       <NavigationContainer>
         <RootNavigator />
       </NavigationContainer>
     </LocationProvider>
+  );
+};
+
+// 최상위 App 컴포넌트 (AuthProvider로 감싸기)
+function App(): React.JSX.Element {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

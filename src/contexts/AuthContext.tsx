@@ -25,27 +25,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 토큰 유효시간 (60분)
-  const TOKEN_EXPIRY_TIME = 60 * 60 * 1000; // 60분을 밀리초로 변환
+  // 토큰 유효시간 (600분)
+  const TOKEN_EXPIRY_TIME = 600 * 60 * 1000; // 600분 x 60초 x 1000밀리초로 변환
 
   useEffect(() => {
     loadStoredAuth();
-    
-    // 주기적으로 토큰 만료 확인 (5분마다)
-    const tokenCheckInterval = setInterval(() => {
-      if (user && !checkTokenExpiry()) {
-        console.log('토큰이 만료되었습니다. 자동 로그아웃을 실행합니다.');
-        handleTokenExpiry();
-      }
-    }, 5 * 60 * 1000); // 5분마다 체크
+  }, []);
 
-    return () => clearInterval(tokenCheckInterval);
+  useEffect(() => {
+    let tokenCheckInterval: NodeJS.Timeout | null = null;
+
+    if (user) {
+      // 로그인된 상태에서만 토큰 만료 확인 (1분마다)
+      tokenCheckInterval = setInterval(() => {
+        if (!checkTokenExpiry()) {
+          console.log('토큰이 만료되었습니다. 자동 로그아웃을 실행합니다.');
+          handleTokenExpiry();
+        }
+      }, 60 * 1000); // 1분마다 체크
+    }
+
+    return () => {
+      if (tokenCheckInterval) {
+        clearInterval(tokenCheckInterval);
+      }
+    };
   }, [user]);
 
   const loadStoredAuth = async () => {
     try {
       console.log('=== 저장된 인증 정보 로드 시작 ===');
-      
+
       // AsyncStorage에서 사용자 정보 가져오기
       const userDataString = await AsyncStorage.getItem('userData');
       const accessToken = await AsyncStorage.getItem('accessToken');
@@ -59,29 +69,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (userDataString && accessToken && refreshToken && tokenIssuedAtString) {
         const userData = JSON.parse(userDataString);
         const tokenIssuedAt = parseInt(tokenIssuedAtString, 10);
-        
+
         const user = {
           ...userData,
           accessToken,
           refreshToken,
           tokenIssuedAt,
         };
-        
-        console.log('저장된 사용자 정보 로드 성공:', { 
-          id: user.id, 
+
+        console.log('저장된 사용자 정보 로드 성공:', {
+          id: user.id,
           email: user.email,
           hasAccessToken: !!user.accessToken,
           hasRefreshToken: !!user.refreshToken,
           tokenIssuedAt: new Date(user.tokenIssuedAt).toISOString()
         });
-        
+
         // 토큰 만료 확인
         if (checkTokenExpiryForUser(user)) {
           console.log('저장된 토큰이 유효합니다.');
           setUser(user);
         } else {
-          console.log('저장된 토큰이 만료되었습니다. 로그인이 필요합니다.');
+          console.log('저장된 토큰이 만료되었습니다. 저장된 데이터를 삭제합니다.');
           await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
+          setUser(null);
         }
       } else {
         console.log('저장된 인증 정보 없음 - 로그인 필요');
@@ -97,7 +108,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (userData: User) => {
     try {
       console.log('로그인 정보 저장 시작:', { id: userData.id, email: userData.email });
-      
+
       // AsyncStorage에 모든 정보 저장 (토큰 발급 시간 포함)
       await AsyncStorage.setItem('userData', JSON.stringify({
         id: userData.id,
@@ -106,7 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await AsyncStorage.setItem('accessToken', userData.accessToken);
       await AsyncStorage.setItem('refreshToken', userData.refreshToken);
       await AsyncStorage.setItem('tokenIssuedAt', userData.tokenIssuedAt.toString());
-      
+
       console.log('로그인 정보 저장 완료 (토큰 발급시간 포함):', {
         tokenIssuedAt: new Date(userData.tokenIssuedAt).toISOString()
       });
@@ -120,10 +131,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       console.log('로그아웃 시작');
-      
+
       // AsyncStorage에서 모든 정보 삭제 (토큰 발급시간 포함)
       await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
-      
+
       console.log('로그아웃 완료');
       setUser(null);
     } catch (error) {
@@ -140,20 +151,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // 토큰 유효성 검사 함수 (특정 사용자용)
   const checkTokenExpiryForUser = (userToCheck: User): boolean => {
-    if (!userToCheck.tokenIssuedAt) return false;
-    
+    if (!userToCheck.tokenIssuedAt) {
+      console.log('토큰 발급 시간이 없습니다.');
+      return false;
+    }
+
     const currentTime = Date.now();
     const tokenAge = currentTime - userToCheck.tokenIssuedAt;
     const isValid = tokenAge < TOKEN_EXPIRY_TIME;
-    
+    const remainingMinutes = Math.floor((TOKEN_EXPIRY_TIME - tokenAge) / (60 * 1000));
+
     console.log('토큰 유효성 검사:', {
       tokenIssuedAt: new Date(userToCheck.tokenIssuedAt).toISOString(),
       currentTime: new Date(currentTime).toISOString(),
       tokenAgeMinutes: Math.floor(tokenAge / (60 * 1000)),
       maxAgeMinutes: TOKEN_EXPIRY_TIME / (60 * 1000),
+      remainingMinutes: isValid ? remainingMinutes : 0,
       isValid
     });
-    
+
     return isValid;
   };
 
