@@ -1,20 +1,26 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {RouteProp, useRoute} from '@react-navigation/native';
-import {PlaceListItem, PlaceType} from '../types/place';
+import {PlaceType, PlaceDetail} from '../types/place';
 import {RootStackParamList} from '../navigation/RootNavigator';
-import {getPlaceTypeText} from '../utils/placeUtils';
+import {getPlaceDetail, togglePlaceLike} from '../services/placeService';
 import CongestionBadge from '../components/common/CongestionBadge';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
 import IcHeart from '../assets/icon/ic_heart.svg';
 import IcMapPin from '../assets/icon/ic_map_pin.svg';
+import IcClock from '../assets/icon/ic_clock.svg';
+import IcCall from '../assets/icon/ic_call.svg';
+import IcCalendar from '../assets/icon/ic_calendar.svg';
 
 type PlaceDetailScreenRouteProp = RouteProp<RootStackParamList, 'PlaceDetail'>;
 
@@ -22,61 +28,94 @@ const PlaceDetailScreen = () => {
   const route = useRoute<PlaceDetailScreenRouteProp>();
   const {place} = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [placeDetail, setPlaceDetail] = useState<PlaceDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(place.is_like);
+  const [likeAmount, setLikeAmount] = useState(0);
 
-  // 임시 이미지 배열 (실제로는 API에서 받아올 데이터)
-  const images = [
-    'https://via.placeholder.com/400x300/87CEEB/FFFFFF?text=장소+이미지+1',
-    'https://via.placeholder.com/400x300/B8D4F0/FFFFFF?text=장소+이미지+2',
-    'https://via.placeholder.com/400x300/4A90E2/FFFFFF?text=장소+이미지+3',
-  ];
+  useEffect(() => {
+    fetchPlaceDetail();
+  }, []);
 
-  // 장소 타입별 소개 텍스트
-  const getIntroduction = (placeType: PlaceType, placeName: string) => {
-    switch (placeType) {
-      case PlaceType.SIGHT:
-        if (placeName.includes('광안리')) {
-          return '광안리해수욕장은 부산 수영구에 위치한 아름다운 해변이다. 맑고 푸른 바다와 고운 모래가 특징으로, 여름철에는 많은 관광객들이 찾는 명소이다. 특히 광안대교와 바다가 어우러지는 경치가 아름다워 야경 명소로도 유명하다. 해수욕 외에도 다양한 해양 스포츠를 즐길 수 있으며, 인근에는 카페와 레스토랑들이 있어 맛있는 음식을 즐기며 여유로운 시간을 보낼 수 있다.';
-        } else if (placeName.includes('해운대')) {
-          return '해운대해수욕장은 부산을 대표하는 해변으로 국내외 관광객들이 가장 많이 찾는 명소입니다. 넓은 백사장과 푸른 바다, 그리고 주변의 고층 빌딩들이 어우러져 독특한 풍경을 만들어냅니다. 매년 여름철에는 다양한 축제와 이벤트가 열려 더욱 활기찬 분위기를 연출합니다.';
-        } else if (placeName.includes('감천')) {
-          return '감천문화마을은 부산의 마추픽추라고 불리는 아름다운 산복도로 마을입니다. 알록달록한 집들이 계단식으로 배치되어 있어 독특한 경관을 자랑하며, 골목골목마다 예술 작품들이 숨어있어 걷는 재미가 쏠쏠합니다.';
-        } else {
-          return `${placeName}은(는) 부산의 대표적인 관광명소로 많은 사람들이 찾는 특별한 장소입니다. 아름다운 경관과 독특한 매력을 가지고 있어 방문객들에게 잊지 못할 추억을 선사합니다.`;
-        }
-      default:
-        return '';
+  const fetchPlaceDetail = async () => {
+    try {
+      setIsLoading(true);
+      const detail = await getPlaceDetail(place.place_id);
+      setPlaceDetail(detail);
+      setIsLiked(detail.is_like);
+      setLikeAmount(detail.like_amount);
+    } catch (error) {
+      console.error('명소 상세 정보 로드 실패:', error);
+      Alert.alert('오류', '명소 상세 정보를 불러오는데 실패했습니다.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const toggleLike = () => {
-    setIsLiked(!isLiked);
+  const toggleLike = async () => {
+    try {
+      const newLikeState = await togglePlaceLike(place.place_id);
+      setIsLiked(newLikeState);
+      setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
+    } catch (error) {
+      console.error('좋아요 토글 실패:', error);
+      Alert.alert('오류', '좋아요 처리에 실패했습니다.');
+    }
   };
 
-  const showIntroduction = place.type === PlaceType.SIGHT;
+  const images = Array.isArray(placeDetail?.img)
+    ? placeDetail.img.filter(img => img && typeof img === 'string')
+    : [];
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+      </View>
+    );
+  }
+
+  if (!placeDetail) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>데이터를 불러오는데 실패했습니다.</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imageText}>장소 이미지</Text>
-        </View>
+        {images.length > 0 && images[currentImageIndex] ? (
+          <Image
+            source={{uri: images[currentImageIndex]}}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Text style={styles.imageText}>이미지 없음</Text>
+          </View>
+        )}
 
         {/* 이미지 인디케이터 */}
-        <View style={styles.imageIndicator}>
-          {images.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.indicatorDot,
-                index === currentImageIndex
-                  ? styles.activeDot
-                  : styles.inactiveDot,
-              ]}
-            />
-          ))}
-        </View>
+        {images.length > 1 && (
+          <View style={styles.imageIndicator}>
+            {images.map((_, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.indicatorDot,
+                  index === currentImageIndex
+                    ? styles.activeDot
+                    : styles.inactiveDot,
+                ]}
+                onPress={() => setCurrentImageIndex(index)}
+              />
+            ))}
+          </View>
+        )}
 
         {/* 좋아요 버튼 */}
         <TouchableOpacity style={styles.favoriteButton} onPress={toggleLike}>
@@ -90,7 +129,7 @@ const PlaceDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <Text style={styles.likeCount}>210</Text>
+          <Text style={styles.likeCount}>{likeAmount}</Text>
         </View>
       </View>
 
@@ -99,55 +138,59 @@ const PlaceDetailScreen = () => {
         {/* 장소명과 혼잡도 배지 */}
         <View style={styles.headerContainer}>
           <View style={styles.titleRow}>
-            <Text style={styles.placeName}>{place.name}</Text>
-            {place.congestion_level > 0 && (
-              <CongestionBadge
-                level={place.congestion_level}
-                style={styles.congestionBadge}
-              />
-            )}
-          </View>
-        </View>
-
-        {/* 평점 정보 */}
-        <View style={styles.ratingContainer}>
-          <Text style={styles.rating}>4.2</Text>
-          <View style={styles.starsContainer}>
-            <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
-            <Text style={styles.reviewCount}>(157)</Text>
+            <Text style={styles.placeName}>{placeDetail.name}</Text>
+            {placeDetail.congestion_level &&
+              placeDetail.congestion_level > 0 && (
+                <CongestionBadge
+                  level={placeDetail.congestion_level}
+                  style={styles.congestionBadge}
+                />
+              )}
           </View>
         </View>
 
         {/* 상세 정보 */}
         <View style={styles.detailsContainer}>
           {/* 운영시간 */}
-          <View style={styles.detailRow}>
-            <Text style={styles.iconText}>🕐</Text>
-            <Text style={styles.detailText}>
-              {place.type === PlaceType.SIGHT ? '상시 개방' : '09:00 - 22:00'}
-            </Text>
-          </View>
+          {placeDetail.use_time && (
+            <View style={styles.detailRow}>
+              <IcClock width={16} height={16} color={colors.gray[600]} />
+              <Text style={styles.detailText}>{placeDetail.use_time}</Text>
+            </View>
+          )}
 
           {/* 위치 */}
-          <View style={styles.detailRow}>
-            <IcMapPin width={16} height={16} color={colors.gray[600]} />
-            <Text style={styles.detailText}>{place.address}</Text>
-            <Text style={styles.expandIcon}>⌄</Text>
-          </View>
+          {placeDetail.address && (
+            <View style={styles.detailRow}>
+              <IcMapPin width={16} height={16} color={colors.gray[600]} />
+              <Text style={styles.detailText}>{placeDetail.address}</Text>
+              <Text style={styles.expandIcon}>⌄</Text>
+            </View>
+          )}
 
           {/* 전화번호 */}
-          <View style={styles.detailRow}>
-            <Text style={styles.iconText}>📞</Text>
-            <Text style={styles.detailText}>051-622-4251</Text>
-          </View>
+          {placeDetail.phone && (
+            <View style={styles.detailRow}>
+              <IcCall width={16} height={16} color={colors.gray[600]} />
+              <Text style={styles.detailText}>{placeDetail.phone}</Text>
+            </View>
+          )}
+
+          {/* 휴무일 */}
+          {placeDetail.rest_date && (
+            <View style={styles.detailRow}>
+              <IcCalendar width={16} height={16} color={colors.gray[600]} />
+              <Text style={styles.detailText}>{placeDetail.rest_date}</Text>
+            </View>
+          )}
         </View>
 
-        {/* 소개 섹션 - 관광명소일 때만 표시 */}
-        {showIntroduction && (
+        {/* 소개 섹션 */}
+        {placeDetail.introduce && (
           <View style={styles.introSection}>
             <Text style={styles.sectionTitle}>소개</Text>
             <Text style={styles.description}>
-              {getIntroduction(place.type, place.name)}
+              {placeDetail.introduce}
             </Text>
           </View>
         )}
@@ -171,6 +214,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    padding: 20,
+  },
+  errorText: {
+    ...typography.bodyLg,
+    color: colors.gray[600],
+    textAlign: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
   imageContainer: {
     position: 'relative',
     height: 300,
@@ -178,7 +243,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: colors.primary[300],
+    backgroundColor: colors.gray[300],
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -221,7 +286,8 @@ const styles = StyleSheet.create({
   likeCountContainer: {
     position: 'absolute',
     top: 68,
-    right: 30,
+    right: 20,
+    width: 40,
     alignItems: 'center',
   },
   likeCount: {

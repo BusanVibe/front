@@ -9,6 +9,8 @@ import {
   PlaceType,
   HomeResponse,
   HomePlace,
+  ApiPlaceDetailResponse,
+  PlaceDetail,
 } from '../types/place';
 import {BaseApiResponse} from '../types/common';
 
@@ -204,6 +206,83 @@ const transformHomePlaceToPlaceItem = (homePlace: HomePlace): PlaceListItem => {
 };
 
 /**
+ * 명소 상세 정보 조회 API
+ */
+export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
+  try {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      throw new Error('로그인이 필요합니다.');
+    }
+
+    const url = `${BASE_URL}/api/places/${placeId}`;
+    console.log('명소 상세 API 호출:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: '*/*',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `API 호출 실패: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data: ApiResponse<ApiPlaceDetailResponse> = await response.json();
+    console.log('명소 상세 API 응답:', data);
+
+    if (!data.is_success) {
+      throw new Error(`API 오류: ${data.message}`);
+    }
+
+    const result = data.result;
+    if (!result) {
+      throw new Error('응답 데이터가 없습니다.');
+    }
+
+    // 이미지 배열 처리
+    let images: string[] = [];
+    if (result.img && Array.isArray(result.img)) {
+      if (result.img[0] === 'java.util.ArrayList' && Array.isArray(result.img[1])) {
+        images = result.img[1];
+      } else {
+        images = result.img;
+      }
+    }
+
+    // 상세 정보 구성
+    const placeDetail: PlaceDetail = {
+      id: result.id,
+      name: result.name,
+      type: result.type,
+      img: images,
+      congestion_level: result.congestion_level,
+      grade: result.grade,
+      review_amount: result.review_amount,
+      like_amount: result.like_amount,
+      is_open: result.is_open,
+      address: result.address,
+      phone: result.phone,
+      is_like: result.is_like,
+      introduce: result.introduce,
+      use_time: result.use_time,
+      rest_date: result.rest_date,
+    };
+
+    return placeDetail;
+  } catch (error) {
+    console.error('명소 상세 조회 오류:', error);
+    throw error;
+  }
+};
+
+/**
  * 홈화면 정보 조회 API
  */
 export const getHomeData = async (): Promise<{
@@ -307,6 +386,49 @@ export const getHomeData = async (): Promise<{
     };
   } catch (error) {
     console.error('홈화면 데이터 조회 오류:', error);
+    throw error;
+  }
+};
+
+/**
+ * 명소 좋아요 토글 API
+ */
+export const togglePlaceLike = async (placeId: number): Promise<boolean> => {
+  try {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      throw new Error('로그인이 필요합니다.');
+    }
+
+    const url = `${BASE_URL}/api/places/${placeId}/like`;
+    console.log('명소 좋아요 API 호출:', url);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: '*/*',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `API 호출 실패: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data = await response.json();
+    console.log('명소 좋아요 API 응답:', data);
+
+    if (!data.is_success) {
+      throw new Error(`API 오류: ${data.message}`);
+    }
+
+    return data.result?.is_like || false;
+  } catch (error) {
+    console.error('명소 좋아요 토글 오류:', error);
     throw error;
   }
 };

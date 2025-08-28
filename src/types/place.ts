@@ -31,36 +31,23 @@ export interface FestivalListItem {
   end_date: string;
 }
 
-export interface PlaceDetailBase {
+export interface PlaceDetail {
   id: number;
   name: string;
   type: PlaceType;
-  img?: string;
+  img: string[];
   congestion_level: number;
-  grade: number;
+  grade: number | null;
   review_amount: number;
   like_amount: number;
   is_open: boolean;
   address: string;
   phone: string;
+  is_like: boolean;
+  introduce?: string;
+  use_time?: string;
+  rest_date?: string;
 }
-
-export interface SightDetail extends PlaceDetailBase {
-  type: PlaceType.SIGHT;
-  introduce: string;
-}
-
-export interface RestaurantDetail extends PlaceDetailBase, WeeklyHours {
-  type: PlaceType.RESTAURANT;
-  review: Review[];
-}
-
-export interface CultureDetail extends PlaceDetailBase, WeeklyHours {
-  type: PlaceType.CULTURE;
-  review: Review[];
-}
-
-export type PlaceDetail = SightDetail | RestaurantDetail | CultureDetail;
 
 export interface PlaceListResult {
   place_list: PlaceListItem[];
@@ -89,6 +76,25 @@ export interface ApiResponse<T> {
   result: T;
 }
 
+export interface ApiPlaceDetailResponse {
+  '@class': string;
+  id: number;
+  name: string;
+  type: PlaceType;
+  img: [string, string[]];
+  congestion_level: number;
+  grade: number | null;
+  review_amount: number;
+  like_amount: number;
+  is_open: boolean;
+  address: string;
+  phone: string;
+  is_like: boolean;
+  introduce?: string;
+  use_time?: string;
+  rest_date?: string;
+}
+
 export enum PlaceCategory {
   ALL = 'ALL',
   SIGHT = 'SIGHT',
@@ -100,32 +106,6 @@ export enum PlaceSort {
   DEFAULT = 'DEFAULT',
   LIKE = 'LIKE',
   CONGESTION = 'CONGESTION',
-}
-
-export interface WeeklyHours {
-  mon_open: string;
-  tue_open: string;
-  wed_open: string;
-  thu_open: string;
-  fri_open: string;
-  sat_open: string;
-  sun_open: string;
-  mon_close: string;
-  tue_close: string;
-  wed_close: string;
-  thu_close: string;
-  fri_close: string;
-  sat_close: string;
-  sun_close: string;
-}
-
-export interface Review {
-  id: number;
-  user_img?: string;
-  user_name: string;
-  grade: number;
-  date: string;
-  content: string;
 }
 
 export interface HomePlace {
