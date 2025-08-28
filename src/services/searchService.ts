@@ -13,7 +13,9 @@ import {
 
 const BASE_URL = API_CONFIG.BASE_URL;
 
-const normalizeCoordinate = (value?: number | [string, number]): number | undefined => {
+const normalizeCoordinate = (
+  value?: number | [string, number],
+): number | undefined => {
   if (value === undefined || value === null) return undefined;
   if (Array.isArray(value)) {
     if (value[0] === 'java.math.BigDecimal') {
@@ -53,13 +55,30 @@ export const SearchService = {
     const sort = params.sort ?? SearchSortType.DEFAULT;
     const keyword = params.keyword ?? '';
 
-    const query = `option=${encodeURIComponent(option)}&sort=${encodeURIComponent(
-      sort,
-    )}&keyword=${encodeURIComponent(keyword)}`;
+    const query = `option=${encodeURIComponent(
+      option,
+    )}&sort=${encodeURIComponent(sort)}&keyword=${encodeURIComponent(keyword)}`;
     const url = `${BASE_URL}${API_ENDPOINTS.SEARCH}?${query}`;
+
+    // 🔍 검색 요청 로그
+    console.log('=== 검색 요청 시작 ===');
+    console.log('📤 요청 파라미터:', {
+      option,
+      sort,
+      keyword,
+      originalParams: params,
+    });
+    console.log('🌐 요청 URL:', url);
+    console.log('📋 요청 헤더:', {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken.substring(0, 10)}...`, // 토큰 일부만 표시
+    });
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+
+    const startTime = Date.now();
 
     const response = await fetch(url, {
       method: 'GET',
@@ -72,18 +91,40 @@ export const SearchService = {
     });
 
     clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
 
     const text = await response.text();
+
+    // 🔍 검색 응답 로그
+    console.log('=== 검색 응답 수신 ===');
+    console.log('⏱️ 응답 시간:', `${responseTime}ms`);
+    console.log('📊 응답 상태:', response.status, response.statusText);
+    console.log(
+      '📥 응답 헤더:',
+      Object.fromEntries(response.headers.entries()),
+    );
+
     if (!response.ok) {
+      console.error('❌ 응답 에러:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: text,
+      });
       throw new Error(`HTTP ${response.status}: ${text}`);
     }
+
+    console.log('📄 응답 원본 데이터:', text);
 
     const data: SearchResponse<ApiSearchResult> = JSON.parse(text);
 
     let list: ApiSearchItem[] = [];
     const raw = data.result?.result_list as any;
     if (Array.isArray(raw)) {
-      if (raw.length === 2 && raw[0] === 'java.util.ArrayList' && Array.isArray(raw[1])) {
+      if (
+        raw.length === 2 &&
+        raw[0] === 'java.util.ArrayList' &&
+        Array.isArray(raw[1])
+      ) {
         list = raw[1] as ApiSearchItem[];
       } else {
         list = raw as ApiSearchItem[];
@@ -95,11 +136,28 @@ export const SearchService = {
       list: list.map(transformItem),
     };
 
+    // 🔍 검색 결과 로그
+    console.log('✅ 검색 결과 처리 완료');
+    console.log('📊 파싱된 데이터:', {
+      resultCount: list.length,
+      sort: normalized.sort,
+      rawListType: typeof raw,
+      isArrayFormat: Array.isArray(raw),
+    });
+    console.log('🎯 정규화된 결과:', {
+      sort: normalized.sort,
+      itemCount: normalized.list.length,
+      firstItem: normalized.list[0] || null,
+    });
+    console.log('=== 검색 요청 완료 ===\n');
+
     return normalized;
   },
 };
 
-export const mapKoreanCategoryToSearchOption = (korean: string): SearchOptionType => {
+export const mapKoreanCategoryToSearchOption = (
+  korean: string,
+): SearchOptionType => {
   const map: Record<string, SearchOptionType> = {
     전체: SearchOptionType.ALL,
     관광명소: SearchOptionType.SIGHT,
@@ -119,6 +177,3 @@ export const mapKoreanSortToSearchSort = (korean: string): SearchSortType => {
   };
   return map[korean] ?? SearchSortType.DEFAULT;
 };
-
-
-
