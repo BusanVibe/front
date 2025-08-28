@@ -84,7 +84,18 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         )}
         <Text style={styles.headerTitle}>{title}</Text>
       </View>
-
+      <View style={styles.headerRightContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Search')}
+          style={styles.headerButton}>
+          <IcSearch width={24} height={24} fill="#666666" stroke="none" />
+        </TouchableOpacity> 
+        <TouchableOpacity
+          onPress={() => navigation.navigate('MyPage')}
+          style={styles.headerButton}>
+          <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
