@@ -24,6 +24,7 @@ interface CustomHeaderProps {
   onSearchChange?: (text: string) => void;
   searchValue?: string;
   onPressSearch?: () => void;
+  showBackButton?: boolean;
 }
 
 const CustomHeader: React.FC<CustomHeaderProps> = ({
@@ -33,17 +34,20 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   onSearchChange,
   searchValue,
   onPressSearch,
+  showBackButton = false,
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   if (showSearchInput) {
     return (
       <View style={styles.headerContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
-        </TouchableOpacity>
+        {showBackButton && (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
+          </TouchableOpacity>
+        )}
         <View style={styles.searchInputContainer}>
           <TextInput
             style={styles.searchInput}
@@ -70,19 +74,17 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
 
   return (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>{title}</Text>
-      <View style={styles.headerRightContainer}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Search')}
-          style={styles.headerButton}>
-          <IcSearch width={24} height={24} fill="#666666" stroke="none" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('MyPage')}
-          style={styles.headerButton}>
-          <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
-        </TouchableOpacity>
+      <View style={styles.leftContainer}>
+        {showBackButton && (
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>{title}</Text>
       </View>
+
     </View>
   );
 };
@@ -111,6 +113,10 @@ const styles = StyleSheet.create({
   },
   headerRightContainer: {
     flexDirection: 'row',
+  },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerButton: {
     marginLeft: 20,

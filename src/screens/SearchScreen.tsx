@@ -11,8 +11,7 @@ import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import CustomHeader from '../components/CustomHeader';
 import type {RootStackParamList} from '../navigation/RootNavigator';
-import {SearchService, mapKoreanCategoryToSearchOption} from '../services/searchService';
-import {SearchSortType} from '../types/search';
+import {mapKoreanCategoryToSearchOption} from '../services/searchService';
 
 const recentSearches = [
   {id: '1', term: '해운대'},
@@ -42,15 +41,12 @@ const SearchScreen = () => {
       if (!keyword || keyword.trim().length === 0) {
         return;
       }
-      setIsLoading(true);
       const option = mapKoreanCategoryToSearchOption(selectedCategory);
-      const response = await SearchService.search({
-        option,
-        sort: SearchSortType.DEFAULT,
+      // 결과 화면으로 이동
+      navigation.navigate('SearchResult', {
         keyword: keyword.trim(),
-      });
-      console.log('검색 응답:', response);
-      setResultCount(response.list.length);
+        option,
+      } as any);
       // 최근 검색어 업데이트
       setRecentSearchList(prev => {
         const exists = prev.find(p => p.term === keyword.trim());
@@ -60,8 +56,6 @@ const SearchScreen = () => {
       });
     } catch (e) {
       console.error('검색 오류:', e);
-    } finally {
-      setIsLoading(false);
     }
   }, [keyword, selectedCategory]);
 
@@ -123,6 +117,7 @@ const SearchScreen = () => {
           {resultCount !== null && !isLoading && (
             <Text style={styles.sectionTitle}>검색 결과 {resultCount}건</Text>
           )}
+          {/* 결과 리스트는 SearchResultScreen에서 렌더링 */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>최근 검색어</Text>
             <TouchableOpacity onPress={clearAllRecentSearches}>

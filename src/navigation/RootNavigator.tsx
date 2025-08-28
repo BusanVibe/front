@@ -3,6 +3,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 
 import TabNavigator from './TabNavigator';
 import SearchScreen from '../screens/SearchScreen';
+import SearchResultScreen from '../screens/SearchResultScreen';
 import MyPageScreen from '../screens/MyPageScreen';
 import FavoriteListScreen from '../screens/FavoriteListScreen';
 import TermsOfServiceScreen from '../screens/TermsOfServiceScreen';
@@ -16,6 +17,7 @@ import {FestivalListItem} from '../types/festival';
 export type RootStackParamList = {
   Main: undefined;
   Search: undefined;
+  SearchResult: { keyword: string; option: string };
   MyPage: undefined;
   FavoriteList: undefined;
   TermsOfService: undefined;
@@ -47,6 +49,15 @@ const RootNavigator = () => {
               showSearchInput={true}
               searchPlaceholder="관광지 · 장소 · 축제 검색"
             />
+          ),
+        }}
+      />
+      <Stack.Screen
+        name="SearchResult"
+        component={SearchResultScreen}
+        options={{
+          header: () => (
+            <CustomHeader title="검색 결과" showBackButton={true} />
           ),
         }}
       />
