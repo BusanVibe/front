@@ -23,6 +23,7 @@ interface CustomHeaderProps {
   searchPlaceholder?: string;
   onSearchChange?: (text: string) => void;
   searchValue?: string;
+  onPressSearch?: () => void;
 }
 
 const CustomHeader: React.FC<CustomHeaderProps> = ({
@@ -31,6 +32,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   searchPlaceholder = '검색어를 입력하세요',
   onSearchChange,
   searchValue,
+  onPressSearch,
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
@@ -50,8 +52,15 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             value={searchValue}
             onChangeText={onSearchChange}
             autoFocus={true}
+            returnKeyType="search"
+            onSubmitEditing={onPressSearch}
           />
-          <TouchableOpacity style={styles.searchIconContainer}>
+          <TouchableOpacity
+            style={styles.searchIconContainer}
+            onPress={onPressSearch}
+            accessibilityRole="button"
+            accessibilityLabel="검색"
+          >
             <IcSearch width={20} height={20} fill="#999999" stroke="none" />
           </TouchableOpacity>
         </View>

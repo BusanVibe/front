@@ -11,6 +11,7 @@ export const API_CONFIG = {
 // API 엔드포인트들을 여기에 추가할 수 있습니다
 export const API_ENDPOINTS = {
   FESTIVALS: 'api/festivals',
+  SEARCH: 'api/search/search',
 } as const;
 
 export default API_CONFIG;
