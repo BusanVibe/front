@@ -40,7 +40,7 @@ const PlaceDetailScreen = () => {
   const fetchPlaceDetail = async () => {
     try {
       setIsLoading(true);
-      const detail = await getPlaceDetail(place.place_id);
+      const detail = await getPlaceDetail(place.id);
       setPlaceDetail(detail);
       setIsLiked(detail.is_like);
       setLikeAmount(detail.like_amount);
@@ -54,7 +54,7 @@ const PlaceDetailScreen = () => {
 
   const toggleLike = async () => {
     try {
-      const newLikeState = await togglePlaceLike(place.place_id);
+      const newLikeState = await togglePlaceLike(place.id);
       setIsLiked(newLikeState);
       setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
     } catch (error) {

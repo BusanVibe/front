@@ -24,10 +24,10 @@ const FavoriteListScreen: React.FC = () => {
   const [sortType, setSortType] = useState<SortType>('담은순');
   const [showSortModal, setShowSortModal] = useState(false);
 
-  const toggleLike = (placeId: number) => {
+  const toggleLike = (id: number) => {
     setFavorites(prev =>
       prev.map(item =>
-        item.place_id === placeId ? {...item, is_like: !item.is_like} : item,
+        item.id === id ? {...item, is_like: !item.is_like} : item,
       ),
     );
   };
@@ -40,8 +40,8 @@ const FavoriteListScreen: React.FC = () => {
         // 담은 순서대로 (기본 순서)
         return sortedData;
       case '기본순':
-        // place_id 순서대로
-        return sortedData.sort((a, b) => a.place_id - b.place_id);
+        // id 순서대로
+        return sortedData.sort((a, b) => a.id - b.id);
       case '추천순':
         // 혼잡도가 낮은 순서대로 (추천)
         return sortedData.sort((a, b) => {
@@ -114,7 +114,7 @@ const FavoriteListScreen: React.FC = () => {
       <FlatList
         data={getFilteredAndSortedData()}
         renderItem={renderFavoriteItem}
-        keyExtractor={item => item.place_id.toString()}
+        keyExtractor={item => item.id.toString()}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
       />

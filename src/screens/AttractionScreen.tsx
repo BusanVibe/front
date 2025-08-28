@@ -88,7 +88,7 @@ const AttractionScreen = () => {
       {type: 'filter', id: 'filter'},
       ...filteredData.map(item => ({
         type: 'attraction',
-        id: item.place_id,
+        id: item.id,
         data: item,
       })),
     ],

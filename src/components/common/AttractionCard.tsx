@@ -28,7 +28,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
   cardType?: CardType;
-  onToggleLike?: (placeId: number) => void;
+  onToggleLike?: (id: number) => void;
 }
 
 const AttractionCard: React.FC<AttractionCardProps> = ({
@@ -130,7 +130,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             style={styles.favoriteButton}
             onPress={() =>
               onToggleLike &&
-              onToggleLike(isPlace ? placeData.place_id : festivalData.id)
+              onToggleLike(isPlace ? placeData.id : festivalData.id)
             }>
             <IcHeart
               width={16}
