@@ -1,3 +1,6 @@
+/**
+ * 큐레이션 컴포넌트
+ */
 import React, {useState, useEffect} from 'react';
 import {
   View,

@@ -1,3 +1,7 @@
+/**
+ * 카테고리 및 정렬 필터 컴포넌트
+ */
+
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
 import colors from '../../styles/colors';

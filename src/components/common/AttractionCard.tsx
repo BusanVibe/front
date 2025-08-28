@@ -1,3 +1,6 @@
+/**
+ * 명소 및 축제 카드 컴포넌트
+ */
 import React, {useState} from 'react';
 import {
   View,
@@ -56,7 +59,6 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
       navigation.navigate('FestivalDetail', {festival: festivalData});
     }
   };
-
 
   // 거리 계산
   const getDistanceText = (): string | null => {
@@ -128,9 +130,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             style={styles.favoriteButton}
             onPress={() =>
               onToggleLike &&
-              onToggleLike(
-                isPlace ? placeData.place_id : festivalData.id,
-              )
+              onToggleLike(isPlace ? placeData.place_id : festivalData.id)
             }>
             <IcHeart
               width={16}

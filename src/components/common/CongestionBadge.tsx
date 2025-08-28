@@ -1,3 +1,6 @@
+/**
+ * 혼잡도 뱃지 컴포넌트
+ */
 import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 import colors from '../../styles/colors';
