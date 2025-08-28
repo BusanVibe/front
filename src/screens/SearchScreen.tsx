@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useCallback, useLayoutEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,11 @@ import {
   FlatList,
   StatusBar,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import CustomHeader from '../components/CustomHeader';
+import type {RootStackParamList} from '../navigation/RootNavigator';
+import {mapKoreanCategoryToSearchOption} from '../services/searchService';
 
 const recentSearches = [
   {id: '1', term: '해운대'},
@@ -24,7 +29,49 @@ const popularSearches = [
 const SearchScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [recentSearchList, setRecentSearchList] = useState(recentSearches);
+  const [keyword, setKeyword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [resultCount, setResultCount] = useState<number | null>(null);
   const categories = ['전체', '관광명소', '맛집/카페', '문화시설', '축제'];
+
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
+  const handleSearch = useCallback(async () => {
+    try {
+      if (!keyword || keyword.trim().length === 0) {
+        return;
+      }
+      const option = mapKoreanCategoryToSearchOption(selectedCategory);
+      // 결과 화면으로 이동
+      navigation.navigate('SearchResult', {
+        keyword: keyword.trim(),
+        option,
+      } as any);
+      // 최근 검색어 업데이트
+      setRecentSearchList(prev => {
+        const exists = prev.find(p => p.term === keyword.trim());
+        if (exists) return prev;
+        const newItem = {id: Date.now().toString(), term: keyword.trim()};
+        return [newItem, ...prev].slice(0, 10);
+      });
+    } catch (e) {
+      console.error('검색 오류:', e);
+    }
+  }, [keyword, selectedCategory]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      header: () => (
+        <CustomHeader
+          showSearchInput={true}
+          searchPlaceholder="관광지 · 장소 · 축제 검색"
+          searchValue={keyword}
+          onSearchChange={setKeyword}
+          onPressSearch={handleSearch}
+        />
+      ),
+    });
+  }, [navigation, keyword, handleSearch]);
 
   const removeRecentSearch = (id: string) => {
     setRecentSearchList(recentSearchList.filter(item => item.id !== id));
@@ -64,6 +111,13 @@ const SearchScreen = () => {
         </View>
 
         <View style={styles.sectionContainer}>
+          {isLoading && (
+            <Text style={styles.sectionTitle}>검색 중...</Text>
+          )}
+          {resultCount !== null && !isLoading && (
+            <Text style={styles.sectionTitle}>검색 결과 {resultCount}건</Text>
+          )}
+          {/* 결과 리스트는 SearchResultScreen에서 렌더링 */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>최근 검색어</Text>
             <TouchableOpacity onPress={clearAllRecentSearches}>
