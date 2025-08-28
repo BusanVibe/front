@@ -143,14 +143,16 @@ export class AuthService {
     // 카카오 앱에 등록된 2번째 URI 사용 (운영 서버)
     const redirectUri = encodeURIComponent('https://api.busanvibe.site/users/oauth/kakao');
     const responseType = 'code';
+    const scope = encodeURIComponent('profile_nickname account_email');
     
-    const authUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&prompt=login`;
+    const authUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&prompt=login`;
     
     console.log('=== 카카오 OAuth URL 생성 ===');
     console.log('Client ID:', clientId);
     console.log('Redirect URI (인코딩 전):', 'https://api.busanvibe.site/users/oauth/kakao');
     console.log('Redirect URI (인코딩 후):', redirectUri);
     console.log('Response Type:', responseType);
+    console.log('Scope:', 'profile_nickname account_email');
     console.log('생성된 OAuth URL:', authUrl);
     
     return authUrl;
