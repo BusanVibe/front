@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
-import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 import UserService from '../services/userService';
 
 const MyPageScreen: React.FC = () => {
@@ -106,9 +105,14 @@ const MyPageScreen: React.FC = () => {
         {/* 헤더 */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>마이페이지</Text>
-          <View style={styles.headerProfileIcon}>
-            <IcUserCircle width={24} height={24} />
-          </View>
+          <TouchableOpacity
+            style={styles.headerCloseButton}
+            onPress={() => (navigation as any).goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="닫기"
+          >
+            <Text style={styles.headerCloseText}>×</Text>
+          </TouchableOpacity>
         </View>
 
         {/* 사용자 정보 */}
@@ -224,6 +228,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCloseText: {
+    fontSize: 30,
+    color: '#333',
+    lineHeight: 30,
   },
   userSection: {
     backgroundColor: '#D1E2F8',
