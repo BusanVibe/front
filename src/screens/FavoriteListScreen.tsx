@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   StatusBar,
 } from 'react-native';
 import {PlaceListItem, PlaceType} from '../types/place';
-import {favoriteData} from '../mocks/dummy';
+import { useAuth } from '../contexts/AuthContext';
+import { UserService } from '../services/userService';
 import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -20,9 +21,25 @@ type SortType = '담은순' | '기본순' | '추천순' | '좋아요순';
 
 const FavoriteListScreen: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
-  const [favorites, setFavorites] = useState(favoriteData);
+  const [favorites, setFavorites] = useState<PlaceListItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('담은순');
   const [showSortModal, setShowSortModal] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const loadLikes = async () => {
+      try {
+        if (!user?.accessToken) return;
+        const list = await UserService.getLikes(user.accessToken, 'RESTAURANT');
+        setFavorites(list);
+        console.log('=== FavoriteList loaded ===', { count: list.length });
+      } catch (e) {
+        // 실패 시 빈 목록 유지
+        console.log('FavoriteList load failed');
+      }
+    };
+    loadLikes();
+  }, [user?.accessToken]);
 
   const toggleLike = (placeId: number) => {
     setFavorites(prev =>
@@ -65,7 +82,7 @@ const FavoriteListScreen: React.FC = () => {
       const typeMap: {[key: string]: PlaceType} = {
         '관광명소': PlaceType.SIGHT,
         '맛집': PlaceType.RESTAURANT,
-        '카페': PlaceType.CAFE,
+        '카페': PlaceType.CULTURE,
       };
       filteredData = filteredData.filter(item => item.type === typeMap[selectedCategory]);
     }
