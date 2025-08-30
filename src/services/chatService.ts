@@ -105,7 +105,10 @@ export class ChatService {
   static async history(cursorId: string | null = null, pageSize: number = 30): Promise<ChatHistoryPage> {
     const size = Math.min(Math.max(pageSize, 1), 30);
     // React Native(Hermes)에서 URL/URLSearchParams 미지원 이슈가 있어 수동 구성
-    const query = `?page-size=${encodeURIComponent(String(size))}&cursor-id=${encodeURIComponent(cursorId ?? 'null')}`;
+    let query = `?page-size=${encodeURIComponent(String(size))}`;
+    if (cursorId !== null && cursorId !== undefined && String(cursorId).trim() !== '') {
+      query += `&cursor-id=${encodeURIComponent(String(cursorId))}`;
+    }
     const url = `${this.baseUrl}api/chat/history${query}`;
 
     const headers = await buildHeaders();
@@ -144,6 +147,38 @@ export class ChatService {
         time: item.time ?? new Date().toISOString(),
         type: (item.type as ChatType) ?? 'CHAT',
       }));
+    } else if (result.chat_list) {
+      // 서버가 Java 직렬화 호환 형태로 반환하는 경우 처리
+      // chat_list: ["java.util.ArrayList", [ { user_name, user_image, content, date_time, is_my }, ... ]]
+      const rawList = result.chat_list as any;
+      let items: any[] = [];
+      if (Array.isArray(rawList) && Array.isArray(rawList[1])) {
+        items = rawList[1] as any[];
+      } else if (Array.isArray(rawList)) {
+        items = rawList as any[];
+      }
+
+      messages = items.map((item: any) => {
+        const iso = (() => {
+          try {
+            // date_time 예: 2025-08-19T06:22:29.288
+            const d = new Date(item?.date_time);
+            return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+          } catch {
+            return new Date().toISOString();
+          }
+        })();
+
+        return {
+          user_id: 0,
+          name: item?.user_name ?? '알 수 없음',
+          image_url: item?.user_image ?? '',
+          message: item?.content ?? '',
+          time: iso,
+          // 내 메시지는 CHAT, 다른 사람 메시지는 왼쪽 정렬을 위해 BOT 취급
+          type: item?.is_my ? 'CHAT' as ChatType : 'BOT' as ChatType,
+        } as ChatMessage;
+      });
     } else {
       messages = [];
     }
