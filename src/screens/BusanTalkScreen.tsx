@@ -11,11 +11,13 @@ import {
   Dimensions,
   ActivityIndicator,
   InteractionManager,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
 import IcNickname from '../assets/icon/ic_talknickname.svg';
 import { ChatService, ChatMessage } from '../services/chatService';
+import { ChatSocket } from '../services/chatSocket';
 import { useFocusEffect } from '@react-navigation/native';
 
 
@@ -28,6 +30,7 @@ interface Message {
   isoTime: string;
   isBot: boolean;
   name?: string;
+  imageUrl?: string;
 }
 
 const BusanTalkScreen = () => {
@@ -75,6 +78,7 @@ const BusanTalkScreen = () => {
     isoTime: chat.time,
     isBot: chat.type === 'BOT',
     name: chat.name,
+    imageUrl: chat.image_url,
   });
 
   // 공백 없는 긴 문자열(예: 점/이모지 반복)이 잘리지 않도록
@@ -91,6 +95,18 @@ const BusanTalkScreen = () => {
     } catch {
       return input;
     }
+  };
+
+  const sortByIsoTimeAsc = (list: Message[]) =>
+    list.sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
+
+  const appendDedupeAndSort = (prev: Message[], incoming: Message) => {
+    const exists = prev.some(
+      m => m.isoTime === incoming.isoTime && m.text === incoming.text && (m.name ?? '') === (incoming.name ?? '')
+    );
+    if (exists) return prev;
+    const merged = [...prev, incoming];
+    return sortByIsoTimeAsc(merged);
   };
 
   const loadInitialHistory = async () => {
@@ -137,7 +153,17 @@ const BusanTalkScreen = () => {
   useFocusEffect(
     useCallback(() => {
       loadInitialHistory();
-      return () => {};
+
+      // 웹소켓 연결 및 구독
+      ChatSocket.connect((chat: ChatMessage) => {
+        const msg = mapChatToMessage(chat, 0);
+        setMessages(prev => appendDedupeAndSort(prev, msg));
+        setTimeout(() => scrollToBottom(true), 0);
+      });
+
+      return () => {
+        ChatSocket.disconnect();
+      };
     }, [])
   );
 
@@ -151,12 +177,16 @@ const BusanTalkScreen = () => {
         {item.isBot && (
           <View style={styles.profileContainer}>
             <View style={styles.profileIcon}>
-              <IcNickname width={30} height={30} stroke="none" />
+              {item.imageUrl ? (
+                <Image source={{ uri: item.imageUrl }} style={styles.profileImage} />
+              ) : (
+                <IcNickname width={30} height={30} stroke="none" />
+              )}
             </View>
             <Text style={styles.nickname}>{item.name ?? '닉네임'}</Text>
           </View>
         )}
-        <View style={styles.messageContent}>
+        <View style={item.isBot ? styles.messageContentBot : styles.messageContentUser}>
           <View style={[styles.messageRow, !item.isBot ? styles.userMessageRow : {}]}>
             {!item.isBot && <Text style={styles.timeText}>{item.time}</Text>}
             <View
@@ -311,7 +341,6 @@ const styles = StyleSheet.create({
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
   profileIcon: {
     width: 30,
@@ -321,19 +350,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 5,
   },
+  profileImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
   profileText: {
     fontSize: 12,
   },
   nickname: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#666',
     fontWeight: '500',
     lineHeight: 18,
     textAlignVertical: 'center',
   },
-  messageContent: {
+  messageContentBot: {
     maxWidth: width * 0.75,
-    paddingLeft: 20,
+    paddingLeft: 30,
+  },
+  messageContentUser: {
+    maxWidth: width * 0.75,
   },
   messageRow: {
     flexDirection: 'row',
@@ -345,7 +382,7 @@ const styles = StyleSheet.create({
   messageBubble: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 18,
+    borderRadius: 12,
     marginBottom: 2,
     maxWidth: width * 0.75,
     flexShrink: 1,
@@ -371,7 +408,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 10,
-    color: '#999',
+    color: '#ffffff',
     marginHorizontal: 8,
     marginBottom: 2,
   },
