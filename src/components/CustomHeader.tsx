@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   TouchableOpacity,
   StyleSheet,
   Text,
   TextInput,
+  Image,
 } from 'react-native';
 import {useNavigation, NavigationProp} from '@react-navigation/native';
 import IcChevronLeft from '../assets/icon/ic_chevron_left.svg';
 import IcSearch from '../assets/icon/ic_search.svg';
 import IcUserCircle from '../assets/icon/ic_user_circle.svg';
+import { useAuth } from '../contexts/AuthContext';
+import { UserService } from '../services/userService';
 
 type RootStackParamList = {
   Main: undefined;
@@ -37,6 +40,30 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   showBackButton = false,
 }) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const { user, isAuthenticated } = useAuth();
+  const [profileUrl, setProfileUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        if (!isAuthenticated || !user?.accessToken) {
+          setProfileUrl(null);
+          return;
+        }
+        const me = await UserService.getMyPage(user.accessToken);
+        if (mounted) {
+          setProfileUrl(me.user_image_url || null);
+        }
+      } catch (e) {
+        if (mounted) setProfileUrl(null);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated, user?.accessToken]);
 
   if (showSearchInput) {
     return (
@@ -82,18 +109,22 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
           </TouchableOpacity>
         )}
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={[styles.headerTitle, title === '부산스럽다' ? { color: '#0057CC' } : null]}>{title}</Text>
       </View>
       <View style={styles.headerRightContainer}>
         <TouchableOpacity
           onPress={() => navigation.navigate('Search')}
           style={styles.headerButton}>
-          <IcSearch width={24} height={24} fill="#666666" stroke="none" />
+          <IcSearch width={27} height={27} fill="#666666" stroke="none" />
         </TouchableOpacity> 
         <TouchableOpacity
           onPress={() => navigation.navigate('MyPage')}
           style={styles.headerButton}>
-          <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
+          {profileUrl ? (
+            <Image source={{ uri: profileUrl }} style={styles.profileThumb} />
+          ) : (
+            <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -119,11 +150,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#000000',
+    // 귀여운 폰트 적용 (설치되어 있으면 Jua 사용, 없으면 시스템 폰트로 표시)
+    fontFamily: 'Jua',
   },
   headerRightContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   leftContainer: {
     flexDirection: 'row',
@@ -131,11 +165,20 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     marginLeft: 20,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerIcon: {
     width: 24,
     height: 24,
     tintColor: '#000000',
+  },
+  profileThumb: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   backButton: {
     marginRight: 10,

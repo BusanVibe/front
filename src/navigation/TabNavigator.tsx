@@ -25,7 +25,7 @@ const TabNavigator = () => {
         header: () => <CustomHeader title={route.name} />,
         tabBarShowLabel: true,
         tabBarActiveTintColor: '#0057cc',
-        tabBarInactiveTintColor: '#999999',
+        tabBarInactiveTintColor: '#2E2E2E',
       })}>
       <Tab.Screen
         name="혼잡도"
