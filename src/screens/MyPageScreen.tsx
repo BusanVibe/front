@@ -2,7 +2,7 @@
  * 마이페이지 화면
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,35 @@ import {
   ScrollView,
   StatusBar,
   Linking,
+  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import IcUserCircle from '../assets/icon/ic_user_circle.svg';
+import UserService from '../services/userService';
 
 const MyPageScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user: authUser, logout } = useAuth();
+  const [myPage, setMyPage] = useState<{ nickname: string; email: string; user_image_url: string } | null>(null);
+
   const isEmailKnown = !!authUser?.email && authUser.email !== 'unknown';
-  const displayName = isEmailKnown ? authUser!.email.split('@')[0] : '사용자';
-  const emailToShow = isEmailKnown ? authUser!.email : 'user@example.com';
+  const displayName = myPage?.nickname ?? (isEmailKnown ? authUser!.email.split('@')[0] : '사용자');
+  const emailToShow = myPage?.email ?? (isEmailKnown ? authUser!.email : 'user@example.com');
+
+  useEffect(() => {
+    const fetchMyPage = async () => {
+      try {
+        if (!authUser?.accessToken) return;
+        const data = await UserService.getMyPage(authUser.accessToken);
+        setMyPage(data);
+      } catch (error) {
+        console.error('마이페이지 데이터 로드 실패:', error);
+      }
+    };
+
+    fetchMyPage();
+  }, [authUser?.accessToken]);
 
   const handleInquiry = () => {
     const email = 'psh2968@naver.com';
@@ -96,6 +114,9 @@ const MyPageScreen: React.FC = () => {
         {/* 사용자 정보 */}
         <View style={styles.userSection}>
           <View style={styles.profileIcon}>
+            {myPage?.user_image_url ? (
+              <Image source={{ uri: myPage.user_image_url }} style={styles.profileImage} />
+            ) : null}
           </View>
           <View style={styles.userDetails}>
             <Text style={styles.userName}>{displayName}</Text>
@@ -223,6 +244,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   profileIconText: {
     fontSize: 32,

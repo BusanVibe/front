@@ -261,7 +261,7 @@ const BusanTalkScreen = () => {
               multiline
             />
             <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={isSending}>
-            <IcSend width={20} height={20} stroke="none" />
+            <IcSend width={24} height={24} stroke="none" />
             </TouchableOpacity>
           </View>
         </View>
@@ -283,11 +283,11 @@ const styles = StyleSheet.create({
   messagesList: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 4,
     backgroundColor: 'transparent',
   },
   messageContainer: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   messageWrapper: {
     flexDirection: 'column',
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   profileIcon: {
     width: 30,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     fontWeight: '500',
-    lineHeight: 24,
+    lineHeight: 18,
     textAlignVertical: 'center',
   },
   messageContent: {
@@ -334,9 +334,9 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 6,
     borderRadius: 18,
-    marginBottom: 4,
+    marginBottom: 2,
     maxWidth: width * 0.75,
     flexShrink: 1,
   },
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#999',
     marginHorizontal: 8,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   inputContainer: {
     paddingHorizontal: 16,
@@ -379,6 +379,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 2,
+    paddingRight: 6,
     backgroundColor: 'transparent',
   },
   textInput: {
