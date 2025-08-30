@@ -25,6 +25,7 @@ interface Message {
   id: string;
   text: string;
   time: string;
+  isoTime: string;
   isBot: boolean;
   name?: string;
 }
@@ -71,6 +72,7 @@ const BusanTalkScreen = () => {
     id: `${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     text: chat.message,
     time: formatTime(chat.time),
+    isoTime: chat.time,
     isBot: chat.type === 'BOT',
     name: chat.name,
   });
@@ -95,7 +97,9 @@ const BusanTalkScreen = () => {
     setIsLoading(true);
     try {
       const page = await ChatService.history(null, 30);
-      const mapped = page.messages.map(mapChatToMessage);
+      const mapped = page.messages
+        .map(mapChatToMessage)
+        .sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
       console.log('=== BusanTalkScreen: History Loaded ===');
       console.log('count:', mapped.length);
       console.log('first:', mapped[0]?.text);
@@ -117,7 +121,11 @@ const BusanTalkScreen = () => {
     try {
       const page = await ChatService.history(cursorId, 30);
       const mapped = page.messages.map(mapChatToMessage);
-      setMessages(prev => [...prev, ...mapped]);
+      setMessages(prev => {
+        const merged = [...prev, ...mapped];
+        merged.sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
+        return merged;
+      });
       setCursorId(page.cursorId);
     } catch (e) {
       console.error(e);
@@ -179,7 +187,8 @@ const BusanTalkScreen = () => {
       return;
     }
 
-    const nowText = new Date().toLocaleTimeString('ko-KR', {
+    const now = new Date();
+    const nowText = now.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
@@ -190,6 +199,7 @@ const BusanTalkScreen = () => {
       id: Date.now().toString(),
       text,
       time: nowText,
+      isoTime: now.toISOString(),
       isBot: false,
     };
     setMessages(prev => [...prev, optimistic]);
