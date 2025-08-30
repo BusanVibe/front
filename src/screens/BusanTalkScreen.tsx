@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
   StatusBar,
   Dimensions,
   ActivityIndicator,
+  InteractionManager,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
 import IcNickname from '../assets/icon/ic_talknickname.svg';
 import { ChatService, ChatMessage } from '../services/chatService';
+import { useFocusEffect } from '@react-navigation/native';
 
 
 const {width} = Dimensions.get('window');
@@ -41,6 +43,15 @@ const BusanTalkScreen = () => {
     try {
       listRef.current?.scrollToEnd?.({ animated });
     } catch (e) {}
+    requestAnimationFrame(() => {
+      try { listRef.current?.scrollToEnd?.({ animated }); } catch (e) {}
+    });
+    setTimeout(() => {
+      try { listRef.current?.scrollToEnd?.({ animated }); } catch (e) {}
+    }, 80);
+    InteractionManager.runAfterInteractions(() => {
+      try { listRef.current?.scrollToEnd?.({ animated }); } catch (e) {}
+    });
   };
 
   const formatTime = (iso: string) => {
@@ -64,11 +75,32 @@ const BusanTalkScreen = () => {
     name: chat.name,
   });
 
+  // 공백 없는 긴 문자열(예: 점/이모지 반복)이 잘리지 않도록
+  // 일정 길이 이상의 연속 문자열에 제로폭 공백을 삽입해 소프트 래핑
+  const softWrap = (input: string, chunk: number = 8) => {
+    try {
+      return input.replace(/[^\s]{20,}/g, (segment) => {
+        const parts: string[] = [];
+        for (let i = 0; i < segment.length; i += chunk) {
+          parts.push(segment.slice(i, i + chunk));
+        }
+        return parts.join('\u200B');
+      });
+    } catch {
+      return input;
+    }
+  };
+
   const loadInitialHistory = async () => {
     setIsLoading(true);
     try {
       const page = await ChatService.history(null, 30);
       const mapped = page.messages.map(mapChatToMessage);
+      console.log('=== BusanTalkScreen: History Loaded ===');
+      console.log('count:', mapped.length);
+      console.log('first:', mapped[0]?.text);
+      console.log('last:', mapped[mapped.length - 1]?.text);
+      console.log('items:', mapped);
       setMessages(mapped);
       setCursorId(page.cursorId);
       setTimeout(() => scrollToBottom(false), 0);
@@ -94,9 +126,12 @@ const BusanTalkScreen = () => {
     }
   };
 
-  useEffect(() => {
-    loadInitialHistory();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadInitialHistory();
+      return () => {};
+    }, [])
+  );
 
   const renderMessage = ({item}: {item: Message}) => (
     <View
@@ -126,7 +161,7 @@ const BusanTalkScreen = () => {
                   styles.messageText,
                   item.isBot ? styles.botText : styles.userText,
                 ]}>
-                {item.text}
+                {softWrap(item.text)}
               </Text>
             </View>
             {item.isBot && <Text style={styles.timeText}>{item.time}</Text>}
@@ -197,6 +232,12 @@ const BusanTalkScreen = () => {
             renderItem={renderMessage}
             keyExtractor={item => item.id}
             style={styles.messagesList}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => {
+              if (!isLoadingMore) {
+                scrollToBottom(true);
+              }
+            }}
             showsVerticalScrollIndicator={false}
             onEndReachedThreshold={0.2}
             onEndReached={loadMoreHistory}
@@ -296,6 +337,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 18,
     marginBottom: 4,
+    maxWidth: width * 0.75,
+    flexShrink: 1,
   },
   botBubble: {
     backgroundColor: '#ffffff',
@@ -308,6 +351,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 14,
     lineHeight: 20,
+    flexShrink: 1,
   },
   botText: {
     color: '#000',
