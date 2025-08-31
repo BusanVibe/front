@@ -20,12 +20,12 @@ export const calculateDistance = (
   lat2: number,
   lon2: number,
 ): number => {
-  console.log('거리 계산 입력 좌표:', {
-    사용자위치: [lat1, lon1],
-    장소위치: [lat2, lon2],
-    위도차이: Math.abs(lat2 - lat1),
-    경도차이: Math.abs(lon2 - lon1),
-  });
+  // console.log('거리 계산 입력 좌표:', {
+  //   사용자위치: [lat1, lon1],
+  //   장소위치: [lat2, lon2],
+  //   위도차이: Math.abs(lat2 - lat1),
+  //   경도차이: Math.abs(lon2 - lon1),
+  // });
 
   // 좌표 유효성 검사
   if (Math.abs(lat1) > 90 || Math.abs(lat2) > 90) {
@@ -50,10 +50,10 @@ export const calculateDistance = (
 
   const distance = R * c;
   
-  console.log('계산된 거리:', {
-    미터: Math.round(distance),
-    킬로미터: (distance / 1000).toFixed(2),
-  });
+  // console.log('계산된 거리:', {
+  //   미터: Math.round(distance),
+  //   킬로미터: (distance / 1000).toFixed(2),
+  // });
 
   return distance;
 };

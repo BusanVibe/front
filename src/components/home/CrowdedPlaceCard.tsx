@@ -27,11 +27,11 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
 
     // PlaceListItem에 포함된 좌표 정보 사용
     if (place.latitude && place.longitude) {
-      console.log('CrowdedPlaceCard: 거리 계산 중', {
-        placeName: place.name,
-        placeCoords: [place.latitude, place.longitude],
-        userCoords: [userLocation.latitude, userLocation.longitude],
-      });
+      // console.log('CrowdedPlaceCard: 거리 계산 중', {
+      //   placeName: place.name,
+      //   placeCoords: [place.latitude, place.longitude],
+      //   userCoords: [userLocation.latitude, userLocation.longitude],
+      // });
       const distance = calculateDistance(
         userLocation.latitude,
         userLocation.longitude,
@@ -39,11 +39,11 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
         place.longitude,
       );
       const formattedDistance = formatDistance(distance);
-      console.log('CrowdedPlaceCard: 계산된 거리', {
-        placeName: place.name,
-        distance,
-        formattedDistance,
-      });
+      // console.log('CrowdedPlaceCard: 계산된 거리', {
+      //   placeName: place.name,
+      //   distance,
+      //   formattedDistance,
+      // });
       return formattedDistance;
     }
 
