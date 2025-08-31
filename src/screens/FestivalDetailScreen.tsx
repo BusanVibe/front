@@ -36,6 +36,7 @@ const FestivalDetailScreen = () => {
     useState<FestivalDetailResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [likeLoading, setLikeLoading] = useState(false);
 
   const formatDateRange = (startDate: string, endDate: string) => {
     const formatDate = (dateStr: string) => {
@@ -115,6 +116,38 @@ const FestivalDetailScreen = () => {
         console.error('전화 걸기 오류:', error);
         Alert.alert('오류', '전화 기능을 사용할 수 없습니다.');
       }
+    }
+  };
+
+  const handleLikePress = async () => {
+    if (likeLoading) return;
+
+    try {
+      setLikeLoading(true);
+      console.log('=== FestivalDetailScreen 좋아요 처리 시작 ===', festival.id);
+      
+      const response = await FestivalService.toggleFestivalLike(festival.id);
+      
+      if (response.is_success) {
+        console.log('=== FestivalDetailScreen 좋아요 처리 성공 ===');
+        if (festivalDetail) {
+          setFestivalDetail(prev => prev ? {
+            ...prev,
+            is_like: !prev.is_like,
+            like_amount: prev.is_like ? prev.like_amount - 1 : prev.like_amount + 1
+          } : null);
+        }
+        
+        // 상세 정보 다시 가져와서 최신 상태 반영
+        fetchFestivalDetail();
+      } else {
+        Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('=== FestivalDetailScreen 좋아요 처리 에러 ===', error);
+      Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+    } finally {
+      setLikeLoading(false);
     }
   };
 
@@ -201,7 +234,11 @@ const FestivalDetailScreen = () => {
         )}
 
         {/* 좋아요 버튼 */}
-        <TouchableOpacity style={styles.favoriteButton}>
+        <TouchableOpacity 
+          style={styles.favoriteButton}
+          onPress={handleLikePress}
+          disabled={likeLoading}
+        >
           <IcHeart
             width={24}
             height={24}

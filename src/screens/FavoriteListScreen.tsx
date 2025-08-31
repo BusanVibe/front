@@ -41,7 +41,7 @@ const FavoriteListScreen: React.FC = () => {
     loadLikes();
   }, [user?.accessToken]);
 
-  const toggleLike = (id: number) => {
+  const toggleLike = async (id: number) => {
     setFavorites(prev =>
       prev.map(item =>
         item.id === id ? {...item, is_like: !item.is_like} : item,

@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useEffect} from 'react';
+import React, {useState, useMemo, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,34 @@ const FestivalScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const sortOptions = ['기본순', '좋아요순', '시작일순', '종료일순'];
+
+  const handleToggleLike = useCallback(async (festivalId: number) => {
+    console.log('=== FestivalScreen handleToggleLike 시작 ===', festivalId);
+    
+    try {
+      const response = await FestivalService.toggleFestivalLike(festivalId);
+      
+      if (response.is_success) {
+        console.log('=== 좋아요 API 성공, 데이터 업데이트 ===');
+        setFestivalData(prevData => 
+          prevData.map(item => 
+            item.id === festivalId 
+              ? {
+                  ...item,
+                  is_like: !item.is_like,
+                  like_amount: item.is_like ? item.like_amount - 1 : item.like_amount + 1
+                }
+              : item
+          )
+        );
+      } else {
+        Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('=== 좋아요 처리 에러 ===', error);
+      Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+    }
+  }, []);
 
   const fetchFestivals = async (isRefresh = false) => {
     try {
@@ -185,6 +213,7 @@ const FestivalScreen = () => {
                 } as any
               }
               cardType={CardType.FESTIVAL}
+              onToggleLike={handleToggleLike}
             />
           </View>
         );
