@@ -24,7 +24,7 @@ const AttractionSection: React.FC<AttractionSectionProps> = ({
       <FlatList
         data={places}
         renderItem={renderCard}
-        keyExtractor={item => item.place_id.toString()}
+        keyExtractor={item => item.id.toString()}
         scrollEnabled={false}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         contentContainerStyle={styles.listContent}

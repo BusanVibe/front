@@ -1,6 +1,9 @@
 import React from 'react';
-import {View, Text, StyleSheet, Image} from 'react-native';
+import {View, Text, StyleSheet, Image, TouchableOpacity} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceListItem, PlaceType} from '../../types/place';
+import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
 import {useLocation} from '../../contexts/LocationContext';
@@ -8,11 +11,14 @@ import {calculateDistance, formatDistance} from '../../utils/locationUtils';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 
+type NavigationProp = StackNavigationProp<RootStackParamList>;
+
 interface CrowdedPlaceCardProps {
   place: PlaceListItem;
 }
 
 const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
+  const navigation = useNavigation<NavigationProp>();
   const {userLocation, hasLocationPermission} = useLocation();
 
   // 거리 계산
@@ -57,8 +63,12 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
 
   const distanceText = getDistanceText();
 
+  const handlePress = () => {
+    navigation.navigate('PlaceDetail', {place});
+  };
+
   return (
-    <View style={styles.cardContainer}>
+    <TouchableOpacity style={styles.cardContainer} onPress={handlePress}>
       <View style={styles.imageContainer}>
         {place.img ? (
           <Image source={{uri: place.img}} style={styles.image} />
@@ -86,7 +96,7 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 

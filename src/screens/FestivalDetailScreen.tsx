@@ -20,6 +20,8 @@ import typography from '../styles/typography';
 import IcHeart from '../assets/icon/ic_heart.svg';
 import IcCalendar from '../assets/icon/ic_calendar.svg';
 import IcMapPin from '../assets/icon/ic_map_pin.svg';
+import IcDollar from '../assets/icon/ic_dollar.svg';
+import IcCall from '../assets/icon/ic_call.svg';
 
 type FestivalDetailScreenRouteProp = RouteProp<
   RootStackParamList,
@@ -30,7 +32,8 @@ const FestivalDetailScreen = () => {
   const route = useRoute<FestivalDetailScreenRouteProp>();
   const {festival} = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [festivalDetail, setFestivalDetail] = useState<FestivalDetailResult | null>(null);
+  const [festivalDetail, setFestivalDetail] =
+    useState<FestivalDetailResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,8 +59,11 @@ const FestivalDetailScreen = () => {
   };
 
   const currentFestival = festivalDetail || festival;
-  const status = getStatus(currentFestival.start_date, currentFestival.end_date);
-  
+  const status = getStatus(
+    currentFestival.start_date,
+    currentFestival.end_date,
+  );
+
   const images = festivalDetail?.img?.[1] || [];
 
   const handleIndicatorPress = (index: number) => {
@@ -66,7 +72,8 @@ const FestivalDetailScreen = () => {
 
   const handleImagePress = () => {
     if (images.length > 1) {
-      const nextIndex = currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1;
+      const nextIndex =
+        currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1;
       setCurrentImageIndex(nextIndex);
     }
   };
@@ -74,10 +81,10 @@ const FestivalDetailScreen = () => {
   const handleSiteUrlPress = async () => {
     if (festivalDetail?.site_url) {
       try {
-        const url = festivalDetail.site_url.startsWith('http') 
-          ? festivalDetail.site_url 
+        const url = festivalDetail.site_url.startsWith('http')
+          ? festivalDetail.site_url
           : `https://${festivalDetail.site_url}`;
-        
+
         const canOpen = await Linking.canOpenURL(url);
         if (canOpen) {
           await Linking.openURL(url);
@@ -97,7 +104,7 @@ const FestivalDetailScreen = () => {
         // 전화번호에서 숫자만 추출
         const phoneNumber = festivalDetail.phone.replace(/[^0-9]/g, '');
         const phoneUrl = `tel:${phoneNumber}`;
-        
+
         const canOpen = await Linking.canOpenURL(phoneUrl);
         if (canOpen) {
           await Linking.openURL(phoneUrl);
@@ -146,7 +153,9 @@ const FestivalDetailScreen = () => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchFestivalDetail}>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={fetchFestivalDetail}>
           <Text style={styles.retryButtonText}>다시 시도</Text>
         </TouchableOpacity>
       </View>
@@ -162,7 +171,9 @@ const FestivalDetailScreen = () => {
             <Image
               source={{uri: images[currentImageIndex]}}
               style={styles.festivalImage}
-              onError={() => console.log('이미지 로드 실패:', images[currentImageIndex])}
+              onError={() =>
+                console.log('이미지 로드 실패:', images[currentImageIndex])
+              }
             />
           </TouchableOpacity>
         ) : (
@@ -201,7 +212,9 @@ const FestivalDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <Text style={styles.likeCount}>{festivalDetail?.like_amount || currentFestival.like_amount || 0}</Text>
+          <Text style={styles.likeCount}>
+            {festivalDetail?.like_amount || currentFestival.like_amount || 0}
+          </Text>
         </View>
       </View>
 
@@ -209,7 +222,9 @@ const FestivalDetailScreen = () => {
       <View style={styles.infoContainer}>
         {/* 축제명과 상태 */}
         <View style={styles.headerContainer}>
-          <Text style={styles.festivalName}>{currentFestival.name.split('(')[0]}</Text>
+          <Text style={styles.festivalName}>
+            {currentFestival.name.split('(')[0]}
+          </Text>
           <View style={[styles.statusBadge, {backgroundColor: status.color}]}>
             <Text style={styles.statusText}>{status.text}</Text>
           </View>
@@ -221,7 +236,10 @@ const FestivalDetailScreen = () => {
           <View style={styles.detailRow}>
             <IcCalendar width={16} height={16} color={colors.gray[600]} />
             <Text style={styles.detailText}>
-              {formatDateRange(currentFestival.start_date, currentFestival.end_date)}
+              {formatDateRange(
+                currentFestival.start_date,
+                currentFestival.end_date,
+              )}
             </Text>
           </View>
 
@@ -235,16 +253,20 @@ const FestivalDetailScreen = () => {
 
           {/* 전화번호 */}
           {festivalDetail?.phone && festivalDetail.phone.trim() !== '' && (
-            <TouchableOpacity style={styles.detailRow} onPress={handlePhonePress}>
-              <Text style={styles.iconText}>📞</Text>
-              <Text style={[styles.detailText, styles.phoneText]}>{festivalDetail.phone}</Text>
+            <TouchableOpacity
+              style={styles.detailRow}
+              onPress={handlePhonePress}>
+              <IcCall width={16} height={16} color={colors.gray[600]} />
+              <Text style={[styles.detailText, styles.phoneText]}>
+                {festivalDetail.phone}
+              </Text>
             </TouchableOpacity>
           )}
 
           {/* 가격 */}
           {festivalDetail?.fee && festivalDetail.fee.trim() !== '' && (
             <View style={styles.detailRow}>
-              <Text style={styles.iconText}>💰</Text>
+              <IcDollar width={16} height={16} color={colors.gray[600]} />
               <Text style={styles.detailText}>{festivalDetail.fee}</Text>
             </View>
           )}
@@ -260,7 +282,9 @@ const FestivalDetailScreen = () => {
 
         {/* 상세보기 버튼 */}
         {festivalDetail?.site_url && (
-          <TouchableOpacity style={styles.detailButton} onPress={handleSiteUrlPress}>
+          <TouchableOpacity
+            style={styles.detailButton}
+            onPress={handleSiteUrlPress}>
             <Text style={styles.detailButtonText}>상세보기</Text>
           </TouchableOpacity>
         )}

@@ -37,7 +37,7 @@ const transformApiPlaceToPlaceItem = (
   };
 
   return {
-    place_id: apiPlace.id,
+    id: apiPlace.id,
     name: apiPlace.name,
     congestion_level: apiPlace.congestion_level,
     is_like: apiPlace.is_like,
@@ -193,7 +193,7 @@ const transformHomePlaceToPlaceItem = (homePlace: HomePlace): PlaceListItem => {
   };
 
   return {
-    place_id: homePlace.id,
+    id: homePlace.id,
     name: homePlace.name,
     congestion_level: homePlace.congestion_level,
     is_like: homePlace.is_like || false,

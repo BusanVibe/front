@@ -10,7 +10,7 @@ export enum CardType {
 }
 
 export interface PlaceListItem {
-  place_id: number;
+  id: number;
   name: string;
   congestion_level: number;
   is_like: boolean;
@@ -22,7 +22,7 @@ export interface PlaceListItem {
 }
 
 export interface FestivalListItem {
-  festival_id: number;
+  id: number;
   name: string;
   is_like: boolean;
   address: string;

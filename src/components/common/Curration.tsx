@@ -1,3 +1,6 @@
+/**
+ * 큐레이션 컴포넌트
+ */
 import React, {useState, useEffect} from 'react';
 import {
   View,
@@ -7,6 +10,9 @@ import {
   Dimensions,
   ImageBackground,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {RootStackParamList} from '../../navigation/RootNavigator';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import {curationData} from '../../mocks/dummy';
@@ -17,6 +23,8 @@ import LinearGradient from 'react-native-linear-gradient';
 
 const {width: screenWidth} = Dimensions.get('window');
 
+type NavigationProp = StackNavigationProp<RootStackParamList>;
+
 interface CurationItem {
   id: string;
   title: string;
@@ -26,6 +34,7 @@ interface CurationItem {
 }
 
 const CurationComponent: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 자동 슬라이드 기능
@@ -39,8 +48,43 @@ const CurationComponent: React.FC = () => {
 
   const currentItem = curationData[currentIndex];
 
+  const isFestival = (id: string) => {
+    const numericId = parseInt(id);
+    return numericId >= 200 && numericId < 300;
+  };
+
+  const handleCurationPress = (item: CurationItem) => {
+    if (isFestival(item.id)) {
+      const festivalData = {
+        id: parseInt(item.id),
+        festival_id: parseInt(item.id),
+        name: item.title,
+        img: item.image || '',
+        period: item.period || '',
+        address: '부산광역시',
+        is_like: false,
+      };
+      navigation.navigate('FestivalDetail', {festival: festivalData});
+    } else {
+      const placeData = {
+        id: parseInt(item.id),
+        place_id: parseInt(item.id),
+        name: item.title,
+        img: item.image || '',
+        address: '부산광역시',
+        type: 0,
+        congestion_level: 0,
+        is_like: false,
+      };
+      navigation.navigate('PlaceDetail', {place: placeData});
+    }
+  };
+
   const renderCurationItem = (item: CurationItem) => (
-    <TouchableOpacity style={styles.curationCard} activeOpacity={0.9}>
+    <TouchableOpacity
+      style={styles.curationCard}
+      activeOpacity={0.9}
+      onPress={() => handleCurationPress(item)}>
       <ImageBackground
         source={item.image ? {uri: item.image} : undefined}
         style={styles.curationImageContainer}
