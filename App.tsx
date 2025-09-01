@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, {useEffect, useState} from 'react';
+import {NavigationContainer} from '@react-navigation/native';
 import 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
-import { LocationProvider } from './src/contexts/LocationContext';
-import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import {LocationProvider} from './src/contexts/LocationContext';
+import {AuthProvider, useAuth} from './src/contexts/AuthContext';
 import {
   View,
   Text,
@@ -14,22 +14,23 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
+import {WebView} from 'react-native-webview';
 import LinearGradient from 'react-native-linear-gradient';
 import LogoIcon from './src/assets/logo.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LottieView from 'lottie-react-native';
+import {WaveLottieWeb} from './src/assets/animation/WaveLottieWeb';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 // 메인 앱 컴포넌트 (AuthProvider 내부)
 const AppContent: React.FC = () => {
-  const { user, isLoading, login, isAuthenticated } = useAuth();
+  const {user, isLoading, login, isAuthenticated} = useAuth();
   const [showWebView, setShowWebView] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCode, setProcessedCode] = useState<string | null>(null);
   const [attemptedEmailRefresh, setAttemptedEmailRefresh] = useState(false);
-  
 
   useEffect(() => {
     // 딥링크 처리 설정
@@ -58,8 +59,6 @@ const AppContent: React.FC = () => {
       linkingListener.remove();
     };
   }, []);
-
-
 
   // 이메일이 'unknown'인 경우, 토큰으로 사용자 정보 재조회하여 이메일 갱신
   useEffect(() => {
@@ -91,7 +90,11 @@ const AppContent: React.FC = () => {
       }
     };
 
-    if (isAuthenticated && user?.email === 'unknown' && !attemptedEmailRefresh) {
+    if (
+      isAuthenticated &&
+      user?.email === 'unknown' &&
+      !attemptedEmailRefresh
+    ) {
       setAttemptedEmailRefresh(true);
       refreshEmailIfUnknown();
     }
@@ -167,7 +170,6 @@ const AppContent: React.FC = () => {
               refreshToken,
               tokenIssuedAt: Date.now(),
             });
-
           }
         } catch (userError) {
           console.error('사용자 정보 조회 오류:', userError);
@@ -179,7 +181,6 @@ const AppContent: React.FC = () => {
             refreshToken,
             tokenIssuedAt: Date.now(),
           });
-
         }
       } else {
         console.error('딥링크에서 토큰을 찾을 수 없음');
@@ -204,13 +205,16 @@ const AppContent: React.FC = () => {
     console.log('=== 심사용(게스트) 로그인 시작 ===');
     try {
       setLoading(true);
-      const response = await fetch('https://api.busanvibe.site/users/login/guest', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        'https://api.busanvibe.site/users/login/guest',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
 
       const responseText = await response.text();
       console.log('심사용 로그인 응답:', response.status, responseText);
@@ -220,7 +224,11 @@ const AppContent: React.FC = () => {
       }
 
       const data = JSON.parse(responseText);
-      if (data?.is_success && data?.result?.accessToken && data?.result?.refreshToken) {
+      if (
+        data?.is_success &&
+        data?.result?.accessToken &&
+        data?.result?.refreshToken
+      ) {
         await login({
           id: 0,
           email: 'guest@busanvibe',
@@ -240,10 +248,8 @@ const AppContent: React.FC = () => {
     }
   };
 
-  
-
   const handleWebViewNavigationStateChange = async (navState: any) => {
-    const { url, loading } = navState;
+    const {url, loading} = navState;
     console.log('=== WebView URL 변경 ===');
     console.log('URL:', url);
     console.log('Loading:', loading);
@@ -361,7 +367,7 @@ const AppContent: React.FC = () => {
 
           if (data.is_success && data.result) {
             // 백엔드에서 받은 토큰을 저장 (AuthContext 사용)
-            const { tokenResponseDTO, id, email } = data.result;
+            const {tokenResponseDTO, id, email} = data.result;
 
             await login({
               id: id,
@@ -417,17 +423,17 @@ const AppContent: React.FC = () => {
           </TouchableOpacity>
         </View>
         <WebView
-          source={{ uri: getKakaoAuthUrl() }}
+          source={{uri: getKakaoAuthUrl()}}
           onNavigationStateChange={handleWebViewNavigationStateChange}
           onLoadEnd={syntheticEvent => {
-            const { nativeEvent } = syntheticEvent;
+            const {nativeEvent} = syntheticEvent;
             console.log('WebView 로드 완료:', nativeEvent.url);
 
             // onLoadEnd에서는 처리하지 않음 (중복 방지)
             // onNavigationStateChange에서만 처리
           }}
           onError={syntheticEvent => {
-            const { nativeEvent } = syntheticEvent;
+            const {nativeEvent} = syntheticEvent;
             console.error('WebView 에러:', nativeEvent);
           }}
           onLoadStart={() => {
@@ -443,13 +449,16 @@ const AppContent: React.FC = () => {
   if (isLoading || loading) {
     return (
       <LinearGradient
-        colors={['#B8D4F0', '#4A90E2']}
+        colors={['#99DCFB', '#FFFFFF']}
         style={styles.splashContainer}>
         <View style={styles.contentContainer}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={[styles.subTitle, { marginTop: 20 }]}>
+          <Text style={[styles.subTitle, {marginTop: 20}]}>
             {loading ? '로그인 처리 중...' : '앱 로딩 중...'}
           </Text>
+        </View>
+        <View style={styles.waveContainer}>
+          <WaveLottieWeb />
         </View>
       </LinearGradient>
     );
@@ -459,7 +468,7 @@ const AppContent: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <LinearGradient
-        colors={['#B8D4F0', '#4A90E2']}
+        colors={['#99DCFB', '#FFFFFF']}
         style={styles.splashContainer}>
         <View style={styles.contentContainer}>
           {/* 로고 아이콘 - 작은 크기로 조정 */}
@@ -490,7 +499,10 @@ const AppContent: React.FC = () => {
           </View>
         </TouchableOpacity>
 
-        {/* 심사용 로그인은 게스트 API로 즉시 진행되므로 모달이 필요 없습니다. */}
+        {/* Wave 애니메이션 */}
+        <View style={styles.waveContainer}>
+          <WaveLottieWeb />
+        </View>
       </LinearGradient>
     );
   }
@@ -521,6 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 60,
     paddingHorizontal: 20,
+    position: 'relative',
   },
   contentContainer: {
     flex: 1,
@@ -595,7 +608,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.08)',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.15,
     shadowRadius: 3,
   },
@@ -628,6 +641,18 @@ const styles = StyleSheet.create({
   },
   webView: {
     flex: 1,
+  },
+  waveContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '120%',
+    height: 320,
+  },
+  waveAnimation: {
+    width: '100%',
+    height: '100%',
   },
 });
 
