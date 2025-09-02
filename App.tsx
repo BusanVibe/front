@@ -649,6 +649,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: '120%',
     height: 320,
+    zIndex: -1,
   },
   waveAnimation: {
     width: '100%',
