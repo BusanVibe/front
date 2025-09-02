@@ -11,7 +11,7 @@
 ### 1. 환경 설정 확인
 
 - ✅ Android Studio 설치 확인
-- ✅ Android SDK 설치 확인 (C:\Users\Taeksin\AppData\Local\Android\Sdk)
+- ✅ Android SDK 설치 확인 (C:\Users\~~\AppData\Local\Android\Sdk)
 - ✅ Java JDK 20 설치 확인
 - ✅ 환경 변수 설정 확인 (ANDROID_HOME, JAVA_HOME)
 
@@ -83,7 +83,7 @@ java -version
 
 # Android SDK 경로 확인 (PowerShell)
 echo $env:ANDROID_HOME
-# 결과: C:\Users\Taeksin\AppData\Local\Android\Sdk
+# 결과: C:\Users\~~\AppData\Local\Android\Sdk
 ```
 
 ### 2단계: 프로젝트 의존성 설치
