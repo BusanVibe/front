@@ -808,8 +808,8 @@ const CongestionScreen = () => {
             cacheEnabled={false} // 지도 캐싱 비활성화 (줌/드래그 이슈 방지)
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
-            mixedContentMode="compatibility"
-            androidLayerType="software" // 안정성을 위해 software로 복구
+            mixedContentMode="always"
+            androidHardwareAccelerationDisabled={false}
             bounces={false} // iOS에서 바운스 효과 비활성화
             scrollEnabled={false} // WebView 자체 스크롤 비활성화
             showsHorizontalScrollIndicator={false}
