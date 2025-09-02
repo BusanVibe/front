@@ -13,6 +13,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Geolocation from '@react-native-community/geolocation';
@@ -465,23 +466,26 @@ const CongestionScreen = () => {
         return;
       }
 
-      // Android 권한 요청
+      // Android 권한 요청 (정밀/저정밀 동시 요청 및 영구 거부 대응)
       if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION, // 더 정확한 위치를 위해 FINE_LOCATION 사용
-          {
-            title: '위치 권한 요청',
-            message: '현재 위치를 확인하기 위해 위치 권한이 필요합니다.',
-            buttonNeutral: '나중에',
-            buttonNegative: '거부',
-            buttonPositive: '허용',
-          }
-        );
+        const results = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
 
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('위치 권한이 거부됨');
+        const fineResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+        const coarseResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
+        const isFineGranted = fineResult === PermissionsAndroid.RESULTS.GRANTED;
+        const isCoarseGranted = coarseResult === PermissionsAndroid.RESULTS.GRANTED;
+        const isAnyGranted = isFineGranted || isCoarseGranted;
+
+        if (!isAnyGranted) {
+          const isAnyNeverAskAgain =
+            fineResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
+            coarseResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+          console.log('위치 권한이 거부됨 - fine:', fineResult, 'coarse:', coarseResult);
+
           if (isInitialLoad) {
-            // 초기 로드 시 권한이 거부되면 부산 중심으로 설정 (앱 주제에 맞게)
             const defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
             setMapCenter(defaultLocation);
             setCurrentLocation(null);
@@ -489,7 +493,7 @@ const CongestionScreen = () => {
             setIsInitialLoad(false);
             setIsLocationLoading(false);
             webViewReloadReasonRef.current = 'initialPermissionDeniedDefaultBusan';
-            setMapKey(prev => prev + 1); // 초기 로드는 재렌더링 필요
+            setMapKey(prev => prev + 1);
 
             setTimeout(() => {
               const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
@@ -500,7 +504,17 @@ const CongestionScreen = () => {
 
             console.log('권한 거부 - 부산 중심으로 설정');
           } else {
-            Alert.alert('권한 거부', '위치 권한이 거부되었습니다.');
+            Alert.alert(
+              '권한 필요',
+              isAnyNeverAskAgain
+                ? '위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해 주세요.'
+                : '위치 권한이 거부되었습니다. 다시 시도해 주세요.',
+              [
+                isAnyNeverAskAgain
+                  ? { text: '설정 열기', onPress: () => Linking.openSettings() }
+                  : { text: '확인', style: 'default' },
+              ],
+            );
             setIsLocationLoading(false);
           }
           return;
@@ -509,11 +523,28 @@ const CongestionScreen = () => {
 
       console.log('위치 정보 요청 중...');
 
-      // 현재 위치 가져오기
-      Geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', accuracy + 'm', '- 기본 줌 레벨: 5로 설정 예정');
+      // 현재 위치 가져오기 (정밀 우선 → 실패 시 저정밀 폴백)
+      const attemptGetPosition = (
+        options: { enableHighAccuracy: boolean; timeout: number; maximumAge: number },
+        onSuccess: (lat: number, lng: number, acc?: number) => void,
+        onFailure: (error: any) => void,
+      ) => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            onSuccess(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
+          },
+          (error) => {
+            onFailure(error);
+          },
+          options,
+        );
+      };
+
+      const highOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 };
+      const lowOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 };
+
+      const onPositionSuccess = (latitude: number, longitude: number, accuracy?: number) => {
+          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', (accuracy ?? '-') + 'm', '- 기본 줌 레벨: 5로 설정 예정');
 
           const currentPos = { latitude, longitude };
 
@@ -567,14 +598,15 @@ const CongestionScreen = () => {
           }, 1000);
 
           console.log('현재 위치 지도 업데이트 완료');
-        },
-        (error) => {
-          console.error('❌ 위치 가져오기 실패:', error.code, error.message);
+      };
+
+      const onPositionFailure = (error: any) => {
+          console.error('❌ 위치 가져오기 실패:', error?.code, error?.message);
 
           let defaultLocation: Location;
           let errorMessage = '';
 
-          switch (error.code) {
+          switch (error?.code) {
             case 1: // PERMISSION_DENIED
               errorMessage = '위치 권한이 거부되었습니다.';
               break;
@@ -618,11 +650,15 @@ const CongestionScreen = () => {
           }
 
           console.log('기본 위치로 설정 완료');
-        },
-        {
-          enableHighAccuracy: true, // 더 정확한 위치 요청
-          timeout: 15000, // 15초 타임아웃
-          maximumAge: 60000, // 1분간 캐시된 위치 사용
+      };
+
+      // 1차(정밀) → 실패 시 2차(저정밀)
+      attemptGetPosition(
+        highOptions,
+        onPositionSuccess,
+        (err) => {
+          console.warn('정밀 위치 실패, 저정밀로 재시도:', err);
+          attemptGetPosition(lowOptions, onPositionSuccess, onPositionFailure);
         }
       );
     } catch (error) {
@@ -808,8 +844,10 @@ const CongestionScreen = () => {
             cacheEnabled={false} // 지도 캐싱 비활성화 (줌/드래그 이슈 방지)
             allowsInlineMediaPlayback={true}
             mediaPlaybackRequiresUserAction={false}
-            mixedContentMode="always"
-            androidHardwareAccelerationDisabled={false}
+            mixedContentMode="compatibility"
+            androidLayerType="software"
+            // mixedContentMode="always"
+            // androidHardwareAccelerationDisabled={false}
             bounces={false} // iOS에서 바운스 효과 비활성화
             scrollEnabled={false} // WebView 자체 스크롤 비활성화
             showsHorizontalScrollIndicator={false}
