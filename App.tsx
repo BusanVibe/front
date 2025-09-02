@@ -457,7 +457,7 @@ const AppContent: React.FC = () => {
             {loading ? '로그인 처리 중...' : '앱 로딩 중...'}
           </Text>
         </View>
-        <View style={styles.waveContainer}>
+        <View style={styles.waveContainer} pointerEvents="none">
           <WaveLottieWeb />
         </View>
       </LinearGradient>
@@ -500,7 +500,7 @@ const AppContent: React.FC = () => {
         </TouchableOpacity>
 
         {/* Wave 애니메이션 */}
-        <View style={styles.waveContainer}>
+        <View style={styles.waveContainer} pointerEvents="none">
           <WaveLottieWeb />
         </View>
       </LinearGradient>
@@ -574,6 +574,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
+    zIndex: 10,
   },
   kakaoButtonContent: {
     flexDirection: 'row',
@@ -611,6 +612,7 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.15,
     shadowRadius: 3,
+    zIndex: 10,
   },
   idButtonText: {
     fontSize: 18,

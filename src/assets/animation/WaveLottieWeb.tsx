@@ -32,12 +32,14 @@ const html = `
 
 export function WaveLottieWeb() {
   return (
-    <View style={{height: 350, width: '100%'}}>
+    <View style={{height: 350, width: '100%'}} pointerEvents="none">
       <WebView
         originWhitelist={['*']}
         source={{html}}
         style={{backgroundColor: 'transparent', width: '100%'}}
         androidHardwareAccelerationDisabled={false}
+        pointerEvents="none"
+        scrollEnabled={false}
         javaScriptEnabled
         domStorageEnabled
       />
