@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">api.busanvibe.site</domain>
+        <domain includeSubdomains="true">kauth.kakao.com</domain>
+        <domain includeSubdomains="true">dapi.kakao.com</domain>
+        <domain includeSubdomains="true">t1.daumcdn.net</domain>
+        <domain includeSubdomains="true">tong.visitkorea.or.kr</domain>
+        <domain includeSubdomains="true">via.placeholder.com</domain>
+    </domain-config>
+</network-security-config>
+
+
