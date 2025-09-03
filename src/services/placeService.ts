@@ -316,6 +316,14 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
       }
     }
 
+    // BigDecimal 형태의 좌표 파싱
+    const parseLocation = (location: any): number | undefined => {
+      if (Array.isArray(location) && location[0] === 'java.math.BigDecimal') {
+        return Number(location[1]);
+      }
+      return location ? Number(location) : undefined;
+    };
+
     // 상세 정보 구성
     const placeDetail: PlaceDetail = {
       id: result.id,
@@ -333,6 +341,8 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
       introduce: result.introduce,
       use_time: result.use_time,
       rest_date: result.rest_date,
+      latitude: parseLocation(result.latitude),
+      longitude: parseLocation(result.longitude),
     };
 
     return placeDetail;

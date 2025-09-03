@@ -8,6 +8,8 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from 'react-native';
 import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -79,6 +81,48 @@ const PlaceDetailScreen = () => {
     } catch (error) {
       console.error('=== PlaceDetailScreen 좋아요 토글 실패 ===', error);
       Alert.alert('오류', '좋아요 처리에 실패했습니다.');
+    }
+  };
+
+  const openDirections = async () => {
+    const latitude = placeDetail?.latitude || place?.latitude;
+    const longitude = placeDetail?.longitude || place?.longitude;
+    
+    if (!latitude || !longitude) {
+      console.log('위치 정보 없음 - latitude:', latitude, 'longitude:', longitude);
+      Alert.alert('알림', '위치 정보를 불러올 수 없습니다.');
+      return;
+    }
+
+    const label = encodeURIComponent(placeDetail?.name || place.name);
+
+    console.log('사용할 위치 정보 - latitude:', latitude, 'longitude:', longitude);
+
+    let url = '';
+    
+    if (Platform.OS === 'ios') {
+      url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
+    } else {
+      url = `google.navigation:q=${latitude},${longitude}&mode=d`;
+      
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      }
+    }
+
+    console.log('길찾기 URL:', url);
+
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('길찾기 앱 열기 실패:', error);
+      const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      try {
+        await Linking.openURL(fallbackUrl);
+      } catch (fallbackError) {
+        Alert.alert('오류', '길찾기 앱을 열 수 없습니다.');
+      }
     }
   };
 
@@ -216,7 +260,10 @@ const PlaceDetailScreen = () => {
 
         {/* 버튼들 */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.directionButton}>
+          <TouchableOpacity 
+            style={styles.directionButton}
+            onPress={openDirections}
+          >
             <Text style={styles.directionButtonText}>길찾기</Text>
           </TouchableOpacity>
           <TouchableOpacity 
