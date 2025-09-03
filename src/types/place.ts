@@ -48,6 +48,8 @@ export interface PlaceDetail {
   introduce?: string;
   use_time?: string;
   rest_date?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PlaceListResult {
@@ -94,6 +96,8 @@ export interface ApiPlaceDetailResponse {
   introduce?: string;
   use_time?: string;
   rest_date?: string;
+  latitude?: any;
+  longitude?: any;
 }
 
 export enum PlaceCategory {
