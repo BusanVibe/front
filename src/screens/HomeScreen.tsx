@@ -13,11 +13,16 @@ const HomeScreen = () => {
   const [mostCrowdedPlaces, setMostCrowdedPlaces] = useState<PlaceListItem[]>([]);
   const [recommendPlaces, setRecommendPlaces] = useState<PlaceListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const {userLocation, hasLocationPermission, refreshLocation} = useLocation();
+  const {userLocation, hasLocationPermission, refreshLocation, ensureFreshLocation} = useLocation();
 
   useEffect(() => {
     loadHomeData();
   }, []);
+
+  // 앱 진입 시 위치를 미리 확보해 거리 계산에 활용
+  useEffect(() => {
+    ensureFreshLocation(60000).catch(() => {});
+  }, [ensureFreshLocation]);
 
   const loadHomeData = async () => {
     try {
