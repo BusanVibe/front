@@ -29,6 +29,7 @@ export interface FestivalListItem {
   img?: string;
   start_date: string;
   end_date: string;
+  like_amount: number;
 }
 
 export interface PlaceDetail {

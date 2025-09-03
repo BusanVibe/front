@@ -17,6 +17,66 @@ import {BaseApiResponse} from '../types/common';
 const BASE_URL = 'https://api.busanvibe.site';
 
 /**
+ * 명소 좋아요 토글 API
+ */
+export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<{success: boolean; message: string}>> => {
+  try {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+    console.log('=== PlaceService 좋아요 API 요청 시작 ===');
+    console.log('accessToken:', accessToken);
+    console.log('placeId:', placeId);
+
+    const url = `${BASE_URL}/api/places/like/${placeId}`;
+
+    console.log('=== 명소 좋아요 API 호출 ===');
+    console.log('API URL:', url);
+
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    console.log('=== API 응답 정보 ===');
+    console.log('응답 상태:', response.status);
+    console.log('응답 상태 텍스트:', response.statusText);
+
+    const responseText = await response.text();
+    console.log('응답 데이터:', responseText);
+
+    if (!response.ok) {
+      console.error('=== 명소 좋아요 API 호출 실패 ===');
+      console.error('상태 코드:', response.status);
+      console.error('응답 내용:', responseText);
+
+      throw new Error(
+        `HTTP error! status: ${response.status}, response: ${responseText}`,
+      );
+    }
+
+    const data: BaseApiResponse<{success: boolean; message: string}> =
+      JSON.parse(responseText);
+
+    console.log('=== 명소 좋아요 API 응답 성공 ===');
+    console.log('응답 데이터:', {
+      isSuccess: data.is_success,
+      code: data.code,
+      message: data.message,
+      result: data.result,
+    });
+
+    return data;
+  } catch (error) {
+    console.error('=== 명소 좋아요 API 에러 ===');
+    console.error('에러 상세:', error);
+    throw error;
+  }
+};
+
+/**
  * API에서 받은 장소 데이터를 앱에서 사용하는 형태로 변환
  */
 const transformApiPlaceToPlaceItem = (
@@ -390,45 +450,3 @@ export const getHomeData = async (): Promise<{
   }
 };
 
-/**
- * 명소 좋아요 토글 API
- */
-export const togglePlaceLike = async (placeId: number): Promise<boolean> => {
-  try {
-    const accessToken = await AsyncStorage.getItem('accessToken');
-
-    if (!accessToken) {
-      throw new Error('로그인이 필요합니다.');
-    }
-
-    const url = `${BASE_URL}/api/places/${placeId}/like`;
-    console.log('명소 좋아요 API 호출:', url);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: '*/*',
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `API 호출 실패: ${response.status} ${response.statusText}`,
-      );
-    }
-
-    const data = await response.json();
-    console.log('명소 좋아요 API 응답:', data);
-
-    if (!data.is_success) {
-      throw new Error(`API 오류: ${data.message}`);
-    }
-
-    return data.result?.is_like || false;
-  } catch (error) {
-    console.error('명소 좋아요 토글 오류:', error);
-    throw error;
-  }
-};

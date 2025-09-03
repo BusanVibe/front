@@ -9,7 +9,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import {RouteProp, useRoute} from '@react-navigation/native';
+import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceType, PlaceDetail} from '../types/place';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import {getPlaceDetail, togglePlaceLike} from '../services/placeService';
@@ -23,15 +24,21 @@ import IcCall from '../assets/icon/ic_call.svg';
 import IcCalendar from '../assets/icon/ic_calendar.svg';
 
 type PlaceDetailScreenRouteProp = RouteProp<RootStackParamList, 'PlaceDetail'>;
+type PlaceDetailScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'PlaceDetail'
+>;
 
 const PlaceDetailScreen = () => {
   const route = useRoute<PlaceDetailScreenRouteProp>();
+  const navigation = useNavigation<PlaceDetailScreenNavigationProp>();
   const {place} = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [placeDetail, setPlaceDetail] = useState<PlaceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(place.is_like);
   const [likeAmount, setLikeAmount] = useState(0);
+  const [likeStateChanged, setLikeStateChanged] = useState(false);
 
   useEffect(() => {
     fetchPlaceDetail();
@@ -54,11 +61,23 @@ const PlaceDetailScreen = () => {
 
   const toggleLike = async () => {
     try {
-      const newLikeState = await togglePlaceLike(place.id);
-      setIsLiked(newLikeState);
-      setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
+      console.log('=== PlaceDetailScreen 좋아요 처리 시작 ===', place.id);
+      const response = await togglePlaceLike(place.id);
+      
+      if (response.is_success) {
+        console.log('=== PlaceDetailScreen 좋아요 처리 성공 ===');
+        const newLikeState = !isLiked;
+        setIsLiked(newLikeState);
+        setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
+        
+        setLikeStateChanged(true);
+        
+        fetchPlaceDetail();
+      } else {
+        Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
+      }
     } catch (error) {
-      console.error('좋아요 토글 실패:', error);
+      console.error('=== PlaceDetailScreen 좋아요 토글 실패 ===', error);
       Alert.alert('오류', '좋아요 처리에 실패했습니다.');
     }
   };

@@ -28,7 +28,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
   cardType?: CardType;
-  onToggleLike?: (id: number) => void;
+  onToggleLike?: (id: number) => Promise<void>;
 }
 
 const AttractionCard: React.FC<AttractionCardProps> = ({
@@ -39,6 +39,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   const navigation = useNavigation<NavigationProp>();
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
   const {userLocation, hasLocationPermission} = useLocation();
 
   const isPlace = cardType === CardType.PLACE;
@@ -78,6 +79,26 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     }
 
     return null;
+  };
+
+  const handleLikePress = async () => {
+    console.log('=== AttractionCard handleLikePress 시작 ===');
+    console.log('isLikeLoading:', isLikeLoading, 'onToggleLike:', !!onToggleLike);
+    console.log('isPlace:', isPlace, 'festivalId:', isPlace ? placeData.id : festivalData.id);
+    
+    if (isLikeLoading || !onToggleLike) {
+      console.log('=== handleLikePress 조기 리턴 ===');
+      return;
+    }
+    
+    setIsLikeLoading(true);
+    try {
+      console.log('=== onToggleLike 호출 시작 ===', isPlace ? placeData.id : festivalData.id);
+      await onToggleLike(isPlace ? placeData.id : festivalData.id);
+      console.log('=== onToggleLike 호출 완료 ===');
+    } finally {
+      setIsLikeLoading(false);
+    }
   };
 
   // 이미지 URL이 있는지 확인
@@ -127,11 +148,9 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             )}
           </View>
           <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={() =>
-              onToggleLike &&
-              onToggleLike(isPlace ? placeData.id : festivalData.id)
-            }>
+            style={[styles.favoriteButton, isLikeLoading && styles.favoriteButtonLoading]}
+            onPress={handleLikePress}
+            disabled={isLikeLoading}>
             <IcHeart
               width={16}
               height={16}
@@ -263,5 +282,8 @@ const styles = StyleSheet.create({
   expandIcon: {
     fontSize: 16,
     color: colors.gray[600],
+  },
+  favoriteButtonLoading: {
+    opacity: 0.5,
   },
 });
