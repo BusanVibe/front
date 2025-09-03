@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -20,17 +20,23 @@ type RootStackParamList = {
   MyPage: undefined;
 };
 
-interface CustomHeaderProps {
+export interface CustomHeaderProps {
   title?: string;
   showSearchInput?: boolean;
   searchPlaceholder?: string;
   onSearchChange?: (text: string) => void;
   searchValue?: string;
-  onPressSearch?: () => void;
+  onPressSearch?: (text: string) => void;
   showBackButton?: boolean;
 }
 
-const CustomHeader: React.FC<CustomHeaderProps> = ({
+export type CustomHeaderRef = {
+  setText: (text: string) => void;
+  submit: () => void;
+  focus: () => void;
+};
+
+const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({ 
   title,
   showSearchInput = false,
   searchPlaceholder = '검색어를 입력하세요',
@@ -38,10 +44,12 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   searchValue,
   onPressSearch,
   showBackButton = false,
-}) => {
+}, ref) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, isAuthenticated } = useAuth();
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
+  const inputTextRef = useRef<string>(searchValue ?? '');
+  const textInputRef = useRef<TextInput | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +74,27 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   }, [isAuthenticated, user?.accessToken]);
 
   if (showSearchInput) {
+    const handleChange = (text: string) => {
+      inputTextRef.current = text;
+      // 부모 리렌더를 줄이기 위해 onSearchChange는 사용처에서 선택적으로 전달
+      onSearchChange?.(text);
+    };
+    const handleSubmit = () => {
+      onPressSearch?.(inputTextRef.current.trim());
+    };
+
+    useImperativeHandle(ref, () => ({
+      setText: (text: string) => {
+        inputTextRef.current = text;
+        try {
+          textInputRef.current?.setNativeProps?.({ text });
+        } catch {}
+      },
+      submit: () => handleSubmit(),
+      focus: () => {
+        try { textInputRef.current?.focus?.(); } catch {}
+      },
+    }), []);
     return (
       <View style={styles.headerContainer}>
         {showBackButton && (
@@ -77,18 +106,24 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         )}
         <View style={styles.searchInputContainer}>
           <TextInput
+            ref={textInputRef}
             style={styles.searchInput}
             placeholder={searchPlaceholder}
             placeholderTextColor="#999999"
-            value={searchValue}
-            onChangeText={onSearchChange}
+            defaultValue={searchValue ?? ''}
+            onChangeText={handleChange}
             autoFocus={true}
             returnKeyType="search"
-            onSubmitEditing={onPressSearch}
+            onSubmitEditing={handleSubmit}
+            autoCorrect={false}
+            autoCapitalize="none"
+            importantForAutofill="no"
+            textBreakStrategy="simple"
+            underlineColorAndroid="transparent"
           />
           <TouchableOpacity
             style={styles.searchIconContainer}
-            onPress={onPressSearch}
+            onPress={handleSubmit}
             accessibilityRole="button"
             accessibilityLabel="검색"
           >
@@ -129,7 +164,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   headerContainer: {
