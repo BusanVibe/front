@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -37,6 +38,11 @@ interface PlaceMarker {
   congestion_level: number;
   type: string;
 }
+
+type CongestionScreenRouteProp = RouteProp<
+  Record<string, { selectedPlaceId?: number }>,
+  string
+>;
 
 const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
@@ -83,6 +89,8 @@ const locationData = [
 ];
 
 const CongestionScreen = () => {
+  const route = useRoute<CongestionScreenRouteProp>();
+  const selectedPlaceId = route.params?.selectedPlaceId;
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
   const [mapKey, setMapKey] = useState(0); // WebView 강제 리렌더링용
@@ -111,6 +119,18 @@ const CongestionScreen = () => {
     console.log('=== CongestionScreen 마운트 - 현재 위치 자동 획득 시작 ===');
     getCurrentLocation();
   }, []);
+
+  // selectedPlaceId가 전달되었을 때 해당 장소 정보 로드
+  React.useEffect(() => {
+    if (selectedPlaceId) {
+      console.log('=== 선택된 장소 ID로 초기화 ===', selectedPlaceId);
+      // 장소 상세 정보, 실시간 혼잡도, 이용객 분포를 모두 가져오기
+      fetchPlaceDetail(selectedPlaceId);
+      fetchRealtimeCongestion(selectedPlaceId);
+      fetchVisitorDistribution(selectedPlaceId);
+      changeBottomSheetMode('half');
+    }
+  }, [selectedPlaceId]);
 
   // 카테고리를 API 타입으로 변환
   const getCategoryType = (category: string): string => {
@@ -238,6 +258,42 @@ const CongestionScreen = () => {
         } as any;
         setSelectedLocation(mapped);
         changeBottomSheetMode('half');
+        
+        // 장소 위치로 지도 이동
+        const latitude = Number(lat);
+        const longitude = Number(lng);
+        if (!isNaN(latitude) && !isNaN(longitude)) {
+          if (webViewRef.current) {
+            // 지도를 해당 장소 위치로 이동
+            webViewRef.current.postMessage(JSON.stringify({
+              type: 'moveToLocation',
+              latitude,
+              longitude,
+              showCurrentLocation: false
+            }));
+            // 해당 장소에 핑 표시
+            webViewRef.current.postMessage(JSON.stringify({
+              type: 'updatePlacePings',
+              places: [{
+                id: r.id,
+                name: r.name,
+                type: r.type || 'PLACE',
+                congestion_level: Number(r.congestion_level || 0),
+                latitude,
+                longitude
+              }]
+            }));
+          } else {
+            // WebView가 아직 로드되지 않은 경우 예약
+            pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
+          }
+          
+          // API 호출로 주변 장소들도 가져오기
+          setTimeout(() => {
+            const bounds = calculateBounds(latitude, longitude, 15);
+            fetchCongestionData(bounds, selectedCategory);
+          }, 1000);
+        }
       } else {
         console.warn('장소 상세 비정상 응답:', data);
       }

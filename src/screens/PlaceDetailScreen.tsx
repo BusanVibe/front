@@ -219,7 +219,15 @@ const PlaceDetailScreen = () => {
           <TouchableOpacity style={styles.directionButton}>
             <Text style={styles.directionButtonText}>길찾기</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.detailButton}>
+          <TouchableOpacity 
+            style={styles.detailButton}
+            onPress={() => {
+              navigation.navigate('Main', {
+                screen: '혼잡도',
+                params: { selectedPlaceId: place.id }
+              });
+            }}
+          >
             <Text style={styles.detailButtonText}>혼잡도 보기</Text>
           </TouchableOpacity>
         </View>
