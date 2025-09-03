@@ -11,7 +11,8 @@ import {
   Image,
   Linking,
 } from 'react-native';
-import {RouteProp, useRoute} from '@react-navigation/native';
+import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import {FestivalListItem, FestivalDetailResult} from '../types/festival';
 import {RootStackParamList} from '../navigation/RootNavigator';
 import {FestivalService} from '../services/festivalService';
@@ -28,8 +29,14 @@ type FestivalDetailScreenRouteProp = RouteProp<
   'FestivalDetail'
 >;
 
+type FestivalDetailScreenNavigationProp = StackNavigationProp<
+  RootStackParamList,
+  'FestivalDetail'
+>;
+
 const FestivalDetailScreen = () => {
   const route = useRoute<FestivalDetailScreenRouteProp>();
+  const navigation = useNavigation<FestivalDetailScreenNavigationProp>();
   const {festival} = route.params;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [festivalDetail, setFestivalDetail] =
@@ -37,6 +44,7 @@ const FestivalDetailScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [likeStateChanged, setLikeStateChanged] = useState(false);
 
   const formatDateRange = (startDate: string, endDate: string) => {
     const formatDate = (dateStr: string) => {
@@ -137,6 +145,9 @@ const FestivalDetailScreen = () => {
             like_amount: prev.is_like ? prev.like_amount - 1 : prev.like_amount + 1
           } : null);
         }
+        
+        // 좋아요 상태가 변경되었음을 표시
+        setLikeStateChanged(true);
         
         // 상세 정보 다시 가져와서 최신 상태 반영
         fetchFestivalDetail();

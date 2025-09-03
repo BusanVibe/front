@@ -16,6 +16,7 @@ import {
   getPlaceList,
   getCategoryFromKorean,
   getSortFromKorean,
+  togglePlaceLike,
 } from '../services/placeService';
 import colors from '../styles/colors';
 
@@ -30,6 +31,33 @@ const AttractionScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   const sortOptions = ['기본순', '좋아요순', '혼잡도순'];
+
+  const handleToggleLike = useCallback(async (placeId: number) => {
+    console.log('=== AttractionScreen handleToggleLike 시작 ===', placeId);
+    
+    try {
+      const response = await togglePlaceLike(placeId);
+      
+      if (response.is_success) {
+        console.log('=== 좋아요 API 성공, 데이터 업데이트 ===');
+        setPlaceData(prevData => 
+          prevData.map(item => 
+            item.id === placeId 
+              ? {
+                  ...item,
+                  is_like: !item.is_like,
+                }
+              : item
+          )
+        );
+      } else {
+        Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
+      }
+    } catch (error) {
+      console.error('=== 좋아요 처리 에러 ===', error);
+      Alert.alert('오류', '네트워크 오류가 발생했습니다.');
+    }
+  }, []);
 
   // API 데이터 로드
   const loadPlaceData = useCallback(async () => {
@@ -119,7 +147,7 @@ const AttractionScreen = () => {
       case 'attraction':
         return (
           <View style={styles.itemContainer}>
-            <AttractionCard place={item.data} />
+            <AttractionCard place={item.data} onToggleLike={handleToggleLike} />
           </View>
         );
       default:
