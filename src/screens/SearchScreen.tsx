@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import CustomHeader from '../components/CustomHeader';
+import CustomHeader, { CustomHeaderRef } from '../components/CustomHeader';
 import type {RootStackParamList} from '../navigation/RootNavigator';
 import {mapKoreanCategoryToSearchOption} from '../services/searchService';
 
@@ -19,62 +19,70 @@ const recentSearches = [
 ];
 
 const popularSearches = [
-  {id: '1', term: '부산 맛집'},
-  {id: '2', term: '해운대 해수욕장'},
-  {id: '3', term: '돼지국밥'},
-  {id: '4', term: '부산 축제'},
-  {id: '5', term: '이기대'},
+  {id: '1', term: '해변'},
+  {id: '2', term: '해수욕장'},
+  {id: '3', term: '국밥'},
+  {id: '4', term: '공원'},
+  {id: '5', term: '미포집'},
 ];
 
 const SearchScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [recentSearchList, setRecentSearchList] = useState(recentSearches);
   const [keyword, setKeyword] = useState('');
+  const headerRef = React.useRef<CustomHeaderRef>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resultCount, setResultCount] = useState<number | null>(null);
   const categories = ['전체', '관광명소', '맛집/카페', '문화시설', '축제'];
 
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
-  const handleSearch = useCallback(async () => {
+  const handleSearch = useCallback(async (textParam?: string) => {
     try {
-      if (!keyword || keyword.trim().length === 0) {
+      const term = (textParam ?? keyword).trim();
+      if (!term || term.length === 0) {
         return;
       }
       const option = mapKoreanCategoryToSearchOption(selectedCategory);
       // 결과 화면으로 이동
       navigation.navigate('SearchResult', {
-        keyword: keyword.trim(),
+        keyword: term,
         option,
       } as any);
       // 최근 검색어 업데이트
       setRecentSearchList(prev => {
-        const exists = prev.find(p => p.term === keyword.trim());
+        const exists = prev.find(p => p.term === term);
         if (exists) return prev;
-        const newItem = {id: Date.now().toString(), term: keyword.trim()};
+        const newItem = {id: Date.now().toString(), term};
         return [newItem, ...prev].slice(0, 10);
       });
     } catch (e) {
       console.error('검색 오류:', e);
     }
-  }, [keyword, selectedCategory]);
+  }, [selectedCategory, navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       header: () => (
         <CustomHeader
+          ref={headerRef}
           showSearchInput={true}
           searchPlaceholder="관광지 · 장소 · 축제 검색"
-          searchValue={keyword}
-          onSearchChange={setKeyword}
           onPressSearch={handleSearch}
         />
       ),
     });
-  }, [navigation, keyword, handleSearch]);
+    // 의도적으로 의존성에서 keyword를 제외하여 헤더 재생성을 방지
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, handleSearch]);
 
   const removeRecentSearch = (id: string) => {
     setRecentSearchList(recentSearchList.filter(item => item.id !== id));
+  };
+  const handleSelectKeyword = (term: string) => {
+    // 헤더 입력창에 텍스트 넣고, 바로 검색 실행
+    headerRef.current?.setText(term);
+    headerRef.current?.submit();
   };
 
   const clearAllRecentSearches = () => {
@@ -129,7 +137,8 @@ const SearchScreen = () => {
               {recentSearchList.map(item => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.recentSearchButton}>
+                  style={styles.recentSearchButton}
+                  onPress={() => handleSelectKeyword(item.term)}>
                   <Text style={styles.recentSearchText}>{item.term}</Text>
                   <TouchableOpacity
                     onPress={() => removeRecentSearch(item.id)}
@@ -151,11 +160,11 @@ const SearchScreen = () => {
           <FlatList
             data={popularSearches}
             renderItem={({item}) => (
-              <View style={styles.popularItem}>
+              <TouchableOpacity style={styles.popularItem} onPress={() => handleSelectKeyword(item.term)}>
                 <Text style={styles.itemNumber}>{item.id}</Text>
                 <Text style={styles.itemText}>{item.term}</Text>
                 <Text style={styles.trendIcon}>🔺</Text>
-              </View>
+              </TouchableOpacity>
             )}
             keyExtractor={item => item.id}
             numColumns={2}

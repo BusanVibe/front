@@ -73,7 +73,7 @@ const SearchResultScreen: React.FC = () => {
     };
 
     const p: PlaceListItem = {
-      place_id: item.id,
+      id: item.id,
       name: item.name,
       congestion_level: item.congestionLevel ?? 0,
       is_like: item.isLike,
@@ -173,11 +173,14 @@ const SearchResultScreen: React.FC = () => {
           )}
           keyExtractor={(item) => {
             if (item.cardType === CardType.PLACE) {
-              return `PLACE-${(item.data as PlaceListItem).place_id}`;
+              return `PLACE-${(item.data as PlaceListItem).id}`;
             }
             const f = item.data as FestivalListItem as any;
             return `FESTIVAL-${f.festival_id ?? f.id}`;
           }}
+          ListEmptyComponent={() => (
+            <Text style={styles.emptyText}>검색된 데이터가 없습니다</Text>
+          )}
         />
       )}
       {isLoading && <Text style={styles.loading}>검색 중...</Text>}
@@ -259,6 +262,11 @@ const styles = StyleSheet.create({
   loading: {
     padding: 16,
     textAlign: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
+    paddingVertical: 24,
+    color: '#666',
   },
 });
 
