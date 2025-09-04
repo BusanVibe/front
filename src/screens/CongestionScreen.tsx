@@ -129,6 +129,7 @@ const CongestionScreen = () => {
       fetchPlaceDetail(selectedPlaceId);
       fetchRealtimeCongestion(selectedPlaceId);
       fetchVisitorDistribution(selectedPlaceId);
+      setIsBottomSheetEnabled(true);
       changeBottomSheetMode('half');
     }
   }, [selectedPlaceId]);
@@ -258,6 +259,7 @@ const CongestionScreen = () => {
           images: images
         } as any;
         setSelectedLocation(mapped);
+        setIsBottomSheetEnabled(true);
         changeBottomSheetMode('half');
         
         // 장소 위치로 지도 이동
@@ -767,6 +769,7 @@ const CongestionScreen = () => {
   const bottomSheetHeight = useRef(
     new Animated.Value(40), // 초기에는 최소화된 상태로 시작 (핸들만 보이게)
   ).current;
+  const [isBottomSheetEnabled, setIsBottomSheetEnabled] = useState(false);
 
   // 바텀시트 높이 계산
   const getBottomSheetHeight = (mode: 'minimized' | 'half' | 'full') => {
@@ -997,6 +1000,7 @@ const CongestionScreen = () => {
                       status: '',
                       images: []
                     } as any);
+                    setIsBottomSheetEnabled(true);
                     changeBottomSheetMode('half');
                   }
                   const pid = typeof data.placeId === 'number' ? data.placeId : (typeof data.id === 'string' && data.id.startsWith('poi-') ? Number(data.id.replace('poi-', '')) : NaN);
@@ -1023,7 +1027,7 @@ const CongestionScreen = () => {
           style={[
             styles.currentLocationButtonContainer,
             {
-              bottom: Animated.add(bottomSheetHeight, 20), // 바텀시트 높이 + 20px 여유공간
+              bottom: isBottomSheetEnabled ? Animated.add(bottomSheetHeight, 20) : 20,
             },
           ]}>
           <TouchableOpacity
@@ -1035,6 +1039,7 @@ const CongestionScreen = () => {
       </View>
 
       {/* Bottom Sheet */}
+      {isBottomSheetEnabled && (
       <Animated.View
         style={[styles.bottomSheet, { height: bottomSheetHeight }]}
         {...panResponder.panHandlers}>
@@ -1226,6 +1231,7 @@ const CongestionScreen = () => {
           </ScrollView>
         )}
       </Animated.View>
+      )}
       </View>
     </>
   );

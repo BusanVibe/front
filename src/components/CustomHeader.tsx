@@ -51,6 +51,25 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   const inputTextRef = useRef<string>(searchValue ?? '');
   const textInputRef = useRef<TextInput | null>(null);
 
+  // 외부 이미지 URL 보정: 일부 CDN(예: GitHub user-attachments)은 확장자가 없어
+  // 특정 안드로이드 디코더에서 렌더 실패할 수 있으므로 확장자 힌트를 추가
+  const getRenderableImageUri = (raw: string): string => {
+    if (!raw) return raw;
+    let url = raw.trim();
+    // 가급적 https 사용
+    if (url.startsWith('http://')) {
+      url = 'https://' + url.slice(7);
+    }
+    // GitHub user-attachments는 핫링크/리다이렉트/컨텐츠타입 이슈로 RN Image에서 실패할 수 있음
+    // 안전하게 이미지 프록시를 통해 렌더 가능한 URL로 변환
+    if (url.includes('github.com/user-attachments/')) {
+      const withoutProtocol = url.replace(/^https?:\/\//, '');
+      const proxied = `https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}&output=jpg`;
+      return proxied;
+    }
+    return url;
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -156,7 +175,11 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
           onPress={() => navigation.navigate('MyPage')}
           style={styles.headerButton}>
           {profileUrl ? (
-            <Image source={{ uri: profileUrl }} style={styles.profileThumb} />
+            <Image
+              source={{ uri: getRenderableImageUri(profileUrl) }}
+              style={styles.profileThumb}
+              onError={() => setProfileUrl(null)}
+            />
           ) : (
             <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
           )}

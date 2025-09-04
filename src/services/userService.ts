@@ -17,7 +17,8 @@ export class UserService {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
-
+      console.log('=== User MyPage API ===');
+      console.log('response:', response);
       const responseText = await response.text();
 
       if (!response.ok) {

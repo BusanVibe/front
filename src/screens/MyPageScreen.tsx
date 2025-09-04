@@ -119,7 +119,7 @@ const MyPageScreen: React.FC = () => {
         <View style={styles.userSection}>
           <View style={styles.profileIcon}>
             {myPage?.user_image_url ? (
-              <Image source={{ uri: myPage.user_image_url }} style={styles.profileImage} />
+              <Image                 source={{ uri: myPage.user_image_url }}                 style={styles.profileImage}               />
             ) : null}
           </View>
           <View style={styles.userDetails}>

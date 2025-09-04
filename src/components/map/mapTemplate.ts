@@ -716,12 +716,7 @@ export const createMapHTML = (config: {
                  var moveLatLng = new kakao.maps.LatLng(latitude, longitude);
                  window.kakaoMap.setCenter(moveLatLng);
                  window.kakaoMap.setLevel(5);
-                 if (window.pingManager) {
-                     window.pingManager.updateCurrentLocationPing({
-                         latitude: latitude,
-                         longitude: longitude
-                     }, false);
-                 }
+                 // 현재 위치 핑은 여기서 갱신하지 않습니다. (실제 기기 위치 전용)
              }
          }
 
