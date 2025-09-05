@@ -17,7 +17,8 @@ export class UserService {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
-
+      console.log('=== User MyPage API ===');
+      console.log('response:', response);
       const responseText = await response.text();
 
       if (!response.ok) {
@@ -101,23 +102,26 @@ export class UserService {
       // option이 restaurant인 경우 축제는 제외하고 장소로 매핑
       const places: PlaceListItem[] = (list as any[])
         .filter(item => String(item?.type_en ?? '').toUpperCase() !== 'FESTIVAL')
-        .map(item => ({
-          place_id: Number(item.id),
-          name: String(item.name ?? ''),
-          congestion_level: Number(item.congestion_level ?? 0),
-          is_like: Boolean(item.is_liked ?? false),
-          type: toPlaceType(item.type_en ?? 'SIGHT'),
-          address: String(item.address ?? ''),
-          img: '',
-          latitude: item.latitude == null ? undefined : Number(item.latitude),
-          longitude: item.longitude == null ? undefined : Number(item.longitude),
-        } as PlaceListItem));
+        .map(item => {
+          const placeItem: unknown = {
+            id: Number(item.id), // 'id' 속성을 추가하여 PlaceListItem 형식에 맞춤
+            name: String(item.name ?? ''),
+            congestion_level: Number(item.congestion_level ?? 0),
+            is_like: Boolean(item.is_liked ?? false),
+            type: toPlaceType(item.type_en ?? 'SIGHT'),
+            address: String(item.address ?? ''),
+            img: '',
+            latitude: item.latitude == null ? undefined : Number(item.latitude),
+            longitude: item.longitude == null ? undefined : Number(item.longitude),
+          };
+          return placeItem as PlaceListItem;
+        });
 
       console.log('=== User Likes MAPPED ===');
       console.log('mappedCount:', places.length);
       if (places.length > 0) {
         const p = places[0];
-        console.log('firstItem:', { id: p.place_id, name: p.name, type: p.type });
+        console.log('firstItem:', { id: p.id, name: p.name, type: p.type });
       }
       return places;
     } catch (error) {

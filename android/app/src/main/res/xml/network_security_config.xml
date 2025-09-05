@@ -12,6 +12,10 @@
         <domain includeSubdomains="true">api.busanvibe.site</domain>
         <domain includeSubdomains="true">kauth.kakao.com</domain>
         <domain includeSubdomains="true">dapi.kakao.com</domain>
+        <domain includeSubdomains="true">k.kakaocdn.net</domain>
+        <domain includeSubdomains="true">github.com</domain>
+        <domain includeSubdomains="true">githubusercontent.com</domain>
+        <domain includeSubdomains="true">objects.githubusercontent.com</domain>
         <domain includeSubdomains="true">t1.daumcdn.net</domain>
         <domain includeSubdomains="true">tong.visitkorea.or.kr</domain>
         <domain includeSubdomains="true">via.placeholder.com</domain>

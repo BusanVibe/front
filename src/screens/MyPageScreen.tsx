@@ -119,7 +119,7 @@ const MyPageScreen: React.FC = () => {
         <View style={styles.userSection}>
           <View style={styles.profileIcon}>
             {myPage?.user_image_url ? (
-              <Image source={{ uri: myPage.user_image_url }} style={styles.profileImage} />
+              <Image                 source={{ uri: myPage.user_image_url }}                 style={styles.profileImage}               />
             ) : null}
           </View>
           <View style={styles.userDetails}>
@@ -179,13 +179,13 @@ const MyPageScreen: React.FC = () => {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>기타</Text>
           
-          <TouchableOpacity style={styles.menuItem}>
+          {/* <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuIconContainer}>
               <Text style={styles.menuIcon}>👥</Text>
             </View>
             <Text style={styles.menuText}>회원 탈퇴</Text>
             <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
             <View style={styles.menuIconContainer}>
