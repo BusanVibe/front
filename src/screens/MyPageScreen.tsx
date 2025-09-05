@@ -179,13 +179,13 @@ const MyPageScreen: React.FC = () => {
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>기타</Text>
           
-          <TouchableOpacity style={styles.menuItem}>
+          {/* <TouchableOpacity style={styles.menuItem}>
             <View style={styles.menuIconContainer}>
               <Text style={styles.menuIcon}>👥</Text>
             </View>
             <Text style={styles.menuText}>회원 탈퇴</Text>
             <Text style={styles.menuArrow}>›</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
             <View style={styles.menuIconContainer}>
