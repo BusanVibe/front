@@ -14,6 +14,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -89,6 +90,8 @@ const locationData = [
   },
 ];
 
+const DEFAULT_CENTER = { latitude: 35.15612306382287, longitude: 129.15400865768683 };
+
 const CongestionScreen = () => {
   const route = useRoute<CongestionScreenRouteProp>();
   const selectedPlaceId = route.params?.selectedPlaceId;
@@ -101,7 +104,7 @@ const CongestionScreen = () => {
   const [isMapDragging, setIsMapDragging] = useState(false); // 지도 드래그 상태
   const [shouldShowCurrentLocation, setShouldShowCurrentLocation] = useState(false); // 현재위치 표시 여부
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태
-  const [isLocationLoading, setIsLocationLoading] = useState(true); // 위치 로딩 상태
+  const [isLocationLoading, setIsLocationLoading] = useState(false); // 위치 로딩 상태 (초기에는 로딩 표시 안 함)
   const [realtimeStandardHour, setRealtimeStandardHour] = useState<number | null>(null);
   const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
   const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
@@ -114,11 +117,14 @@ const CongestionScreen = () => {
   const webViewReloadReasonRef = useRef<string | null>(null); // WebView 재로딩 사유 추적
   const pendingMoveToLocationRef = useRef<{lat: number, lng: number, show: boolean} | null>(null); // WebView 로드 후 이동 예약
   const pendingCurrentLocationPingRef = useRef<{lat: number, lng: number} | null>(null); // WebView 로드 후 현재위치 핑 예약
+  const initialBoundsRequestedRef = useRef(false); // 초기 렌더 후 최초 bounds fetch 여부
 
-  // 컴포넌트 마운트 시 현재 위치 자동 획득
+  // 컴포넌트 마운트 시 기본 좌표로 지도 초기화
   React.useEffect(() => {
-    console.log('=== CongestionScreen 마운트 - 현재 위치 자동 획득 시작 ===');
-    getCurrentLocation();
+    console.log('=== CongestionScreen 마운트 - 기본 좌표로 초기화 ===');
+    setMapCenter({ latitude: DEFAULT_CENTER.latitude, longitude: DEFAULT_CENTER.longitude });
+    setIsInitialLoad(false);
+    // 데이터 조회는 WebView 렌더 완료 시점(onLoadEnd)에서 handleMapBoundsChange로 즉시 수행
   }, []);
 
   // selectedPlaceId가 전달되었을 때 해당 장소 정보 로드
@@ -889,6 +895,7 @@ const CongestionScreen = () => {
       <View style={styles.mapContainer}>
         {isLocationLoading ? (
           <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0057cc" style={{ marginBottom: 8 }} />
             <Text style={styles.loadingText}>현재 위치를 가져오는 중...</Text>
           </View>
         ) : mapCenter ? (
@@ -941,6 +948,13 @@ const CongestionScreen = () => {
                   showCurrentLocation: show
                 }));
                 pendingMoveToLocationRef.current = null;
+              }
+              // 초기 렌더 직후 현재 지도 중심 기준 경계로 즉시 API 호출 및 표시
+              if (!initialBoundsRequestedRef.current && mapCenter) {
+                initialBoundsRequestedRef.current = true;
+                const initialBounds = calculateBounds(mapCenter.latitude, mapCenter.longitude, 15);
+                lastMapBoundsRef.current = initialBounds;
+                fetchCongestionData(initialBounds, selectedCategory);
               }
               // 로드 완료 후 현재위치 핑 예약 실행
               if (webViewRef.current && pendingCurrentLocationPingRef.current) {
@@ -1031,8 +1045,9 @@ const CongestionScreen = () => {
             },
           ]}>
           <TouchableOpacity
-            style={styles.currentLocationButton}
-            onPress={getCurrentLocation}>
+            style={[styles.currentLocationButton, isLocationLoading && { opacity: 0.6 }]}
+            onPress={getCurrentLocation}
+            disabled={isLocationLoading}>
             <Text style={styles.compassText}>⊕</Text>
           </TouchableOpacity>
         </Animated.View>
