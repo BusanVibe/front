@@ -411,12 +411,12 @@ export const createMapHTML = (config: {
           }
 
           getCongestionColor(level) {
-            // CongestionBadge 배경색 팔레트와 동일하게 매핑
-            // 4: 혼잡(red100), 3: 약간혼잡(orange100), 2: 보통(yellow100), 1: 여유(green100)
-            if (level >= 4) return '#ECC3C3';
-            if (level >= 3) return '#EDCFBA';
-            if (level >= 2) return '#E8DDBA';
-            return '#BDD8BA';
+            // 더 선명한 팔레트 적용 (styles/colors.ts의 500 단계와 매칭)
+            // 4: 매우혼잡(red500), 3: 혼잡(orange500), 2: 보통(yellow500), 1: 여유(green500)
+            if (level >= 4) return '#FF0000';
+            if (level >= 3) return '#FF6A00';
+            if (level >= 2) return '#E5B000';
+            return '#119600';
           }
 
           getCongestionText(level) {
