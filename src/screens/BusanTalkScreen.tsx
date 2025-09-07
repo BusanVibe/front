@@ -195,11 +195,10 @@ const BusanTalkScreen = () => {
         .map(mapChatToMessage)
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
       try {
-        console.log('[history] loaded', {
+        console.log('[history] loaded FULL', {
           count: mapped.length,
           cursorId: page.cursorId,
-          first: mapped[0] ? { userId: mapped[0].user_id, text: mapped[0].message?.slice(0, 60), time: mapped[0].time } : null,
-          last: mapped[mapped.length - 1] ? { userId: mapped[mapped.length - 1].user_id, text: mapped[mapped.length - 1].message?.slice(0, 60), time: mapped[mapped.length - 1].time } : null,
+          messages: mapped,
         });
       } catch {}
       // 최근 본 키로 마킹
@@ -227,12 +226,13 @@ const BusanTalkScreen = () => {
       const page = await ChatService.history(cursorId, 30);
       const mapped = page.messages.map(mapChatToMessage);
       try {
-        console.log('[history] page', {
+        
+        console.log('[history] page FULL', {
           count: mapped.length,
           cursorId: page.cursorId,
-          first: mapped[0] ? { userId: mapped[0].user_id, text: mapped[0].message?.slice(0, 60), time: mapped[0].time } : null,
-          last: mapped[mapped.length - 1] ? { userId: mapped[mapped.length - 1].user_id, text: mapped[mapped.length - 1].message?.slice(0, 60), time: mapped[mapped.length - 1].time } : null,
+          messages: mapped,
         });
+        
       } catch {}
       try {
         const seen = recentSeenRef.current;
@@ -243,6 +243,9 @@ const BusanTalkScreen = () => {
       } catch {}
       setMessages(prev => dedupeAndSort([...prev, ...mapped]));
       setCursorId(page.cursorId);
+      // 통신 결과를 생략 없이 로그 출력
+      console.log('[history] full response page:', page);
+      console.log('[history] full response mapped:', mapped);
     } catch (e) {
       console.error(e);
     } finally {
@@ -268,12 +271,7 @@ const BusanTalkScreen = () => {
       const mappedMessage = mapWebSocketToMessage(wsMessage);
       // 가독성 로그
       try {
-        console.log('[socket][received]', {
-          from: mappedMessage.is_my ? 'ME' : (mappedMessage.type === 'BOT_RESPONSE' ? 'BOT' : 'OTHER'),
-          userId: mappedMessage.user_id,
-          time: mappedMessage.time,
-          text: mappedMessage.message?.slice(0, 100),
-        });
+        console.log('[socket][received FULL]', mappedMessage);
       } catch {}
 
       // 1) 내 에코 중복 제거: 최근 전송 텍스트와 동일하면 무시(10초 윈도우)
@@ -413,7 +411,7 @@ const BusanTalkScreen = () => {
 
     // 낙관적 UI 업데이트 (사용자 메시지) - 표준 스키마 사용
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
-    try { console.log('[send] optimistic', { text: text.slice(0, 120) }); } catch {}
+    try { console.log('[send] optimistic FULL', { text }); } catch {}
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
       user_id: myId,
@@ -437,7 +435,7 @@ const BusanTalkScreen = () => {
     } catch {}
 
     setIsSending(true);
-    try { console.log('[send] request', { length: text.length }); } catch {}
+    try { console.log('[send] request FULL', { length: text.length, text }); } catch {}
     try {
       const res = await ChatService.send(text);
       // 챗봇 질문인 경우 API 응답으로 받은 메시지를 추가
@@ -445,7 +443,7 @@ const BusanTalkScreen = () => {
         const botMsg: Message = mapChatToMessage(res.result, 0);
         setMessages(prev => [...prev, botMsg]);
         setTimeout(() => scrollToBottom(true), 100);
-        try { console.log('[send] bot_response', { text: botMsg.message?.slice(0, 120) }); } catch {}
+        try { console.log('[send] bot_response FULL', botMsg); } catch {}
       }
       if (!ChatSocket.isConnected()) {
         console.log('WebSocket not connected, attempting to reconnect...');
@@ -468,17 +466,7 @@ const BusanTalkScreen = () => {
         colors={['#D1E2F8', '#8CB6EE']}
         style={styles.gradientContainer}
       >
-        {/* 연결 상태 표시 (개발용) - 미연결시에만 표시 */}
-        {__DEV__ && !ChatSocket.isConnected() && (
-          <View style={styles.debugContainer}>
-            <Text style={styles.debugText}>
-              WebSocket: {(ChatSocket as any).getStatus?.()}
-            </Text>
-            <TouchableOpacity style={styles.debugButton} onPress={() => (ChatSocket as any).forceReconnect?.()}>
-              <Text style={styles.debugButtonText}>재연결</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* 웹소켓 상태 배너 비표시 */}
         {/* 메시지 목록 */}
         {isLoading ? (
           <View style={styles.loaderContainer}>

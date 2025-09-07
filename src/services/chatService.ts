@@ -126,7 +126,7 @@ export class ChatService {
       method: 'GET',
       headers,
     });
-
+    
     const text = await response.text();
     if (!response.ok) {
       throw new Error(`히스토리 조회 실패: ${response.status} ${text}`);
@@ -175,7 +175,7 @@ export class ChatService {
       });
     } else if (result.chat_list) {
       // 서버가 Java 직렬화 호환 형태로 반환하는 경우 처리
-      // chat_list: ["java.util.ArrayList", [ { user_name, user_image, content, date_time, is_my }, ... ]]
+      // chat_list: ["java.util.ArrayList", [ { user_name, user_image, content, date_time, is_my, type }, ... ]]
       const rawList = result.chat_list as any;
       let items: any[] = [];
       if (Array.isArray(rawList) && Array.isArray(rawList[1])) {
@@ -187,7 +187,6 @@ export class ChatService {
       messages = items.map((item: any) => {
         const iso = (() => {
           try {
-            // date_time 예: 2025-08-19T06:22:29.288
             const d = new Date(item?.date_time);
             return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
           } catch {
@@ -195,34 +194,26 @@ export class ChatService {
           }
         })();
 
-        // 서버가 is_my를 제공하므로 그대로 유지. type은 CHAT로 둔다.
-        const normalized: ChatType = 'CHAT';
+        // 서버 제공 type 정규화 (CHAT | BOT_REQUEST | BOT_RESPONSE)
+        const rawType = String(item?.type ?? 'CHAT');
+        let normalized: ChatType = 'CHAT';
+        if (rawType === 'CHAT') normalized = 'CHAT';
+        else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
+        else if (rawType === 'CHAT_RESPONSE' || rawType === 'BOT_RESPONSE' || rawType === 'BOT') normalized = 'BOT_RESPONSE';
+
         return {
-          user_id: item?.is_my ? 1 : 2, // user_id가 없을 수 있어 is_my만으로 좌/우 판정. 더미 값
+          user_id: 0, // 서버 히스토리에는 user_id 미포함. is_my로 좌/우 판단
           name: item?.user_name ?? '알 수 없음',
           image_url: item?.user_image ?? '',
           message: item?.content ?? '',
           time: iso,
           type: normalized,
-          is_my: !!item?.is_my,
+          is_my: Boolean(item?.is_my),
         } as ChatMessage;
       });
     } else {
       messages = [];
     }
-
-    // 안전 로그 (민감정보 제외)
-    console.log('[history] api', {
-      endpoint: url,
-      response: {
-      is_success: raw.is_success,
-      code: raw.code,
-      message: raw.message,
-      cursorId: nextCursor,
-      messagesCount: messages.length,
-      firstMessagePreview: messages[0]?.message?.slice(0, 80),
-      lastMessagePreview: messages[messages.length - 1]?.message?.slice(0, 80),
-    }});
 
     return { messages, cursorId: nextCursor };
   }
