@@ -17,6 +17,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
 import IcNickname from '../assets/icon/ic_talknickname.svg';
+import Logo from '../assets/logo.svg';
 import { ChatService, ChatMessage } from '../services/chatService';
 import { ChatSocket } from '../services/chatSocket';
 import { useFocusEffect } from '@react-navigation/native';
@@ -293,10 +294,10 @@ const BusanTalkScreen = () => {
         const key = `${mappedMessage.user_id}|${mappedMessage.message}`;
         const t = new Date(mappedMessage.time).getTime();
         const last = seen.get(key);
-        // 5초 내 동일 텍스트 재등장 시 중복으로 간주
-        if (last && Math.abs(t - last) <= 5000) {
-          return;
-        }
+        // // 5초 내 동일 텍스트 재등장 시 중복으로 간주
+        // if (last && Math.abs(t - last) <= 5000) {
+        //   return;
+        // }
         seen.set(key, t);
       } catch {}
 
@@ -361,13 +362,15 @@ const BusanTalkScreen = () => {
         {(item.type === 'BOT_RESPONSE' || !item.is_my) && (
           <View style={styles.profileContainer}>
             <View style={styles.profileIcon}>
-              {item.image_url ? (
+              {item.type === 'BOT_RESPONSE' ? (
+                <Logo width={30} height={30} />
+              ) : item.image_url ? (
                 <Image source={{ uri: item.image_url }} style={styles.profileImage} />
               ) : (
                 <IcNickname width={30} height={30} stroke="none" />
               )}
             </View>
-            <Text style={styles.nickname}>{item.name ?? '닉네임'}</Text>
+            <Text style={styles.nickname}>{item.type === 'BOT_RESPONSE' ? '챗봇' : (item.name ?? '닉네임')}</Text>
           </View>
         )}
         <View style={(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser}>
