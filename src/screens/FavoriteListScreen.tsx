@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
-import {PlaceListItem, PlaceType} from '../types/place';
+import {PlaceListItem} from '../types/place';
 import { useAuth } from '../contexts/AuthContext';
 import { UserService } from '../services/userService';
+import { togglePlaceLike } from '../services/placeService';
 import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
 
-const categories = ['전체', '관광명소', '맛집', '카페'];
+const categories = ['전체', '관광명소', '맛집/카페', '문화시설'];
 const sortOptions = ['담은순', '기본순', '추천순', '좋아요순'];
 
 type SortType = '담은순' | '기본순' | '추천순' | '좋아요순';
@@ -24,29 +25,76 @@ const FavoriteListScreen: React.FC = () => {
   const [favorites, setFavorites] = useState<PlaceListItem[]>([]);
   const [sortType, setSortType] = useState<SortType>('담은순');
   const [showSortModal, setShowSortModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const loadLikes = async () => {
-      try {
-        if (!user?.accessToken) return;
-        const list = await UserService.getLikes(user.accessToken, 'RESTAURANT');
-        setFavorites(list);
-        console.log('=== FavoriteList loaded ===', { count: list.length });
-      } catch (e) {
-        // 실패 시 빈 목록 유지
-        console.log('FavoriteList load failed');
+  const loadLikes = async (category: string = selectedCategory) => {
+    try {
+      setIsLoading(true);
+      if (!user?.accessToken) {
+        console.log('=== 액세스 토큰 없음 ===');
+        setFavorites([]);
+        return;
       }
-    };
-    loadLikes();
-  }, [user?.accessToken]);
+      
+      // 카테고리에 따른 옵션 설정
+      let option = 'ALL';
+      switch (category) {
+        case '관광명소':
+          option = 'SIGHT';
+          break;
+        case '맛집/카페':
+          option = 'RESTAURANT';
+          break;
+        case '문화시설':
+          option = 'CULTURE';
+          break;
+        case '전체':
+        default:
+          option = 'ALL';
+          break;
+      }
+      
+      console.log('=== FavoriteList 로딩 시작 ===', { category, option });
+      const list = await UserService.getLikes(user.accessToken, option);
+      console.log('=== FavoriteList 로딩 완료 ===', { count: list.length, list });
+      setFavorites(list);
+    } catch (e) {
+      console.error('FavoriteList 로딩 실패:', e);
+      setFavorites([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const toggleLike = async (id: number) => {
-    setFavorites(prev =>
-      prev.map(item =>
-        item.id === id ? {...item, is_like: !item.is_like} : item,
-      ),
-    );
+  useEffect(() => {
+    loadLikes();
+  }, [user?.accessToken, selectedCategory]);
+
+  const handleToggleLike = async (placeId: number) => {
+    console.log('=== FavoriteListScreen handleToggleLike 시작 ===', placeId);
+    
+    try {
+      const response = await togglePlaceLike(placeId);
+      
+      if (response.is_success) {
+        console.log('=== 좋아요 API 성공, 데이터 업데이트 ===');
+        setFavorites(prevData => 
+          prevData.map(item => 
+            item.id === placeId 
+              ? {
+                  ...item,
+                  is_like: !item.is_like,
+                }
+              : item
+          )
+        );
+      } else {
+        console.error('=== 좋아요 API 실패 ===', response.message);
+      }
+    } catch (error) {
+      console.error('=== 좋아요 처리 오류 ===', error);
+    }
   };
 
   const sortFavorites = (data: PlaceListItem[], sortType: SortType): PlaceListItem[] => {
@@ -75,25 +123,14 @@ const FavoriteListScreen: React.FC = () => {
   };
 
   const getFilteredAndSortedData = () => {
-    let filteredData = favorites.filter(item => item.is_like);
-    
-    // 카테고리 필터링
-    if (selectedCategory !== '전체') {
-      const typeMap: {[key: string]: PlaceType} = {
-        '관광명소': PlaceType.SIGHT,
-        '맛집': PlaceType.RESTAURANT,
-        '카페': PlaceType.CULTURE,
-      };
-      filteredData = filteredData.filter(item => item.type === typeMap[selectedCategory]);
-    }
-    
-    return sortFavorites(filteredData, sortType);
+    // 서버에서 이미 좋아요된 항목들만 가져오므로 바로 정렬만 적용
+    return sortFavorites(favorites, sortType);
   };
 
 
 
   const renderFavoriteItem = ({item}: {item: PlaceListItem}) => (
-    <AttractionCard place={item} onToggleLike={toggleLike} />
+    <AttractionCard place={item} onToggleLike={handleToggleLike} />
   );
 
   return (
@@ -128,13 +165,24 @@ const FavoriteListScreen: React.FC = () => {
       </View>
 
       {/* 좋아요 목록 */}
-      <FlatList
-        data={getFilteredAndSortedData()}
-        renderItem={renderFavoriteItem}
-        keyExtractor={item => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContainer}
-      />
+      {isLoading ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>로딩 중...</Text>
+        </View>
+      ) : getFilteredAndSortedData().length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>좋아요한 장소가 없습니다</Text>
+          <Text style={styles.emptySubText}>관심있는 장소에 하트를 눌러보세요</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={getFilteredAndSortedData()}
+          renderItem={renderFavoriteItem}
+          keyExtractor={item => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+        />
+      )}
 
       {/* 정렬 드롭다운 */}
       {showSortModal && (
@@ -252,6 +300,23 @@ const styles = StyleSheet.create({
   sortOptionTextActive: {
     color: colors.primary[500],
     fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyText: {
+    ...typography.bodyLg,
+    color: colors.gray[600],
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    ...typography.bodyMd,
+    color: colors.gray[500],
+    textAlign: 'center',
   },
 });
 
