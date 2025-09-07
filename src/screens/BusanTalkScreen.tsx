@@ -112,6 +112,27 @@ const BusanTalkScreen = () => {
     }
   };
 
+  // 정렬용 안전 타임스탬프 변환기
+  const timeToMs = (input?: string): number => {
+    try {
+      if (!input || typeof input !== 'string') return Date.now();
+      const t = Date.parse(input);
+      if (!isNaN(t)) return t;
+      const m = input.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.(\d+)(Z|[+-]\d{2}:?\d{2})?$/);
+      if (m) {
+        const head = m[1];
+        const ms = (m[2] || '').slice(0, 3).padEnd(3, '0');
+        const tz = m[3] ?? 'Z';
+        const fixed = `${head}.${ms}${tz}`;
+        const t2 = Date.parse(fixed);
+        if (!isNaN(t2)) return t2;
+      }
+      return Date.now();
+    } catch {
+      return Date.now();
+    }
+  };
+
   // 웹소켓 수신 메시지 → Message (정규 스키마 유지)
   const mapWebSocketToMessage = (wsMessage: ChatMessage): Message => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
@@ -160,8 +181,26 @@ const BusanTalkScreen = () => {
     }
   };
 
+  const getTypePriority = (m: Message) => {
+    // 동일 시각일 때 요청이 응답보다 먼저 보이도록 우선순위
+    // CHAT(1)은 중간, BOT_REQUEST(0) < CHAT(1) < BOT_RESPONSE(2)
+    if (m.type === 'BOT_REQUEST') return 0;
+    if (m.type === 'CHAT') return 1;
+    return 2; // BOT_RESPONSE
+  };
+
   const sortByIsoTimeAsc = (list: Message[]) =>
-    list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+    list.sort((a, b) => {
+      const ta = timeToMs(a.time);
+      const tb = timeToMs(b.time);
+      if (ta !== tb) return ta - tb;
+      // tie-breaker: type priority
+      const pa = getTypePriority(a);
+      const pb = getTypePriority(b);
+      if (pa !== pb) return pa - pb;
+      // final tie-breaker: stable-ish by id string
+      return String(a.id).localeCompare(String(b.id));
+    });
 
   const appendDedupeAndSort = (prev: Message[], incoming: Message) => {
     // 시간, 텍스트, 사용자ID로 중복 체크
@@ -199,9 +238,7 @@ const BusanTalkScreen = () => {
     setIsLoading(true);
     try {
       const page = await ChatService.history(null, 30);
-      const mapped = page.messages
-        .map(mapChatToMessage)
-        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      const mapped = sortByIsoTimeAsc(page.messages.map(mapChatToMessage));
       try {
         console.log('[history] loaded FULL', {
           count: mapped.length,
@@ -214,7 +251,7 @@ const BusanTalkScreen = () => {
         const seen = recentSeenRef.current;
         for (const m of mapped) {
           const key = `${m.user_id}|${m.message}`;
-          seen.set(key, new Date(m.time).getTime());
+          seen.set(key, timeToMs(m.time));
         }
       } catch {}
       setMessages(prev => dedupeAndSort([...prev, ...mapped]));
@@ -246,7 +283,7 @@ const BusanTalkScreen = () => {
         const seen = recentSeenRef.current;
         for (const m of mapped) {
           const key = `${m.user_id}|${m.message}`;
-          seen.set(key, new Date(m.time).getTime());
+          seen.set(key, timeToMs(m.time));
         }
       } catch {}
       setMessages(prev => dedupeAndSort([...prev, ...mapped]));
@@ -300,10 +337,6 @@ const BusanTalkScreen = () => {
         const key = `${mappedMessage.user_id}|${mappedMessage.message}`;
         const t = new Date(mappedMessage.time).getTime();
         const last = seen.get(key);
-        // // 5초 내 동일 텍스트 재등장 시 중복으로 간주
-        // if (last && Math.abs(t - last) <= 5000) {
-        //   return;
-        // }
         seen.set(key, t);
       } catch {}
 
@@ -423,6 +456,7 @@ const BusanTalkScreen = () => {
     // 낙관적 UI 업데이트 (사용자 메시지) - 표준 스키마 사용
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
     try { console.log('[send] optimistic FULL', { text }); } catch {}
+    const isSlash = text.startsWith('/');
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
       user_id: myId,
@@ -430,10 +464,10 @@ const BusanTalkScreen = () => {
       image_url: (authUser as any)?.image_url ?? '',
       message: text,
       time: new Date().toISOString(),
-      type: 'CHAT',
+      type: isSlash ? 'BOT_REQUEST' : 'CHAT',
       is_my: true,
     };
-    setMessages(prev => [...prev, optimistic]);
+    setMessages(prev => sortByIsoTimeAsc([...prev, optimistic]));
     setTimeout(() => scrollToBottom(true), 100);
     setInputText('');
     try {
