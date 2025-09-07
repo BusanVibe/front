@@ -56,6 +56,8 @@ const BusanTalkScreen = () => {
   const recentSeenRef = useRef<Map<string, number>>(new Map());
   // 내 사용자 ID 캐시 (JWT sub 우선)
   const myUserIdRef = useRef<number>(-1);
+  // 히스토리 최초 1회만 로드 가드
+  const hasLoadedHistoryRef = useRef<boolean>(false);
 
   const parseJwtSub = (token?: string | null): number => {
     try {
@@ -175,16 +177,22 @@ const BusanTalkScreen = () => {
   };
 
   const dedupeAndSort = (list: Message[]) => {
-    const seen = new Set<string>();
+    // 시간 근접(±5s) 동일 텍스트/동일 사용자 중복 제거
+    // const WINDOW_MS = 5000;
+    const byUserAndText = new Map<string, number>();
     const result: Message[] = [];
-    for (const m of list) {
-      const key = `${m.time}|${m.message}|${m.user_id}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(m);
-      }
+    const sorted = sortByIsoTimeAsc([...list]);
+    for (const m of sorted) {
+      const key = `${m.user_id}|${m.message}`;
+      const t = new Date(m.time).getTime();
+      const last = byUserAndText.get(key);
+      // if (last !== undefined && Math.abs(t - last) <= WINDOW_MS) {
+      //   continue;
+      // }
+      byUserAndText.set(key, t);
+      result.push(m);
     }
-    return sortByIsoTimeAsc(result);
+    return result;
   };
 
   const loadInitialHistory = async () => {
@@ -335,7 +343,10 @@ const BusanTalkScreen = () => {
   useFocusEffect(
     useCallback(() => {
       console.log('Screen focused - loading history and connecting WebSocket');
-      loadInitialHistory();
+      if (!hasLoadedHistoryRef.current) {
+        loadInitialHistory();
+        hasLoadedHistoryRef.current = true;
+      }
       connectWebSocket();
       return () => {
         console.log('Screen unfocused');
@@ -441,9 +452,15 @@ const BusanTalkScreen = () => {
       // 챗봇 질문인 경우 API 응답으로 받은 메시지를 추가
       if (text.startsWith('/')) {
         const botMsg: Message = mapChatToMessage(res.result, 0);
-        setMessages(prev => [...prev, botMsg]);
+        setMessages(prev => dedupeAndSort([...prev, botMsg]));
         setTimeout(() => scrollToBottom(true), 100);
         try { console.log('[send] bot_response FULL', botMsg); } catch {}
+        // 봇 응답도 최근 본 키로 기록하여 WS 중복 수신을 방지
+        try {
+          const key = `${botMsg.user_id}|${botMsg.message}`;
+          const t = new Date(botMsg.time).getTime();
+          recentSeenRef.current.set(key, t);
+        } catch {}
       }
       if (!ChatSocket.isConnected()) {
         console.log('WebSocket not connected, attempting to reconnect...');
