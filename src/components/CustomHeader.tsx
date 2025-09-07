@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -11,6 +11,7 @@ import {useNavigation, NavigationProp} from '@react-navigation/native';
 import IcChevronLeft from '../assets/icon/ic_chevron_left.svg';
 import IcSearch from '../assets/icon/ic_search.svg';
 import IcUserCircle from '../assets/icon/ic_user_circle.svg';
+import IcTitle from '../assets/icon/ic_title.svg';
 import { useAuth } from '../contexts/AuthContext';
 import { UserService } from '../services/userService';
 
@@ -20,23 +21,17 @@ type RootStackParamList = {
   MyPage: undefined;
 };
 
-export interface CustomHeaderProps {
+interface CustomHeaderProps {
   title?: string;
   showSearchInput?: boolean;
   searchPlaceholder?: string;
   onSearchChange?: (text: string) => void;
   searchValue?: string;
-  onPressSearch?: (text: string) => void;
+  onPressSearch?: () => void;
   showBackButton?: boolean;
 }
 
-export type CustomHeaderRef = {
-  setText: (text: string) => void;
-  submit: () => void;
-  focus: () => void;
-};
-
-const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({ 
+const CustomHeader: React.FC<CustomHeaderProps> = ({
   title,
   showSearchInput = false,
   searchPlaceholder = '검색어를 입력하세요',
@@ -44,31 +39,10 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   searchValue,
   onPressSearch,
   showBackButton = false,
-}, ref) => {
+}) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, isAuthenticated } = useAuth();
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
-  const inputTextRef = useRef<string>(searchValue ?? '');
-  const textInputRef = useRef<TextInput | null>(null);
-
-  // 외부 이미지 URL 보정: 일부 CDN(예: GitHub user-attachments)은 확장자가 없어
-  // 특정 안드로이드 디코더에서 렌더 실패할 수 있으므로 확장자 힌트를 추가
-  const getRenderableImageUri = (raw: string): string => {
-    if (!raw) return raw;
-    let url = raw.trim();
-    // 가급적 https 사용
-    if (url.startsWith('http://')) {
-      url = 'https://' + url.slice(7);
-    }
-    // GitHub user-attachments는 핫링크/리다이렉트/컨텐츠타입 이슈로 RN Image에서 실패할 수 있음
-    // 안전하게 이미지 프록시를 통해 렌더 가능한 URL로 변환
-    if (url.includes('github.com/user-attachments/')) {
-      const withoutProtocol = url.replace(/^https?:\/\//, '');
-      const proxied = `https://images.weserv.nl/?url=${encodeURIComponent(withoutProtocol)}&output=jpg`;
-      return proxied;
-    }
-    return url;
-  };
 
   useEffect(() => {
     let mounted = true;
@@ -93,27 +67,6 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   }, [isAuthenticated, user?.accessToken]);
 
   if (showSearchInput) {
-    const handleChange = (text: string) => {
-      inputTextRef.current = text;
-      // 부모 리렌더를 줄이기 위해 onSearchChange는 사용처에서 선택적으로 전달
-      onSearchChange?.(text);
-    };
-    const handleSubmit = () => {
-      onPressSearch?.(inputTextRef.current.trim());
-    };
-
-    useImperativeHandle(ref, () => ({
-      setText: (text: string) => {
-        inputTextRef.current = text;
-        try {
-          textInputRef.current?.setNativeProps?.({ text });
-        } catch {}
-      },
-      submit: () => handleSubmit(),
-      focus: () => {
-        try { textInputRef.current?.focus?.(); } catch {}
-      },
-    }), []);
     return (
       <View style={styles.headerContainer}>
         {showBackButton && (
@@ -125,24 +78,18 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
         )}
         <View style={styles.searchInputContainer}>
           <TextInput
-            ref={textInputRef}
             style={styles.searchInput}
             placeholder={searchPlaceholder}
             placeholderTextColor="#999999"
-            defaultValue={searchValue ?? ''}
-            onChangeText={handleChange}
+            value={searchValue}
+            onChangeText={onSearchChange}
             autoFocus={true}
             returnKeyType="search"
-            onSubmitEditing={handleSubmit}
-            autoCorrect={false}
-            autoCapitalize="none"
-            importantForAutofill="no"
-            textBreakStrategy="simple"
-            underlineColorAndroid="transparent"
+            onSubmitEditing={onPressSearch}
           />
           <TouchableOpacity
             style={styles.searchIconContainer}
-            onPress={handleSubmit}
+            onPress={onPressSearch}
             accessibilityRole="button"
             accessibilityLabel="검색"
           >
@@ -163,7 +110,11 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
             <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
           </TouchableOpacity>
         )}
-        <Text style={[styles.headerTitle, title === '부산스럽다' ? { color: '#0057CC' } : null]}>{title}</Text>
+        {title && ['홈', '혼잡도', '명소', '축제', '부산톡'].includes(title) ? (
+          <IcTitle width={100} height={30} />
+        ) : (
+          <Text style={[styles.headerTitle, title === '부산스럽다' ? { color: '#0057CC' } : null]}>{title}</Text>
+        )}
       </View>
       <View style={styles.headerRightContainer}>
         <TouchableOpacity
@@ -175,11 +126,7 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
           onPress={() => navigation.navigate('MyPage')}
           style={styles.headerButton}>
           {profileUrl ? (
-            <Image
-              source={{ uri: getRenderableImageUri(profileUrl) }}
-              style={styles.profileThumb}
-              onError={() => setProfileUrl(null)}
-            />
+            <Image source={{ uri: profileUrl }} style={styles.profileThumb} />
           ) : (
             <IcUserCircle width={24} height={24} fill="#666666" stroke="none" />
           )}
@@ -187,7 +134,7 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
       </View>
     </View>
   );
-});
+};
 
 const styles = StyleSheet.create({
   headerContainer: {
