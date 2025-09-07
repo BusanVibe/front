@@ -14,6 +14,7 @@ import {
   Alert,
   StatusBar,
   Image,
+  ActivityIndicator,
   Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -894,6 +895,7 @@ const CongestionScreen = () => {
       <View style={styles.mapContainer}>
         {isLocationLoading ? (
           <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#0057cc" style={{ marginBottom: 8 }} />
             <Text style={styles.loadingText}>현재 위치를 가져오는 중...</Text>
           </View>
         ) : mapCenter ? (
@@ -1043,8 +1045,9 @@ const CongestionScreen = () => {
             },
           ]}>
           <TouchableOpacity
-            style={styles.currentLocationButton}
-            onPress={getCurrentLocation}>
+            style={[styles.currentLocationButton, isLocationLoading && { opacity: 0.6 }]}
+            onPress={getCurrentLocation}
+            disabled={isLocationLoading}>
             <Text style={styles.compassText}>⊕</Text>
           </TouchableOpacity>
         </Animated.View>
