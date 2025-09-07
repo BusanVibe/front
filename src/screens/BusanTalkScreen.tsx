@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   InteractionManager,
   Image,
+  AppState,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
@@ -19,22 +20,28 @@ import IcNickname from '../assets/icon/ic_talknickname.svg';
 import { ChatService, ChatMessage } from '../services/chatService';
 import { ChatSocket } from '../services/chatSocket';
 import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const {width} = Dimensions.get('window');
 
 interface Message {
+  // 백엔드 필드명과 동일
+  user_id: number;
+  name: string;
+  image_url: string;
+  message: string;
+  time: string; // ISO
+  type: 'CHAT' | 'BOT_REQUEST' | 'BOT_RESPONSE';
+  // 클라이언트 보조 필드
   id: string;
-  text: string;
-  time: string;
-  isoTime: string;
-  isBot: boolean;
-  name?: string;
-  imageUrl?: string;
+  is_my?: boolean;
 }
 
 const BusanTalkScreen = () => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const { user: authUser } = useAuth();
   const [cursorId, setCursorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
@@ -42,6 +49,37 @@ const BusanTalkScreen = () => {
 
   const [inputText, setInputText] = useState('');
   const listRef = useRef<any>(null);
+  // 최근 내가 전송한 메시지 텍스트 기록(에코 방지)
+  const pendingSentRef = useRef<{ text: string; ts: number }[]>([]);
+  // 최근에 처리한 (userId+text) 키의 마지막 시간 기록(히스토리/실시간 중복 방지)
+  const recentSeenRef = useRef<Map<string, number>>(new Map());
+  // 내 사용자 ID 캐시 (JWT sub 우선)
+  const myUserIdRef = useRef<number>(-1);
+
+  const parseJwtSub = (token?: string | null): number => {
+    try {
+      if (!token) return -1;
+      const parts = token.split('.');
+      if (parts.length < 2) return -1;
+      const json = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString());
+      const sub = Number(json?.sub);
+      return isNaN(sub) ? -1 : sub;
+    } catch {
+      return -1;
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('accessToken');
+        const subId = parseJwtSub(token);
+        const authId = Number((authUser as any)?.id ?? -1);
+        myUserIdRef.current = subId !== -1 ? subId : authId;
+        try { console.log('[INFO][MY_ID]', { ts: new Date().toISOString(), subId, authId, final: myUserIdRef.current }); } catch {}
+      } catch {}
+    })();
+  }, [authUser]);
 
   const scrollToBottom = (animated: boolean = true) => {
     try {
@@ -71,15 +109,37 @@ const BusanTalkScreen = () => {
     }
   };
 
-  const mapChatToMessage = (chat: ChatMessage, index: number): Message => ({
-    id: `${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-    text: chat.message,
-    time: formatTime(chat.time),
-    isoTime: chat.time,
-    isBot: chat.type === 'BOT',
-    name: chat.name,
-    imageUrl: chat.image_url,
-  });
+  // 웹소켓 수신 메시지 → Message (정규 스키마 유지)
+  const mapWebSocketToMessage = (wsMessage: ChatMessage): Message => {
+    const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
+    return {
+      id: `ws-${wsMessage.time}-${wsMessage.user_id}-${Math.random().toString(36).slice(2, 8)}`,
+      user_id: Number(wsMessage.user_id ?? 0),
+      name: wsMessage.name ?? '',
+      image_url: wsMessage.image_url ?? '',
+      message: wsMessage.message ?? '',
+      time: wsMessage.time ?? new Date().toISOString(),
+      type: wsMessage.type,
+      is_my: Number(wsMessage.user_id ?? -999) === myId,
+    };
+  };
+
+  // API 응답 메시지 → Message (정규 스키마 유지)
+  const mapChatToMessage = (chat: ChatMessage, index: number): Message => {
+    const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
+    const userIdNum = Number(chat.user_id ?? 0);
+    const isMyFromServer = typeof (chat as any)?.is_my === 'boolean' ? (chat as any).is_my : undefined;
+    return {
+      id: `api-${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+      user_id: userIdNum,
+      name: chat.name ?? '',
+      image_url: chat.image_url ?? '',
+      message: chat.message ?? '',
+      time: chat.time ?? new Date().toISOString(),
+      type: chat.type,
+      is_my: isMyFromServer !== undefined ? isMyFromServer : (userIdNum === myId),
+    };
+  };
 
   // 공백 없는 긴 문자열(예: 점/이모지 반복)이 잘리지 않도록
   // 일정 길이 이상의 연속 문자열에 제로폭 공백을 삽입해 소프트 래핑
@@ -98,15 +158,32 @@ const BusanTalkScreen = () => {
   };
 
   const sortByIsoTimeAsc = (list: Message[]) =>
-    list.sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
+    list.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
   const appendDedupeAndSort = (prev: Message[], incoming: Message) => {
+    // 시간, 텍스트, 사용자ID로 중복 체크
     const exists = prev.some(
-      m => m.isoTime === incoming.isoTime && m.text === incoming.text && (m.name ?? '') === (incoming.name ?? '')
+      m => m.time === incoming.time && m.message === incoming.message && m.user_id === incoming.user_id
     );
-    if (exists) return prev;
+    if (exists) {
+      try { console.log('Duplicate message filtered:', incoming.message); } catch {}
+      return prev;
+    }
     const merged = [...prev, incoming];
     return sortByIsoTimeAsc(merged);
+  };
+
+  const dedupeAndSort = (list: Message[]) => {
+    const seen = new Set<string>();
+    const result: Message[] = [];
+    for (const m of list) {
+      const key = `${m.time}|${m.message}|${m.user_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(m);
+      }
+    }
+    return sortByIsoTimeAsc(result);
   };
 
   const loadInitialHistory = async () => {
@@ -115,13 +192,24 @@ const BusanTalkScreen = () => {
       const page = await ChatService.history(null, 30);
       const mapped = page.messages
         .map(mapChatToMessage)
-        .sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
-      console.log('=== BusanTalkScreen: History Loaded ===');
-      console.log('count:', mapped.length);
-      console.log('first:', mapped[0]?.text);
-      console.log('last:', mapped[mapped.length - 1]?.text);
-      console.log('items:', mapped);
-      setMessages(mapped);
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      try {
+        console.log('[history] loaded', {
+          count: mapped.length,
+          cursorId: page.cursorId,
+          first: mapped[0] ? { userId: mapped[0].user_id, text: mapped[0].message?.slice(0, 60), time: mapped[0].time } : null,
+          last: mapped[mapped.length - 1] ? { userId: mapped[mapped.length - 1].user_id, text: mapped[mapped.length - 1].message?.slice(0, 60), time: mapped[mapped.length - 1].time } : null,
+        });
+      } catch {}
+      // 최근 본 키로 마킹
+      try {
+        const seen = recentSeenRef.current;
+        for (const m of mapped) {
+          const key = `${m.user_id}|${m.message}`;
+          seen.set(key, new Date(m.time).getTime());
+        }
+      } catch {}
+      setMessages(prev => dedupeAndSort([...prev, ...mapped]));
       setCursorId(page.cursorId);
       setTimeout(() => scrollToBottom(false), 0);
     } catch (e) {
@@ -137,11 +225,22 @@ const BusanTalkScreen = () => {
     try {
       const page = await ChatService.history(cursorId, 30);
       const mapped = page.messages.map(mapChatToMessage);
-      setMessages(prev => {
-        const merged = [...prev, ...mapped];
-        merged.sort((a, b) => new Date(a.isoTime).getTime() - new Date(b.isoTime).getTime());
-        return merged;
-      });
+      try {
+        console.log('[history] page', {
+          count: mapped.length,
+          cursorId: page.cursorId,
+          first: mapped[0] ? { userId: mapped[0].user_id, text: mapped[0].message?.slice(0, 60), time: mapped[0].time } : null,
+          last: mapped[mapped.length - 1] ? { userId: mapped[mapped.length - 1].user_id, text: mapped[mapped.length - 1].message?.slice(0, 60), time: mapped[mapped.length - 1].time } : null,
+        });
+      } catch {}
+      try {
+        const seen = recentSeenRef.current;
+        for (const m of mapped) {
+          const key = `${m.user_id}|${m.message}`;
+          seen.set(key, new Date(m.time).getTime());
+        }
+      } catch {}
+      setMessages(prev => dedupeAndSort([...prev, ...mapped]));
       setCursorId(page.cursorId);
     } catch (e) {
       console.error(e);
@@ -150,35 +249,120 @@ const BusanTalkScreen = () => {
     }
   };
 
+  const connectWebSocket = useCallback(async () => {
+    try { console.log('Connecting WebSocket...'); } catch {}
+    try {
+      const canConnect = await (ChatSocket as any).testConnection?.();
+      if (!canConnect) {
+        console.error('❌ WebSocket connection test failed. Server may be unreachable.');
+        return;
+      }
+      console.log('✅ WebSocket connection test passed');
+    } catch (error) {
+      console.error('❌ Connection test error:', error);
+      return;
+    }
+
+    ChatSocket.connect((wsMessage: ChatMessage) => {
+      const mappedMessage = mapWebSocketToMessage(wsMessage);
+      // 가독성 로그
+      try {
+        console.log('[socket][received]', {
+          from: mappedMessage.is_my ? 'ME' : (mappedMessage.type === 'BOT_RESPONSE' ? 'BOT' : 'OTHER'),
+          userId: mappedMessage.user_id,
+          time: mappedMessage.time,
+          text: mappedMessage.message?.slice(0, 100),
+        });
+      } catch {}
+
+      // 1) 내 에코 중복 제거: 최근 전송 텍스트와 동일하면 무시(10초 윈도우)
+      try {
+        const now = Date.now();
+        pendingSentRef.current = pendingSentRef.current.filter(p => now - p.ts < 10000);
+        const isRecentMyText = pendingSentRef.current.some(p => p.text === mappedMessage.message);
+        // 에코는 무시하지 말고, 내 메시지로 정정 + 낙관적 메시지 대체
+        if (isRecentMyText) {
+          mappedMessage.is_my = true as any;
+          try { console.log('[socket][received] echo_replace', { text: mappedMessage.message, time: mappedMessage.time }); } catch {}
+        }
+      } catch {}
+
+      // 2) 히스토리와 실시간의 교차 중복 제거: 같은 (userId+text)를 짧은 시간 내에 반복 수신하면 무시
+      try {
+        const seen = recentSeenRef.current;
+        const key = `${mappedMessage.user_id}|${mappedMessage.message}`;
+        const t = new Date(mappedMessage.time).getTime();
+        const last = seen.get(key);
+        // 5초 내 동일 텍스트 재등장 시 중복으로 간주
+        if (last && Math.abs(t - last) <= 5000) {
+          return;
+        }
+        seen.set(key, t);
+      } catch {}
+
+      // 3) 낙관적 메시지 대체: 같은 텍스트의 temp- 항목 제거
+      const removeOptimisticWithSameText = (list: Message[]) =>
+        list.filter(m => !(m.id?.startsWith?.('temp-') && m.message === mappedMessage.message));
+
+      setMessages(prev => {
+        const cleaned = removeOptimisticWithSameText(prev);
+        const updated = appendDedupeAndSort(cleaned, mappedMessage);
+        return updated;
+      });
+      setTimeout(() => scrollToBottom(true), 200);
+    });
+    console.log('WebSocket connection request sent');
+  }, []);
+
+  const disconnectWebSocket = useCallback(() => {
+    ChatSocket.disconnect();
+    try { console.log('WebSocket disconnected'); } catch {}
+  }, []);
+
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      try { console.log('App state changed to:', nextAppState); } catch {}
+      if (nextAppState === 'active') {
+        if (!ChatSocket.isConnected()) {
+          console.log('Reconnecting WebSocket after app became active');
+          setTimeout(() => { connectWebSocket(); }, 1000);
+        }
+      }
+    };
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => { subscription?.remove(); };
+  }, [connectWebSocket]);
+
   useFocusEffect(
     useCallback(() => {
+      console.log('Screen focused - loading history and connecting WebSocket');
       loadInitialHistory();
-
-      // 웹소켓 연결 및 구독
-      ChatSocket.connect((chat: ChatMessage) => {
-        const msg = mapChatToMessage(chat, 0);
-        setMessages(prev => appendDedupeAndSort(prev, msg));
-        setTimeout(() => scrollToBottom(true), 0);
-      });
-
+      connectWebSocket();
       return () => {
-        ChatSocket.disconnect();
+        console.log('Screen unfocused');
+        // 연결 유지 (실시간 알림을 위해)
       };
-    }, [])
+    }, [connectWebSocket])
   );
+
+  useEffect(() => {
+    return () => {
+      disconnectWebSocket();
+    };
+  }, [disconnectWebSocket]);
 
   const renderMessage = ({item}: {item: Message}) => (
     <View
       style={[
         styles.messageContainer,
-        item.isBot ? styles.botMessage : styles.userMessage,
+        (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botMessage : styles.userMessage,
       ]}>
       <View style={styles.messageWrapper}>
-        {item.isBot && (
+        {(item.type === 'BOT_RESPONSE' || !item.is_my) && (
           <View style={styles.profileContainer}>
             <View style={styles.profileIcon}>
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.profileImage} />
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.profileImage} />
               ) : (
                 <IcNickname width={30} height={30} stroke="none" />
               )}
@@ -186,23 +370,23 @@ const BusanTalkScreen = () => {
             <Text style={styles.nickname}>{item.name ?? '닉네임'}</Text>
           </View>
         )}
-        <View style={item.isBot ? styles.messageContentBot : styles.messageContentUser}>
-          <View style={[styles.messageRow, !item.isBot ? styles.userMessageRow : {}]}>
-            {!item.isBot && <Text style={styles.timeText}>{item.time}</Text>}
+        <View style={(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser}>
+          <View style={[styles.messageRow, (item.is_my && item.type !== 'BOT_RESPONSE') ? styles.userMessageRow : {}]}>
+            {(item.is_my && item.type !== 'BOT_RESPONSE') && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
             <View
               style={[
                 styles.messageBubble,
-                item.isBot ? styles.botBubble : styles.userBubble,
+                (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botBubble : styles.userBubble,
               ]}>
               <Text
                 style={[
                   styles.messageText,
-                  item.isBot ? styles.botText : styles.userText,
+                  (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botText : styles.userText,
                 ]}>
-                {softWrap(item.text)}
+                {softWrap(item.message)}
               </Text>
             </View>
-            {item.isBot && <Text style={styles.timeText}>{item.time}</Text>}
+            {(item.type === 'BOT_RESPONSE' || !item.is_my) && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
           </View>
         </View>
       </View>
@@ -224,29 +408,50 @@ const BusanTalkScreen = () => {
       hour12: true,
     });
 
-    // 낙관적 UI 업데이트 (사용자 메시지)
+    // 낙관적 UI 업데이트 (사용자 메시지) - 표준 스키마 사용
+    const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
+    try { console.log('[send] optimistic', { text: text.slice(0, 120) }); } catch {}
     const optimistic: Message = {
-      id: Date.now().toString(),
-      text,
-      time: nowText,
-      isoTime: now.toISOString(),
-      isBot: false,
+      id: `temp-${Date.now()}`,
+      user_id: myId,
+      name: (authUser as any)?.name ?? '',
+      image_url: (authUser as any)?.image_url ?? '',
+      message: text,
+      time: new Date().toISOString(),
+      type: 'CHAT',
+      is_my: true,
     };
     setMessages(prev => [...prev, optimistic]);
-    setTimeout(() => scrollToBottom(true), 0);
+    setTimeout(() => scrollToBottom(true), 100);
     setInputText('');
+    try {
+      const nowTs = Date.now();
+      pendingSentRef.current.push({ text, ts: nowTs });
+      pendingSentRef.current = pendingSentRef.current.filter(p => nowTs - p.ts < 10000);
+      // 최근 본 키에도 기록
+      const key = `${(authUser as any)?.id ?? -1}|${text}`;
+      recentSeenRef.current.set(key, nowTs);
+    } catch {}
 
     setIsSending(true);
+    try { console.log('[send] request', { length: text.length }); } catch {}
     try {
       const res = await ChatService.send(text);
       // 챗봇 질문인 경우 API 응답으로 받은 메시지를 추가
       if (text.startsWith('/')) {
         const botMsg: Message = mapChatToMessage(res.result, 0);
         setMessages(prev => [...prev, botMsg]);
-        setTimeout(() => scrollToBottom(true), 0);
+        setTimeout(() => scrollToBottom(true), 100);
+        try { console.log('[send] bot_response', { text: botMsg.message?.slice(0, 120) }); } catch {}
+      }
+      if (!ChatSocket.isConnected()) {
+        console.log('WebSocket not connected, attempting to reconnect...');
+        setTimeout(() => { (async () => { await connectWebSocket(); })(); }, 0);
       }
     } catch (e) {
-      console.error(e);
+      console.error('[send] fail', e);
+      // 전송 실패 시 낙관적 업데이트 제거
+      setMessages(prev => prev.filter(msg => msg.id !== optimistic.id));
     } finally {
       setIsSending(false);
     }
@@ -260,6 +465,17 @@ const BusanTalkScreen = () => {
         colors={['#D1E2F8', '#8CB6EE']}
         style={styles.gradientContainer}
       >
+        {/* 연결 상태 표시 (개발용) - 미연결시에만 표시 */}
+        {__DEV__ && !ChatSocket.isConnected() && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugText}>
+              WebSocket: {(ChatSocket as any).getStatus?.()}
+            </Text>
+            <TouchableOpacity style={styles.debugButton} onPress={() => (ChatSocket as any).forceReconnect?.()}>
+              <Text style={styles.debugButtonText}>재연결</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* 메시지 목록 */}
         {isLoading ? (
           <View style={styles.loaderContainer}>
@@ -300,8 +516,12 @@ const BusanTalkScreen = () => {
               placeholderTextColor="rgba(255, 255, 255, 0.7)"
               multiline
             />
-            <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={isSending}>
-            <IcSend width={24} height={24} stroke="none" />
+            <TouchableOpacity style={[styles.sendButton, isSending && styles.sendButtonDisabled]} onPress={sendMessage} disabled={isSending}>
+              {isSending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <IcSend width={24} height={24} stroke="none" />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -319,6 +539,28 @@ const styles = StyleSheet.create({
   },
   gradientContainer: {
     flex: 1,
+  },
+  debugContainer: {
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    padding: 4,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  debugText: {
+    color: '#333',
+    fontSize: 12,
+    marginRight: 10,
+  },
+  debugButton: {
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  debugButtonText: {
+    color: '#333',
+    fontSize: 10,
   },
   messagesList: {
     flex: 1,
@@ -443,6 +685,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.6,
   },
   sendButtonIcon: {
     width: 20,
