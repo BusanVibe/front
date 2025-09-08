@@ -74,15 +74,17 @@ const CongestionBadge: React.FC<CongestionBadgeProps> = ({level, style}) => {
 const styles = StyleSheet.create({
   container: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
-    borderRadius: 1000,
-    alignSelf: 'flex-start',
+    minHeight: 26,
+    borderRadius: 12,
   },
   text: {
-    ...typography.captionMd,
+    ...typography.captionLg,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
 });
 
