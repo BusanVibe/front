@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView} from 'react-native';
 import CustomHeader from '../components/CustomHeader';
 import AttractionCard from '../components/common/AttractionCard';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
@@ -119,28 +119,30 @@ const SearchResultScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* 카테고리 버튼 */}
-      <View style={styles.categoryContainer}>
-        {categories.map(category => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category
-                ? styles.selectedCategory
-                : styles.unselectedCategory,
-            ]}
-            onPress={() => setSelectedCategory(category)}>
-            <Text
+      <View style={styles.categoryWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
+          {categories.map(category => (
+            <TouchableOpacity
+              key={category}
               style={[
-                styles.categoryText,
+                styles.categoryButton,
                 selectedCategory === category
-                  ? styles.selectedText
-                  : styles.unselectedText,
-              ]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
+                  ? styles.selectedCategory
+                  : styles.unselectedCategory,
+              ]}
+              onPress={() => setSelectedCategory(category)}>
+              <Text
+                style={[
+                  styles.categoryText,
+                  selectedCategory === category
+                    ? styles.selectedText
+                    : styles.unselectedText,
+                ]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       {/* 정렬 드롭다운 (간단한 토글 리스트) */}
@@ -196,10 +198,12 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  categoryWrapper: {
     marginTop: 4,
     marginBottom: 12,
     paddingHorizontal: 16,
-    gap: 8,
   },
   categoryButton: {
     paddingHorizontal: 16,

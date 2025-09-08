@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   FlatList,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -94,28 +95,30 @@ const SearchScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.container}>
         {/* 카테고리 버튼들 */}
-        <View style={styles.categoryContainer}>
-          {categories.map(category => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category
-                  ? styles.selectedCategory
-                  : styles.unselectedCategory,
-              ]}
-              onPress={() => setSelectedCategory(category)}>
-              <Text
+        <View style={styles.categoryWrapper}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
+            {categories.map(category => (
+              <TouchableOpacity
+                key={category}
                 style={[
-                  styles.categoryText,
+                  styles.categoryButton,
                   selectedCategory === category
-                    ? styles.selectedText
-                    : styles.unselectedText,
-                ]}>
-                {category}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                    ? styles.selectedCategory
+                    : styles.unselectedCategory,
+                ]}
+                onPress={() => setSelectedCategory(category)}>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category
+                      ? styles.selectedText
+                      : styles.unselectedText,
+                  ]}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         <View style={styles.sectionContainer}>
@@ -183,8 +186,10 @@ const styles = StyleSheet.create({
   },
   categoryContainer: {
     flexDirection: 'row',
-    marginBottom: 24,
     gap: 8,
+  },
+  categoryWrapper: {
+    marginBottom: 24,
   },
   categoryButton: {
     paddingHorizontal: 16,
