@@ -107,7 +107,8 @@ export class UserService {
             id: Number(item.id),
             name: String(item.name ?? ''),
             congestion_level: Number(item.congestion_level ?? 0),
-            is_like: Boolean(item.is_like ?? false), // 키 이름도 is_like로
+            // 즐겨찾기 목록에 포함된 항목은 기본적으로 좋아요 상태로 간주
+            is_like: item.is_like == null ? true : Boolean(item.is_like),
             type: toPlaceType(item.type_en ?? 'SIGHT'),
             address: String(item.address ?? ''),
             img: String(item.img_url ?? ''), // 이미지 경로 매핑

@@ -8,15 +8,17 @@ interface AttractionSectionProps {
   places: PlaceListItem[];
   showsVerticalScrollIndicator?: boolean;
   scrollEnabled?: boolean;
+  onToggleLike?: (id: number) => Promise<void>;
 }
 
 const AttractionSection: React.FC<AttractionSectionProps> = ({
   places,
   showsVerticalScrollIndicator = false,
   scrollEnabled = true,
+  onToggleLike,
 }) => {
   const renderCard = ({item}: {item: PlaceListItem}) => (
-    <AttractionCard place={item} />
+    <AttractionCard place={item} onToggleLike={onToggleLike} />
   );
 
   return (
@@ -25,7 +27,7 @@ const AttractionSection: React.FC<AttractionSectionProps> = ({
         data={places}
         renderItem={renderCard}
         keyExtractor={item => item.id.toString()}
-        scrollEnabled={false}
+        scrollEnabled={scrollEnabled}
         showsVerticalScrollIndicator={showsVerticalScrollIndicator}
         contentContainerStyle={styles.listContent}
         removeClippedSubviews={false}

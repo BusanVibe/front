@@ -15,7 +15,8 @@ import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceType, PlaceDetail} from '../types/place';
 import {RootStackParamList} from '../navigation/RootNavigator';
-import {getPlaceDetail, togglePlaceLike} from '../services/placeService';
+import {getPlaceDetail} from '../services/placeService';
+import {useLikes} from '../contexts/LikesContext';
 import CongestionBadge from '../components/common/CongestionBadge';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -41,6 +42,7 @@ const PlaceDetailScreen = () => {
   const [isLiked, setIsLiked] = useState(place.is_like);
   const [likeAmount, setLikeAmount] = useState(0);
   const [likeStateChanged, setLikeStateChanged] = useState(false);
+  const { togglePlaceLike: togglePlaceLikeInContext } = useLikes();
 
   useEffect(() => {
     fetchPlaceDetail();
@@ -64,9 +66,8 @@ const PlaceDetailScreen = () => {
   const toggleLike = async () => {
     try {
       console.log('=== PlaceDetailScreen 좋아요 처리 시작 ===', place.id);
-      const response = await togglePlaceLike(place.id);
-      
-      if (response.is_success) {
+      const ok = await togglePlaceLikeInContext(place.id);
+      if (ok) {
         console.log('=== PlaceDetailScreen 좋아요 처리 성공 ===');
         const newLikeState = !isLiked;
         setIsLiked(newLikeState);
@@ -185,7 +186,7 @@ const PlaceDetailScreen = () => {
           <IcHeart
             width={24}
             height={24}
-            color={isLiked ? colors.red[500] : colors.white}
+            stroke={isLiked ? colors.red[500] : colors.white}
             fill={isLiked ? colors.red[500] : 'none'}
           />
         </TouchableOpacity>
@@ -269,7 +270,7 @@ const PlaceDetailScreen = () => {
           <TouchableOpacity 
             style={styles.detailButton}
             onPress={() => {
-              navigation.navigate('Main', {
+              (navigation as any).navigate('Main', {
                 screen: '혼잡도',
                 params: { selectedPlaceId: place.id }
               });

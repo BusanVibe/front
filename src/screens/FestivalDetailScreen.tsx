@@ -253,7 +253,7 @@ const FestivalDetailScreen = () => {
           <IcHeart
             width={24}
             height={24}
-            color={currentFestival.is_like ? colors.red[500] : colors.white}
+            stroke={currentFestival.is_like ? colors.red[500] : colors.white}
             fill={currentFestival.is_like ? colors.red[500] : 'none'}
           />
         </TouchableOpacity>
