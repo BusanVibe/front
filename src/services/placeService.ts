@@ -96,6 +96,7 @@ const transformApiPlaceToPlaceItem = (
     }
   };
 
+  const anyPlace: any = apiPlace as any;
   return {
     id: apiPlace.id,
     name: apiPlace.name,
@@ -104,6 +105,8 @@ const transformApiPlaceToPlaceItem = (
     type: getPlaceType(apiPlace.type),
     address: apiPlace.address,
     img: apiPlace.img || undefined,
+    latitude: typeof anyPlace.latitude === 'number' ? anyPlace.latitude : undefined,
+    longitude: typeof anyPlace.longitude === 'number' ? anyPlace.longitude : undefined,
   };
 };
 
