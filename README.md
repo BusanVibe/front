@@ -251,3 +251,42 @@ React Native 프로젝트가 성공적으로 실행되었고, 디바이스 연�
 - [환경설정 가이드](https://reactnative.dev/docs/environment-setup)
 - [디버깅 방법](https://reactnative.dev/docs/debugging)
 - [iOS 디바이스 설정](https://developer.apple.com)
+
+---
+
+## 📦 원스토어 배포 정보 (Android)
+
+다음 값은 현재 프로젝트의 안드로이드 설정에서 확인된 배포/서명 정보입니다.
+
+- 패키지명(applicationId): `com.busanvibe`
+- 버전 정보
+  - `versionCode`: `1`  (재업로드 시 반드시 증가 필요)
+  - `versionName`: `1.0`
+- SDK 타겟
+  - `minSdkVersion`: `21`
+  - `targetSdkVersion`: `34`
+  - `compileSdkVersion`: `34`
+- 릴리즈 서명 키
+  - keystore 경로: `android/app/busanvibe-release.keystore`
+  - key alias: `BusanVibe_release`
+  - storePassword: `busanvibern2025A9x3`
+  - keyPassword: `busanvibern2025A9x3`
+  - 설정 위치:
+    - `android/app/build.gradle` → `signingConfigs.release` 가 Gradle 속성 참조
+    - `android/gradle.properties` → `MYAPP_UPLOAD_*` 값 지정
+- 디버그 키(참고)
+  - keystore: `android/app/debug.keystore`
+  - alias: `androiddebugkey` / password: `android`
+
+### 서명 지문 확인 (필요 시)
+```bash
+keytool -list -v -keystore android\app\busanvibe-release.keystore -alias BusanVibe_release
+```
+
+### 릴리즈 빌드 (APK)
+```bash
+cd android
+./gradlew clean
+./gradlew assembleRelease
+# 산출물: app/build/outputs/apk/release/app-release.apk
+```
