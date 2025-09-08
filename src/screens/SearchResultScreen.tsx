@@ -49,7 +49,7 @@ const SearchResultScreen: React.FC = () => {
         id: item.id,
         festival_id: item.id,
         name: item.name,
-        img: undefined,
+        img: item.imageUrl,
         start_date: item.startDate || '',
         end_date: item.endDate || '',
         is_like: item.isLike,
@@ -79,7 +79,7 @@ const SearchResultScreen: React.FC = () => {
       is_like: item.isLike,
       type: toPlaceType(String(item.typeEn)),
       address: item.address,
-      img: undefined,
+      img: item.imageUrl,
       latitude: item.latitude,
       longitude: item.longitude,
     };

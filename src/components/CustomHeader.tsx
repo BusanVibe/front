@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useState, forwardRef } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -21,17 +21,22 @@ type RootStackParamList = {
   MyPage: undefined;
 };
 
-interface CustomHeaderProps {
+export interface CustomHeaderProps {
   title?: string;
   showSearchInput?: boolean;
   searchPlaceholder?: string;
   onSearchChange?: (text: string) => void;
   searchValue?: string;
-  onPressSearch?: () => void;
+  onPressSearch?: (text?: string) => void;
   showBackButton?: boolean;
 }
 
-const CustomHeader: React.FC<CustomHeaderProps> = ({
+export interface CustomHeaderRef {
+  setText: (text: string) => void;
+  submit: () => void;
+}
+
+const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({ 
   title,
   showSearchInput = false,
   searchPlaceholder = '검색어를 입력하세요',
@@ -39,10 +44,11 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   searchValue,
   onPressSearch,
   showBackButton = false,
-}) => {
+}, ref) => {
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { user, isAuthenticated } = useAuth();
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
+  const [internalText, setInternalText] = useState<string>('');
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +72,18 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
     };
   }, [isAuthenticated, user?.accessToken]);
 
+  // 외부에서 최근 검색어를 눌렀을 때 텍스트 세팅/제출을 사용할 수 있도록 ref 제공
+  useImperativeHandle(ref, () => ({
+    setText: (text: string) => {
+      if (onSearchChange) onSearchChange(text);
+      setInternalText(text);
+    },
+    submit: () => {
+      const current = (searchValue ?? internalText)?.trim();
+      if (onPressSearch) onPressSearch(current);
+    },
+  }), [onSearchChange, onPressSearch, searchValue, internalText]);
+
   if (showSearchInput) {
     return (
       <View style={styles.headerContainer}>
@@ -81,15 +99,24 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             style={styles.searchInput}
             placeholder={searchPlaceholder}
             placeholderTextColor="#999999"
-            value={searchValue}
-            onChangeText={onSearchChange}
+            value={searchValue !== undefined ? searchValue : internalText}
+            onChangeText={(t) => {
+              if (onSearchChange) onSearchChange(t);
+              setInternalText(t);
+            }}
             autoFocus={true}
             returnKeyType="search"
-            onSubmitEditing={onPressSearch}
+            onSubmitEditing={() => {
+              const current = (searchValue ?? internalText)?.trim();
+              if (onPressSearch) onPressSearch(current);
+            }}
           />
           <TouchableOpacity
             style={styles.searchIconContainer}
-            onPress={onPressSearch}
+            onPress={() => {
+              const current = (searchValue ?? internalText)?.trim();
+              if (onPressSearch) onPressSearch(current);
+            }}
             accessibilityRole="button"
             accessibilityLabel="검색"
           >
@@ -134,7 +161,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   headerContainer: {

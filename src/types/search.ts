@@ -26,6 +26,7 @@ export interface ApiSearchItem {
   end_date?: string | null;
   is_end?: boolean | null;
   like_count?: number;
+  img_url?: string;
 }
 
 export interface ApiSearchResult {
@@ -61,6 +62,7 @@ export interface NormalizedSearchItem {
   isEnd?: boolean | null;
   likeCount?: number;
   congestionLevel?: number | null;
+  imageUrl?: string;
 }
 
 export interface NormalizedSearchResult {

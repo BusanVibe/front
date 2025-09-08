@@ -41,6 +41,7 @@ const transformItem = (item: ApiSearchItem): NormalizedSearchItem => {
     isEnd: (item.is_end as any) ?? null,
     likeCount: item.like_count,
     congestionLevel: (item.congestion_level as any) ?? null,
+    imageUrl: (item as any).img_url || undefined,
   };
 };
 
