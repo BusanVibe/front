@@ -104,13 +104,13 @@ export class UserService {
         .filter(item => String(item?.type_en ?? '').toUpperCase() !== 'FESTIVAL')
         .map(item => {
           const placeItem: unknown = {
-            id: Number(item.id), // 'id' 속성을 추가하여 PlaceListItem 형식에 맞춤
+            id: Number(item.id),
             name: String(item.name ?? ''),
             congestion_level: Number(item.congestion_level ?? 0),
-            is_like: Boolean(item.is_liked ?? false),
+            is_like: Boolean(item.is_like ?? false), // 키 이름도 is_like로
             type: toPlaceType(item.type_en ?? 'SIGHT'),
             address: String(item.address ?? ''),
-            img: '',
+            img: String(item.img_url ?? ''), // 이미지 경로 매핑
             latitude: item.latitude == null ? undefined : Number(item.latitude),
             longitude: item.longitude == null ? undefined : Number(item.longitude),
           };

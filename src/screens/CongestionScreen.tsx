@@ -1094,7 +1094,7 @@ const CongestionScreen = () => {
               </View>
 
               <View style={styles.locationDetails}>
-                <View style={styles.ratingContainer}>
+                {/* <View style={styles.ratingContainer}>
                   <Text style={styles.starIcon}>★</Text>
                   <Text style={styles.rating}>{selectedLocation.rating}</Text>
                   <Text style={styles.reviewCount}>
@@ -1103,7 +1103,7 @@ const CongestionScreen = () => {
                   <Text style={styles.distance}>
                     | {selectedLocation.distance}
                   </Text>
-                </View>
+                </View> */}
 
                 <View style={styles.addressContainer}>
                   <Text style={styles.addressIcon}>📍</Text>
