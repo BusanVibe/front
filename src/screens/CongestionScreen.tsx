@@ -119,6 +119,22 @@ const CongestionScreen = () => {
   const pendingMoveToLocationRef = useRef<{lat: number, lng: number, show: boolean} | null>(null); // WebView 로드 후 이동 예약
   const pendingCurrentLocationPingRef = useRef<{lat: number, lng: number} | null>(null); // WebView 로드 후 현재위치 핑 예약
   const initialBoundsRequestedRef = useRef(false); // 초기 렌더 후 최초 bounds fetch 여부
+  const formatReviewCount = (value: any): string => {
+    const num = typeof value === 'number' ? value : Number(value || 0);
+    const safe = isFinite(num) && num > 0 ? Math.floor(num) : 0;
+    try {
+      return safe.toLocaleString('ko-KR');
+    } catch {
+      return String(safe);
+    }
+  };
+
+  const formatRating = (value: any): string => {
+    const num = typeof value === 'number' ? value : Number(value || 0);
+    if (!isFinite(num) || num <= 0) return '0.0';
+    return num.toFixed(1);
+  };
+
 
   // 컴포넌트 마운트 시 기본 좌표로 지도 초기화
   React.useEffect(() => {
@@ -342,7 +358,7 @@ const CongestionScreen = () => {
           reviewCount: typeof r.review_amount === 'number' ? r.review_amount : Number(r.review_amount || 0),
           distance: '',
           address: r.address,
-          status: r.is_open ? '영업 중' : '영업 종료',
+          status: r.is_open ? '상시 개방' : '운영 종료',
           images: images,
           latitude: lat == null ? undefined : Number(lat),
           longitude: lng == null ? undefined : Number(lng)
@@ -1220,25 +1236,24 @@ const CongestionScreen = () => {
               </View>
 
               <View style={styles.locationDetails}>
-                {/* <View style={styles.ratingContainer}>
+                <View style={styles.ratingContainer}>
                   <Text style={styles.starIcon}>★</Text>
-                  <Text style={styles.rating}>{selectedLocation.rating}</Text>
-                  <Text style={styles.reviewCount}>
-                    ({selectedLocation.reviewCount})
-                  </Text>
-                  <Text style={styles.distance}>
-                    | {selectedLocation.distance}
-                  </Text>
-                </View> */}
+                  <Text style={styles.rating}>4.2</Text>
+                  <Text style={styles.reviewCount}>리뷰 157개</Text>
+                  {selectedLocation.distance ? (
+                    <Text style={styles.distance}>
+                      | {selectedLocation.distance}
+                    </Text>
+                  ) : null}
+                </View>
 
                 <View style={styles.addressContainer}>
                   <Text style={styles.addressIcon}>📍</Text>
                   <Text style={styles.address}>{selectedLocation.address}</Text>
                 </View>
-
                 <View style={styles.statusContainer}>
                   <Text style={styles.clockIcon}>🕐</Text>
-                  <Text style={styles.status}>{selectedLocation.status}</Text>
+                  <Text style={styles.status}>{selectedLocation.status || '상시 개방'}</Text>
                 </View>
               </View>
 
@@ -1265,96 +1280,112 @@ const CongestionScreen = () => {
 
               {/* 실시간 혼잡도 */}
               <View style={styles.chartSection}>
-                <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>실시간 혼잡도</Text>
-                  <Text style={styles.chartTime}>
-                    {realtimeStandardHour !== null ? `${String(realtimeStandardHour).padStart(2,'0')}:00 기준` : '실시간'}
-                  </Text>
-                </View>
-                <View style={styles.congestionStatus}>
-                  <View style={[styles.congestionIndicator, { backgroundColor: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]} />
-                  <Text style={[styles.congestionStatusText, { color: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]}>
-                    {realtimeLevel !== null ? getCongestionTextLocal(realtimeLevel) : '혼잡'}
-                  </Text>
-                </View>
+                <View style={styles.realtimeSection}>
+                  <View style={styles.chartHeader}>
+                    <Text style={styles.chartTitle}>실시간 혼잡도</Text>
+                    <Text style={styles.chartTime}>
+                      {realtimeStandardHour !== null ? `${String(realtimeStandardHour).padStart(2,'0')}:00 기준` : '실시간'}
+                    </Text>
+                  </View>
+                  <View style={styles.congestionStatus}>
+                    <View style={[styles.congestionIndicator, { backgroundColor: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]} />
+                    <Text style={[styles.congestionStatusText, { color: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]}>
+                      {realtimeLevel !== null ? getCongestionTextLocal(realtimeLevel) : '혼잡'}
+                    </Text>
+                  </View>
 
-                <View style={styles.chartContainer}>
-                  {(realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent : congestionData.map(d => d.level)).map((val: any, index: number) => {
-                    const arr = realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent as number[] : congestionData.map(d => d.level);
-                    const max = Math.max(...arr.map((n: any) => Number(n) || 0), 1);
-                    const scale = max <= 5 ? 20 : 1;
-                    const height = Math.max(6, Math.min(100, Math.round((Number(val) || 0) * scale)));
-                    let label = '';
-                    if (realtimeByPercent && realtimeByPercent.length > 0 && realtimeStandardHour !== null) {
-                      // index 0 -> standard-6, ..., last -> standard
-                      const hour = (realtimeStandardHour - (arr.length - 1 - index) + 24 * 4) % 24;
-                      label = index === (arr.length - 1) ? '현재' : `${String(hour).padStart(2,'0')}시`;
-                    } else if (!realtimeByPercent || realtimeByPercent.length === 0) {
-                      label = congestionData[index]?.time;
-                    }
-                    return (
-                      <View key={index} style={styles.barContainer}>
-                        <View style={[styles.bar, { height, backgroundColor: index === (arr.length - 1) ? (realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444') : '#cccccc' }]} />
-                        <Text style={styles.barLabel}>{label}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
+                  <View style={styles.chartWrapper}>
+                    <View style={styles.chartContainer}>
+                      {(realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent : congestionData.map(d => d.level)).map((val: any, index: number) => {
+                        const arr = realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent as number[] : congestionData.map(d => d.level);
+                        const max = Math.max(...arr.map((n: any) => Number(n) || 0), 1);
+                        const scale = max <= 5 ? 20 : 1;
+                        const height = Math.max(6, Math.min(100, Math.round((Number(val) || 0) * scale)));
+                        let label = '';
+                        if (realtimeByPercent && realtimeByPercent.length > 0 && realtimeStandardHour !== null) {
+                          const hour = (realtimeStandardHour - (arr.length - 1 - index) + 24 * 4) % 24;
+                          label = index === (arr.length - 1) ? '현재' : `${String(hour).padStart(2,'0')}시`;
+                        } else if (!realtimeByPercent || realtimeByPercent.length === 0) {
+                          label = congestionData[index]?.time;
+                        }
+                        return (
+                          <View key={index} style={styles.barContainer}>
+                            <View style={[styles.bar, { height, backgroundColor: index === (arr.length - 1) ? (realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444') : '#cccccc' }]} />
+                            <Text style={styles.barLabel}>{label}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
 
-                <View style={styles.infoBox}>
-                  <Text style={styles.infoIcon}>💡</Text>
-                  <Text style={styles.infoText}>
-                    오후 7시 이후에는 비교적 여유로울 전망입니다.
-                  </Text>
                 </View>
+              </View>
+              <View style={styles.infoBox}>
+                <Text style={styles.infoIcon}>💡</Text>
+                <Text style={styles.infoText}>
+                  오후 7시 이후에는 비교적 여유로울 전망입니다.
+                </Text>
               </View>
 
               {/* 이용객 분포 */}
               <View style={styles.chartSection}>
-                <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>이용객 분포</Text>
-                  <View style={styles.legend}>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[styles.legendColor, { backgroundColor: '#6bb6ff' }]}
-                      />
-                      <Text style={styles.legendText}>남성</Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View
-                        style={[styles.legendColor, { backgroundColor: '#ff9999' }]}
-                      />
-                      <Text style={styles.legendText}>여성</Text>
+                <View style={styles.visitorSection}>
+                  <View style={styles.chartHeader}>
+                    <Text style={styles.chartTitle}>이용객 분포</Text>
+                    <View style={styles.legend}>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[styles.legendColor, { backgroundColor: '#6bb6ff' }]}
+                        />
+                        <Text style={styles.legendText}>남성</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View
+                          style={[styles.legendColor, { backgroundColor: '#ff9999' }]}
+                        />
+                        <Text style={styles.legendText}>여성</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <View style={styles.visitorChartContainer}>
                   {(() => {
                     const dist = visitorDistribution || visitorData;
                     const maxVal = Math.max(
                       ...dist.map((d: any) => Math.max(Number(d.male) || 0, Number(d.female) || 0)),
                       1
                     );
-                    return dist.map((item: any, index: number) => (
-                      <View key={index} style={styles.visitorBarGroup}>
-                        <View style={styles.visitorBars}>
-                          <View
-                            style={[
-                              styles.visitorBar,
-                              { height: Math.max(4, Math.round(((Number(item.male) || 0) / maxVal) * 100)), backgroundColor: '#6bb6ff' },
-                            ]}
-                          />
-                          <View
-                            style={[
-                              styles.visitorBar,
-                              { height: Math.max(4, Math.round(((Number(item.female) || 0) / maxVal) * 100)), backgroundColor: '#ff9999' },
-                            ]}
-                          />
+                    const topTick = Math.max(30, Math.ceil(maxVal / 10) * 10);
+                    const ticks = Array.from({ length: Math.floor(topTick / 10) + 1 }, (_, i) => i * 10).reverse();
+                    return (
+                      <View style={styles.visitorChartRow}>
+                        <View style={styles.yAxisContainer}>
+                          {ticks.map((t, i) => (
+                            <Text key={i} style={styles.yAxisLabel}>{t}%</Text>
+                          ))}
                         </View>
-                        <Text style={styles.visitorLabel}>{item.age}</Text>
+                        <View style={styles.visitorChartContainer}>
+                          {dist.map((item: any, index: number) => (
+                            <View key={index} style={styles.visitorBarGroup}>
+                              <View style={styles.visitorBars}>
+                                <View
+                                  style={[
+                                    styles.visitorBar,
+                                    { height: Math.max(4, Math.round(((Number(item.male) || 0) / topTick) * 100)), backgroundColor: '#6bb6ff' },
+                                  ]}
+                                />
+                                <View
+                                  style={[
+                                    styles.visitorBar,
+                                    { height: Math.max(4, Math.round(((Number(item.female) || 0) / topTick) * 100)), backgroundColor: '#ff9999' },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.visitorLabel}>{item.age}</Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                    ));
+                    );
                   })()}
                 </View>
               </View>
@@ -1502,10 +1533,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333333',
     marginRight: 8, // 이름과 배지 사이 간격
+    lineHeight: 26,
   },
   congestionBadge: {
     backgroundColor: '#ff6b6b',
@@ -1566,7 +1598,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addressIcon: {
-    fontSize: 14,
+    fontSize: 15,
     marginRight: 8,
   },
   address: {
@@ -1611,7 +1643,12 @@ const styles = StyleSheet.create({
   },
   chartSection: {
     marginTop: 24,
-    paddingBottom: 16,
+    paddingBottom: 8,
+  },
+  visitorSection: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 12,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -1650,7 +1687,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     height: 120,
-    marginBottom: 16,
+    marginBottom: 10,
     paddingHorizontal: 8,
   },
   barContainer: {
@@ -1658,7 +1695,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bar: {
-    width: 20,
+    width: 24,
     backgroundColor: '#cccccc',
     borderRadius: 2,
     marginBottom: 8,
@@ -1673,7 +1710,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e3f2fd',
     padding: 12,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 4,
   },
   infoIcon: {
     fontSize: 16,
@@ -1683,6 +1720,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1976d2',
     flex: 1,
+  },
+  realtimeSection: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 12,
+    paddingBottom: 5,
+  },
+  chartWrapper: {
+    position: 'relative',
+    height: 140,
+  },
+  chartBaseline: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: 24,
+    height: 2,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 1,
   },
   legend: {
     flexDirection: 'row',
@@ -1702,7 +1758,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666666',
   },
+  visitorChartRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  yAxisContainer: {
+    width: 32,
+    height: 100,
+    justifyContent: 'space-between',
+    paddingRight: 4,
+  },
+  yAxisLabel: {
+    fontSize: 10,
+    color: '#999999',
+    textAlign: 'right',
+  },
   visitorChartContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',

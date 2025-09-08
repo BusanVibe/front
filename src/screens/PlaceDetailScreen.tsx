@@ -414,12 +414,13 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: 8,
   },
   placeName: {
     ...typography.headingLg,
     color: colors.gray[900],
+    includeFontPadding: false,
   },
   congestionBadge: {
     marginLeft: 0,
