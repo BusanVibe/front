@@ -15,7 +15,8 @@ import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {PlaceType, PlaceDetail} from '../types/place';
 import {RootStackParamList} from '../navigation/RootNavigator';
-import {getPlaceDetail, togglePlaceLike} from '../services/placeService';
+import {getPlaceDetail} from '../services/placeService';
+import {useLikes} from '../contexts/LikesContext';
 import CongestionBadge from '../components/common/CongestionBadge';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -41,6 +42,7 @@ const PlaceDetailScreen = () => {
   const [isLiked, setIsLiked] = useState(place.is_like);
   const [likeAmount, setLikeAmount] = useState(0);
   const [likeStateChanged, setLikeStateChanged] = useState(false);
+  const { togglePlaceLike: togglePlaceLikeInContext } = useLikes();
 
   useEffect(() => {
     fetchPlaceDetail();
@@ -64,9 +66,8 @@ const PlaceDetailScreen = () => {
   const toggleLike = async () => {
     try {
       console.log('=== PlaceDetailScreen 좋아요 처리 시작 ===', place.id);
-      const response = await togglePlaceLike(place.id);
-      
-      if (response.is_success) {
+      const ok = await togglePlaceLikeInContext(place.id);
+      if (ok) {
         console.log('=== PlaceDetailScreen 좋아요 처리 성공 ===');
         const newLikeState = !isLiked;
         setIsLiked(newLikeState);
@@ -85,29 +86,63 @@ const PlaceDetailScreen = () => {
   };
 
   const openDirections = async () => {
-    const latitude = placeDetail?.latitude || place?.latitude;
-    const longitude = placeDetail?.longitude || place?.longitude;
-    
-    if (!latitude || !longitude) {
-      console.log('위치 정보 없음 - latitude:', latitude, 'longitude:', longitude);
-      Alert.alert('알림', '위치 정보를 불러올 수 없습니다.');
-      return;
-    }
+    const ensureCoords = async (): Promise<{ latitude: number; longitude: number; label: string } | null> => {
+      const latFromState = placeDetail?.latitude;
+      const lonFromState = placeDetail?.longitude;
+      if (latFromState && lonFromState) {
+        return { latitude: latFromState, longitude: lonFromState, label: placeDetail?.name || place.name };
+      }
 
-    const label = encodeURIComponent(placeDetail?.name || place.name);
+      const latFromParam = place?.latitude as number | undefined;
+      const lonFromParam = place?.longitude as number | undefined;
+      if (latFromParam && lonFromParam) {
+        return { latitude: latFromParam, longitude: lonFromParam, label: placeDetail?.name || place.name };
+      }
 
-    console.log('사용할 위치 정보 - latitude:', latitude, 'longitude:', longitude);
+      // 좌표가 없으면 상세 API 재조회로 확보
+      try {
+        const detail = await getPlaceDetail(place.id);
+        setPlaceDetail(detail);
+        if (detail.latitude && detail.longitude) {
+          return { latitude: detail.latitude, longitude: detail.longitude, label: detail.name };
+        }
+      } catch (e) {
+        // 무시하고 아래에서 에러 안내
+      }
+      return null;
+    };
+
+    const coords = await ensureCoords();
+    const label = placeDetail?.name || place.name;
+    const address = placeDetail?.address || place.address;
+    const encodedLabel = encodeURIComponent(label);
+    const encodedAddress = encodeURIComponent(address || label);
 
     let url = '';
-    
-    if (Platform.OS === 'ios') {
-      url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
+    if (coords) {
+      const { latitude, longitude } = coords;
+      console.log('사용할 위치 정보 - latitude:', latitude, 'longitude:', longitude);
+      if (Platform.OS === 'ios') {
+        url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d&q=${encodedLabel}`;
+      } else {
+        url = `google.navigation:q=${latitude},${longitude}&mode=d`;
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+        }
+      }
     } else {
-      url = `google.navigation:q=${latitude},${longitude}&mode=d`;
-      
-      const canOpen = await Linking.canOpenURL(url);
-      if (!canOpen) {
-        url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      console.log('좌표 없음 – 주소로 길찾기 시도:', address);
+      if (Platform.OS === 'ios') {
+        // Apple Maps는 주소 문자열로 목적지 지정 가능
+        url = `http://maps.apple.com/?daddr=${encodedAddress}&dirflg=d&q=${encodedLabel}`;
+      } else {
+        // Google Maps 인텐트: 주소 문자열 사용
+        url = `google.navigation:q=${encodedAddress}&mode=d`;
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+          url = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&travelmode=driving`;
+        }
       }
     }
 
@@ -117,7 +152,9 @@ const PlaceDetailScreen = () => {
       await Linking.openURL(url);
     } catch (error) {
       console.error('길찾기 앱 열기 실패:', error);
-      const fallbackUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+      const fallbackUrl = coords
+        ? `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}&travelmode=driving`
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&travelmode=driving`;
       try {
         await Linking.openURL(fallbackUrl);
       } catch (fallbackError) {
@@ -185,7 +222,7 @@ const PlaceDetailScreen = () => {
           <IcHeart
             width={24}
             height={24}
-            color={isLiked ? colors.red[500] : colors.white}
+            stroke={isLiked ? colors.red[500] : colors.white}
             fill={isLiked ? colors.red[500] : 'none'}
           />
         </TouchableOpacity>
@@ -269,7 +306,7 @@ const PlaceDetailScreen = () => {
           <TouchableOpacity 
             style={styles.detailButton}
             onPress={() => {
-              navigation.navigate('Main', {
+              (navigation as any).navigate('Main', {
                 screen: '혼잡도',
                 params: { selectedPlaceId: place.id }
               });

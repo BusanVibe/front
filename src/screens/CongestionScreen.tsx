@@ -94,6 +94,7 @@ const DEFAULT_CENTER = { latitude: 35.15612306382287, longitude: 129.15400865768
 
 const CongestionScreen = () => {
   const route = useRoute<CongestionScreenRouteProp>();
+  const navigation = useNavigation<any>();
   const selectedPlaceId = route.params?.selectedPlaceId;
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
@@ -219,6 +220,86 @@ const CongestionScreen = () => {
     }
   };
 
+  // 바텀시트 길찾기: 선택된 장소의 좌표 또는 주소로 네비게이션 실행
+  const openDirections = async () => {
+    try {
+      const label = (selectedLocation as any)?.name || '';
+      const address = (selectedLocation as any)?.address || '';
+      let lat = Number((selectedLocation as any)?.latitude);
+      let lng = Number((selectedLocation as any)?.longitude);
+
+      if (isNaN(lat) || isNaN(lng)) {
+        // placeMarkers에서 동일 이름의 좌표 탐색 (보조 수단)
+        const cand = placeMarkers.find(p => String(p.name) === String(label));
+        if (cand) {
+          const cLat = Number((cand as any).latitude);
+          const cLng = Number((cand as any).longitude);
+          if (!isNaN(cLat) && !isNaN(cLng)) {
+            lat = cLat;
+            lng = cLng;
+          }
+        }
+      }
+
+      let url = '';
+      const encodedLabel = encodeURIComponent(label || address);
+      const encodedAddress = encodeURIComponent(address || label);
+
+      if (!isNaN(lat) && !isNaN(lng)) {
+        if (Platform.OS === 'ios') {
+          url = `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=d&q=${encodedLabel}`;
+        } else {
+          url = `google.navigation:q=${lat},${lng}&mode=d`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (!canOpen) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+          }
+        }
+      } else if (address) {
+        if (Platform.OS === 'ios') {
+          url = `http://maps.apple.com/?daddr=${encodedAddress}&dirflg=d&q=${encodedLabel}`;
+        } else {
+          url = `google.navigation:q=${encodedAddress}&mode=d`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (!canOpen) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&travelmode=driving`;
+          }
+        }
+      } else {
+        Alert.alert('알림', '위치 정보를 불러올 수 없습니다.');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (e) {
+      console.error('길찾기 실행 실패:', e);
+      Alert.alert('오류', '길찾기를 실행할 수 없습니다.');
+    }
+  };
+
+  // 명소 화면으로 이동 후 해당 장소 상세 열기
+  const openDetailInAttraction = () => {
+    try {
+      const placeParam: any = {
+        id: Number((selectedLocation as any)?.id) || 0,
+        name: (selectedLocation as any)?.name || '',
+        congestion_level: Number((selectedLocation as any)?.congestionLevelNum || 0),
+        is_like: false,
+        type: 'SIGHT',
+        address: (selectedLocation as any)?.address || '',
+        img: undefined,
+        latitude: Number((selectedLocation as any)?.latitude) || undefined,
+        longitude: Number((selectedLocation as any)?.longitude) || undefined,
+      };
+      navigation.navigate('Main', { screen: '명소' });
+      setTimeout(() => {
+        navigation.navigate('PlaceDetail', { place: placeParam });
+      }, 0);
+    } catch (e) {
+      console.error('상세 이동 실패', e);
+    }
+  };
+
   // 장소 상세 조회
   const fetchPlaceDetail = async (placeId: number) => {
     try {
@@ -262,7 +343,9 @@ const CongestionScreen = () => {
           distance: '',
           address: r.address,
           status: r.is_open ? '영업 중' : '영업 종료',
-          images: images
+          images: images,
+          latitude: lat == null ? undefined : Number(lat),
+          longitude: lng == null ? undefined : Number(lng)
         } as any;
         setSelectedLocation(mapped);
         setIsBottomSheetEnabled(true);
@@ -852,6 +935,49 @@ const CongestionScreen = () => {
     },
   });
 
+  const handleOpenDirections = async () => {
+    try {
+      const label = selectedLocation?.name || '';
+      const address = selectedLocation?.address || '';
+      const lat = Number((selectedLocation as any)?.latitude);
+      const lng = Number((selectedLocation as any)?.longitude);
+      const hasCoords = !isNaN(lat) && !isNaN(lng);
+
+      let url = '';
+      if (hasCoords) {
+        if (Platform.OS === 'ios') {
+          url = `http://maps.apple.com/?daddr=${lat},${lng}&dirflg=d&q=${encodeURIComponent(label)}`;
+        } else {
+          url = `google.navigation:q=${lat},${lng}&mode=d`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (!canOpen) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+          }
+        }
+      } else if (address) {
+        const encodedAddress = encodeURIComponent(address);
+        const encodedLabel = encodeURIComponent(label || address);
+        if (Platform.OS === 'ios') {
+          url = `http://maps.apple.com/?daddr=${encodedAddress}&dirflg=d&q=${encodedLabel}`;
+        } else {
+          url = `google.navigation:q=${encodedAddress}&mode=d`;
+          const canOpen = await Linking.canOpenURL(url);
+          if (!canOpen) {
+            url = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}&travelmode=driving`;
+          }
+        }
+      } else {
+        Alert.alert('알림', '위치 정보를 불러올 수 없습니다.');
+        return;
+      }
+
+      await Linking.openURL(url);
+    } catch (e) {
+      console.error('길찾기 실행 실패', e);
+      Alert.alert('오류', '길찾기 앱을 열 수 없습니다.');
+    }
+  };
+
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -1235,10 +1361,10 @@ const CongestionScreen = () => {
 
               {/* 버튼들 */}
               <View style={styles.buttonContainer}>
-                <TouchableOpacity style={styles.detailButton}>
+                <TouchableOpacity style={styles.detailButton} onPress={openDetailInAttraction}>
                   <Text style={styles.detailButtonText}>상세보기</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.favoriteButton}>
+                <TouchableOpacity style={styles.favoriteButton} onPress={handleOpenDirections}>
                   <Text style={styles.favoriteButtonText}>길찾기</Text>
                 </TouchableOpacity>
               </View>

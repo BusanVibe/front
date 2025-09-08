@@ -3,6 +3,8 @@ import {NavigationContainer} from '@react-navigation/native';
 import 'react-native-gesture-handler';
 import RootNavigator from './src/navigation/RootNavigator';
 import {LocationProvider} from './src/contexts/LocationContext';
+import {LikesProvider} from './src/contexts/LikesContext';
+import {ToastProvider} from './src/contexts/ToastContext';
 import {AuthProvider, useAuth} from './src/contexts/AuthContext';
 import {
   View,
@@ -510,9 +512,13 @@ const AppContent: React.FC = () => {
   // 로그인된 상태 - 메인 앱 표시
   return (
     <LocationProvider>
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
+      <ToastProvider>
+        <LikesProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </LikesProvider>
+      </ToastProvider>
     </LocationProvider>
   );
 };

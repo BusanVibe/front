@@ -4,7 +4,7 @@ import CurationComponent from '../components/common/Curration';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
 import AttractionSection from '../components/home/AttractionSection';
 import {useLocation} from '../contexts/LocationContext';
-import {getHomeData, togglePlaceLike} from '../services/placeService';
+import {getHomeData} from '../services/placeService';
 import {PlaceListItem} from '../types/place';
 import typography from '../styles/typography';
 import colors from '../styles/colors';
@@ -38,28 +38,7 @@ const HomeScreen = () => {
     }
   };
 
-  const handleToggleLike = useCallback(async (placeId: number) => {
-    console.log('=== HomeScreen handleToggleLike 시작 ===', placeId);
-    
-    try {
-      const response = await togglePlaceLike(placeId);
-      
-      if (response.is_success) {
-        console.log('=== 홈 좋아요 API 성공, 데이터 업데이트 ===');
-        setRecommendPlaces(prevPlaces => 
-          prevPlaces.map(place => 
-            place.id === placeId 
-              ? { ...place, is_like: !place.is_like }
-              : place
-          )
-        );
-      } else {
-        console.error('좋아요 토글 실패:', response.msg);
-      }
-    } catch (error) {
-      console.error('좋아요 토글 중 오류:', error);
-    }
-  }, []);
+  
 
   return (
     <>
@@ -80,7 +59,6 @@ const HomeScreen = () => {
             places={recommendPlaces}
             scrollEnabled={false}
             showsVerticalScrollIndicator={false}
-            onToggleLike={handleToggleLike}
           />
         </View>
       </ScrollView>

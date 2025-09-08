@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,9 @@ import {
 } from 'react-native';
 import {PlaceListItem} from '../types/place';
 import { useAuth } from '../contexts/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { UserService } from '../services/userService';
-import { togglePlaceLike } from '../services/placeService';
+import { useLikes } from '../contexts/LikesContext';
 import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -27,6 +28,7 @@ const FavoriteListScreen: React.FC = () => {
   const [showSortModal, setShowSortModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { likedPlaceIds, isPlaceLiked, refreshLikes } = useLikes();
 
   const loadLikes = async (category: string = selectedCategory) => {
     try {
@@ -71,31 +73,24 @@ const FavoriteListScreen: React.FC = () => {
     loadLikes();
   }, [user?.accessToken, selectedCategory]);
 
-  const handleToggleLike = async (placeId: number) => {
-    console.log('=== FavoriteListScreen handleToggleLike 시작 ===', placeId);
-    
-    try {
-      const response = await togglePlaceLike(placeId);
-      
-      if (response.is_success) {
-        console.log('=== 좋아요 API 성공, 데이터 업데이트 ===');
-        setFavorites(prevData => 
-          prevData.map(item => 
-            item.id === placeId 
-              ? {
-                  ...item,
-                  is_like: !item.is_like,
-                }
-              : item
-          )
-        );
-      } else {
-        console.error('=== 좋아요 API 실패 ===', response.message);
-      }
-    } catch (error) {
-      console.error('=== 좋아요 처리 오류 ===', error);
-    }
-  };
+  // 전역 좋아요 상태가 변경되면 즐겨찾기 목록에서도 해제된 항목 제거
+  useEffect(() => {
+    if (!favorites || favorites.length === 0) return;
+    setFavorites(prev => prev.filter(item => isPlaceLiked(item.id)));
+  }, [likedPlaceIds]);
+
+  // 화면 진입 시 전역 좋아요 동기화 보강
+  useEffect(() => {
+    refreshLikes();
+  }, [user?.accessToken]);
+
+  // 화면 포커스 시 좋아요 상태 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      refreshLikes();
+      return () => {};
+    }, [refreshLikes])
+  );
 
   const sortFavorites = (data: PlaceListItem[], sortType: SortType): PlaceListItem[] => {
     const sortedData = [...data];
@@ -130,7 +125,7 @@ const FavoriteListScreen: React.FC = () => {
 
 
   const renderFavoriteItem = ({item}: {item: PlaceListItem}) => (
-    <AttractionCard place={item} onToggleLike={handleToggleLike} />
+    <AttractionCard place={item} />
   );
 
   return (

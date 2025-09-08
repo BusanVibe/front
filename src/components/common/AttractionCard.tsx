@@ -22,6 +22,7 @@ import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 import IcHeart from '../../assets/icon/ic_heart.svg';
 import IcMapPin from '../../assets/icon/ic_map_pin.svg';
+import {useLikes} from '../../contexts/LikesContext';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -41,6 +42,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const {userLocation, hasLocationPermission} = useLocation();
+  const {isPlaceLiked, togglePlaceLike: togglePlaceLikeInContext} = useLikes();
 
   const isPlace = cardType === CardType.PLACE;
   const placeData = place as PlaceListItem;
@@ -86,7 +88,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     console.log('isLikeLoading:', isLikeLoading, 'onToggleLike:', !!onToggleLike);
     console.log('isPlace:', isPlace, 'festivalId:', isPlace ? placeData.id : festivalData.id);
     
-    if (isLikeLoading || !onToggleLike) {
+    if (isLikeLoading) {
       console.log('=== handleLikePress 조기 리턴 ===');
       return;
     }
@@ -94,8 +96,12 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     setIsLikeLoading(true);
     try {
       console.log('=== onToggleLike 호출 시작 ===', isPlace ? placeData.id : festivalData.id);
-      await onToggleLike(isPlace ? placeData.id : festivalData.id);
-      console.log('=== onToggleLike 호출 완료 ===');
+      if (onToggleLike) {
+        await onToggleLike(isPlace ? placeData.id : festivalData.id);
+      } else if (isPlace) {
+        await togglePlaceLikeInContext(placeData.id);
+      }
+      console.log('=== onToggleLike/Context 호출 완료 ===');
     } finally {
       setIsLikeLoading(false);
     }
@@ -154,8 +160,8 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             <IcHeart
               width={16}
               height={16}
-              color={place.is_like ? colors.red[500] : colors.gray[600]}
-              fill={place.is_like ? colors.red[500] : 'none'}
+              stroke={isPlace ? (isPlaceLiked(placeData.id) ? colors.red[500] : colors.gray[600]) : (place.is_like ? colors.red[500] : colors.gray[600])}
+              fill={isPlace ? (isPlaceLiked(placeData.id) ? colors.red[500] : 'none') : (place.is_like ? colors.red[500] : 'none')}
             />
           </TouchableOpacity>
         </View>
