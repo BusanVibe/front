@@ -88,7 +88,7 @@ const AttractionScreen = () => {
     () => [
       {type: 'curation', id: 'curation'},
       {type: 'filter', id: 'filter'},
-      ...filteredData.map(item => ({
+      ...filteredData.filter(item => item && item.id).map(item => ({
         type: 'attraction',
         id: item.id,
         data: item,
@@ -187,7 +187,7 @@ const AttractionScreen = () => {
         <FlatList
           data={headerData}
           renderItem={renderItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
           stickyHeaderIndices={[1]}
