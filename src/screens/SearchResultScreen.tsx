@@ -28,13 +28,13 @@ const SearchResultScreen: React.FC = () => {
     };
     return byOption[String(option)] || '전체';
   });
-  const sortItems = ['기본순', '추천순', '혼잡도순', '좋아요순'];
+  const sortItems = ['기본순', '혼잡도순', '좋아요순'];
   const [selectedSort, setSelectedSort] = useState<string>('기본순');
   const [sortOpen, setSortOpen] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<
-    {cardType: CardType; data: PlaceListItem | FestivalListItem}[]
+    {cardType: CardType; data: PlaceListItem | FestivalListItem; likeCount: number}[]
   >([]);
 
   const title = useMemo(() => `"${keyword}" 검색 결과`, [keyword]);
@@ -42,6 +42,7 @@ const SearchResultScreen: React.FC = () => {
   const mapToCardItem = (item: NormalizedSearchItem): {
     cardType: CardType;
     data: PlaceListItem | FestivalListItem;
+    likeCount: number; // 정렬을 위해 좋아요 개수를 별도로 저장
   } => {
     const isFestival = item.typeEn === 'FESTIVAL' || !!item.startDate;
     if (isFestival) {
@@ -56,7 +57,7 @@ const SearchResultScreen: React.FC = () => {
         like_amount: item.likeCount || 0,
         address: item.address,
       } as FestivalListItem;
-      return {cardType: CardType.FESTIVAL, data: f as FestivalListItem};
+      return {cardType: CardType.FESTIVAL, data: f as FestivalListItem, likeCount: item.likeCount || 0};
     }
 
     const toPlaceType = (t: string): PlaceType => {
@@ -83,26 +84,51 @@ const SearchResultScreen: React.FC = () => {
       latitude: item.latitude,
       longitude: item.longitude,
     };
-    return {cardType: CardType.PLACE, data: p};
+    return {cardType: CardType.PLACE, data: p, likeCount: item.likeCount || 0};
   };
+
+  const sortResults = useCallback((items: {cardType: CardType; data: PlaceListItem | FestivalListItem; likeCount: number}[], sortType: string) => {
+    const sortedItems = [...items];
+    
+    switch (sortType) {
+      case '기본순':
+        // 가나다 이름순 정렬
+        return sortedItems.sort((a, b) => a.data.name.localeCompare(b.data.name, 'ko'));
+      case '좋아요순':
+        // 좋아요 개수 내림차순 정렬 (likeCount 사용)
+        return sortedItems.sort((a, b) => b.likeCount - a.likeCount);
+      case '혼잡도순':
+        // 혼잡도 내림차순 정렬
+        return sortedItems.sort((a, b) => b.data.congestion_level - a.data.congestion_level);
+      default:
+        return sortedItems;
+    }
+  }, []);
 
   const fetchResults = useCallback(async () => {
     try {
       setIsLoading(true);
       const apiOption = mapKoreanCategoryToSearchOption(selectedCategory);
-      const apiSort = mapKoreanSortToSearchSort(selectedSort);
+      // 기본순과 좋아요순은 클라이언트에서 정렬하므로 서버에는 DEFAULT 요청
+      const apiSort = selectedSort === '혼잡도순' 
+        ? SearchSortType.CONGESTION 
+        : SearchSortType.DEFAULT;
+      
       const res = await SearchService.search({
         option: apiOption as any,
         sort: apiSort,
         keyword,
       });
-      setResults(res.list.map(mapToCardItem));
+      
+      const mappedResults = res.list.map(mapToCardItem);
+      const sortedResults = sortResults(mappedResults, selectedSort);
+      setResults(sortedResults);
     } catch (e) {
       console.error('검색 결과 조회 오류:', e);
     } finally {
       setIsLoading(false);
     }
-  }, [keyword, selectedCategory, selectedSort]);
+  }, [keyword, selectedCategory, selectedSort, sortResults]);
 
   useEffect(() => {
     fetchResults();

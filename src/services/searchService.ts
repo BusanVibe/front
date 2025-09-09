@@ -172,7 +172,6 @@ export const mapKoreanCategoryToSearchOption = (
 export const mapKoreanSortToSearchSort = (korean: string): SearchSortType => {
   const map: Record<string, SearchSortType> = {
     기본순: SearchSortType.DEFAULT,
-    추천순: SearchSortType.DEFAULT, // 백엔드에 별도 분류 없음 → DEFAULT로 매핑
     혼잡도순: SearchSortType.CONGESTION,
     좋아요순: SearchSortType.LIKE,
   };
