@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, StyleSheet, ScrollView, StatusBar, Alert, TouchableOpacity} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, StatusBar, Alert, TouchableOpacity, Image} from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
 import AttractionSection from '../components/home/AttractionSection';
@@ -8,6 +8,7 @@ import {getHomeData} from '../services/placeService';
 import {PlaceListItem} from '../types/place';
 import typography from '../styles/typography';
 import colors from '../styles/colors';
+const banner = require('../assets/banner.png');
 
 const HomeScreen = () => {
   const [mostCrowdedPlaces, setMostCrowdedPlaces] = useState<PlaceListItem[]>([]);
@@ -46,9 +47,7 @@ const HomeScreen = () => {
       <ScrollView style={styles.container}>
 
 
-        <View style={styles.curationSection}>
-          <CurationComponent />
-        </View>
+        <Image source={banner} style={styles.bannerImage} resizeMode="cover" />
 
         <View style={styles.crowdedSection}>
           <CrowdedPlacesSection places={mostCrowdedPlaces} />
@@ -72,6 +71,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  bannerImage: {
+    width: '100%',
+    height: 250,
   },
   curationSection: {
     backgroundColor: '#fff',
