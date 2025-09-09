@@ -20,9 +20,11 @@ import {WebView} from 'react-native-webview';
 import LinearGradient from 'react-native-linear-gradient';
 import LogoIcon from './src/assets/logo.svg';
 import KakaoIcon from './src/assets/icon/ic_kakao.svg';
+import TitleIcon from './src/assets/icon/ic_title.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
 import {WaveLottieWeb} from './src/assets/animation/WaveLottieWeb';
+import colors from './src/styles/colors';
 
 const {width, height} = Dimensions.get('window');
 
@@ -480,7 +482,7 @@ const AppContent: React.FC = () => {
           </View>
 
           {/* 메인 타이틀 */}
-          <Text style={styles.mainTitle}>부산스럽다</Text>
+          <TitleIcon width={200} height={60} />
 
           {/* 서브 타이틀 */}
           <Text style={styles.subTitle}>부산 여행 혼잡도 가이드</Text>
@@ -562,7 +564,7 @@ const styles = StyleSheet.create({
   },
   subTitle: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: colors.secondary[700],
     opacity: 0.85,
     textAlign: 'center',
     fontWeight: '300',
