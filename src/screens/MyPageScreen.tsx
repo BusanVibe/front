@@ -18,6 +18,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import UserService from '../services/userService';
+import IcMail from '../assets/icon/ic_mail.svg';
+import IcInfo from '../assets/icon/ic_info.svg';
+import IcLogout from '../assets/icon/ic_logout.svg';
+import IcHeart from '../assets/icon/ic_heart.svg';
+import colors from '../styles/colors';
 
 const MyPageScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -134,7 +139,7 @@ const MyPageScreen: React.FC = () => {
           onPress={() => navigation.navigate('FavoriteList' as never)}
         >
           <View style={styles.favoriteIcon}>
-            <Text style={styles.favoriteIconText}>❤️</Text>
+              <IcHeart width={20} height={20} color={colors.red[500]} fill={colors.red[500]} />
           </View>
           <Text style={styles.favoriteText}>내 좋아요 목록</Text>
           <Text style={styles.favoriteArrow}>›</Text>
@@ -146,7 +151,7 @@ const MyPageScreen: React.FC = () => {
           
           <TouchableOpacity style={styles.menuItem} onPress={handleInquiry}>
             <View style={styles.menuIconContainer}>
-              <Text style={styles.menuIcon}>📧</Text>
+              <IcMail width={20} height={20} />
             </View>
             <Text style={styles.menuText}>문의하기</Text>
             <Text style={styles.menuArrow}>›</Text>
@@ -157,7 +162,7 @@ const MyPageScreen: React.FC = () => {
             onPress={() => navigation.navigate('TermsOfService' as never)}
           >
             <View style={styles.menuIconContainer}>
-              <Text style={styles.menuIcon}>📄</Text>
+              <IcInfo width={20} height={20} />
             </View>
             <Text style={styles.menuText}>서비스 이용약관</Text>
             <Text style={styles.menuArrow}>›</Text>
@@ -168,7 +173,7 @@ const MyPageScreen: React.FC = () => {
             onPress={() => navigation.navigate('PrivacyPolicy' as never)}
           >
             <View style={styles.menuIconContainer}>
-              <Text style={styles.menuIcon}>🔒</Text>
+              <IcInfo width={20} height={20} />
             </View>
             <Text style={styles.menuText}>개인정보 처리방침</Text>
             <Text style={styles.menuArrow}>›</Text>
@@ -189,7 +194,7 @@ const MyPageScreen: React.FC = () => {
           
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
             <View style={styles.menuIconContainer}>
-              <Text style={styles.menuIcon}>📱</Text>
+              <IcLogout width={20} height={20} />
             </View>
             <Text style={styles.menuText}>로그아웃</Text>
             <Text style={styles.menuArrow}>›</Text>
