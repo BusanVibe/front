@@ -187,17 +187,14 @@ const PlaceDetailScreen = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        {images.length > 0 && images[currentImageIndex] ? (
-          <Image
-            source={{uri: images[currentImageIndex]}}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imageText}>이미지 없음</Text>
-          </View>
-        )}
+        <Image
+          source={images.length > 0 && images[currentImageIndex] 
+            ? {uri: images[currentImageIndex]} 
+            : require('../assets/detail_image_default.png')
+          }
+          style={styles.image}
+          resizeMode="cover"
+        />
 
         {/* 이미지 인디케이터 */}
         {images.length > 1 && (
@@ -350,17 +347,6 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     height: 300,
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.gray[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageText: {
-    fontSize: 18,
-    color: colors.white,
   },
   imageIndicator: {
     position: 'absolute',

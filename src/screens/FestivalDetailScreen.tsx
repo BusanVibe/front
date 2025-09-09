@@ -210,21 +210,18 @@ const FestivalDetailScreen = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        {images.length > 0 ? (
-          <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
-            <Image
-              source={{uri: images[currentImageIndex]}}
-              style={styles.festivalImage}
-              onError={() =>
-                console.log('이미지 로드 실패:', images[currentImageIndex])
-              }
-            />
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imageText}>축제 이미지</Text>
-          </View>
-        )}
+        <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+          <Image
+            source={images.length > 0
+              ? {uri: images[currentImageIndex]}
+              : require('../assets/detail_image_default.png')
+            }
+            style={styles.festivalImage}
+            onError={() =>
+              console.log('이미지 로드 실패:', images[currentImageIndex])
+            }
+          />
+        </TouchableOpacity>
 
         {/* 이미지 인디케이터 */}
         {images.length > 1 && (
@@ -350,13 +347,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: 300,
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#1a1a2e',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   festivalImage: {
     width: '100%',
     height: '100%',
@@ -365,10 +355,6 @@ const styles = StyleSheet.create({
   imageWrapper: {
     width: '100%',
     height: '100%',
-  },
-  imageText: {
-    fontSize: 18,
-    color: colors.white,
   },
   imageIndicator: {
     position: 'absolute',

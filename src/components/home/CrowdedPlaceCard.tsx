@@ -70,13 +70,10 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
   return (
     <TouchableOpacity style={styles.cardContainer} onPress={handlePress}>
       <View style={styles.imageContainer}>
-        {place.img ? (
-          <Image source={{uri: place.img}} style={styles.image} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>이미지</Text>
-          </View>
-        )}
+        <Image 
+          source={place.img ? {uri: place.img} : require('../../assets/image_default.png')} 
+          style={styles.image} 
+        />
 
         <View style={styles.badgeContainer}>
           <CongestionBadge level={place.congestion_level} />
@@ -134,17 +131,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.gray[300],
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imagePlaceholderText: {
-    ...typography.bodyMd,
-    color: colors.gray[700],
   },
   badgeContainer: {
     position: 'absolute',
