@@ -60,7 +60,7 @@ const SearchScreen = () => {
     } catch (e) {
       console.error('검색 오류:', e);
     }
-  }, [selectedCategory, navigation]);
+  }, [keyword, selectedCategory, navigation]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -69,6 +69,8 @@ const SearchScreen = () => {
           ref={headerRef}
           showSearchInput={true}
           searchPlaceholder="관광지 · 장소 · 축제 검색"
+          searchValue={keyword}
+          onSearchChange={setKeyword}
           onPressSearch={handleSearch}
         />
       ),
@@ -81,9 +83,9 @@ const SearchScreen = () => {
     setRecentSearchList(recentSearchList.filter(item => item.id !== id));
   };
   const handleSelectKeyword = (term: string) => {
-    // 헤더 입력창에 텍스트 넣고, 바로 검색 실행
-    headerRef.current?.setText(term);
-    headerRef.current?.submit();
+    // 키워드 상태를 즉시 업데이트하고 검색 실행
+    setKeyword(term);
+    handleSearch(term);
   };
 
   const clearAllRecentSearches = () => {

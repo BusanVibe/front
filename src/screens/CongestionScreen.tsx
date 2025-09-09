@@ -46,7 +46,7 @@ type CongestionScreenRouteProp = RouteProp<
   string
 >;
 
-const categories = ['전체', '관광명소', '맛집', '카페', '문화시설'];
+const categories = ['전체', '관광명소', '맛집', '문화시설'];
 const { height: screenHeight } = Dimensions.get('window');
 // 혼잡도 응답 상세 로그 소음 방지용 플래그
 const VERBOSE_CONGESTION_LOG = false;

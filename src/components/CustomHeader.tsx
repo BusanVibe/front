@@ -12,6 +12,7 @@ import IcChevronLeft from '../assets/icon/ic_chevron_left.svg';
 import IcSearch from '../assets/icon/ic_search.svg';
 import IcUserCircle from '../assets/icon/ic_user_circle.svg';
 import IcTitle from '../assets/icon/ic_title.svg';
+import IcX from '../assets/icon/ic_x.svg';
 import { useAuth } from '../contexts/AuthContext';
 import { UserService } from '../services/userService';
 
@@ -85,21 +86,22 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   }), [onSearchChange, onPressSearch, searchValue, internalText]);
 
   if (showSearchInput) {
+    const currentText = searchValue !== undefined ? searchValue : internalText;
+    
     return (
       <View style={styles.headerContainer}>
-        {showBackButton && (
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}>
-            <IcChevronLeft width={24} height={24} fill="#666666" stroke="none" />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.searchBackButton}>
+          <IcChevronLeft width={20} height={20} fill="#666666" stroke="none" />
+        </TouchableOpacity>
         <View style={styles.searchInputContainer}>
+          
           <TextInput
             style={styles.searchInput}
             placeholder={searchPlaceholder}
             placeholderTextColor="#999999"
-            value={searchValue !== undefined ? searchValue : internalText}
+            value={currentText}
             onChangeText={(t) => {
               if (onSearchChange) onSearchChange(t);
               setInternalText(t);
@@ -111,7 +113,22 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
               if (onPressSearch) onPressSearch(current);
             }}
           />
-          <TouchableOpacity
+          {currentText.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => {
+                if (onSearchChange) onSearchChange('');
+                setInternalText('');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="텍스트 지우기"
+            >
+              <IcX width={12} height={12} fill="none" stroke="#999999" />
+            </TouchableOpacity>
+          )}
+          
+        </View>
+        <TouchableOpacity
             style={styles.searchIconContainer}
             onPress={() => {
               const current = (searchValue ?? internalText)?.trim();
@@ -122,7 +139,6 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
           >
             <IcSearch width={20} height={20} fill="#999999" stroke="none" />
           </TouchableOpacity>
-        </View>
       </View>
     );
   }
@@ -221,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 20,
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
     height: 40,
   },
   searchInput: {
@@ -237,6 +253,17 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     tintColor: '#666666',
+  },
+  searchBackButton: {
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearButton: {
+    marginRight: 8,
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
