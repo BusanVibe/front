@@ -19,6 +19,7 @@ import {
 import {WebView} from 'react-native-webview';
 import LinearGradient from 'react-native-linear-gradient';
 import LogoIcon from './src/assets/logo.svg';
+import KakaoIcon from './src/assets/icon/ic_kakao.svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LottieView from 'lottie-react-native';
 import {WaveLottieWeb} from './src/assets/animation/WaveLottieWeb';
@@ -488,7 +489,7 @@ const AppContent: React.FC = () => {
         {/* 카카오 로그인 버튼 */}
         <TouchableOpacity style={styles.kakaoButton} onPress={handleKakaoLogin}>
           <View style={styles.kakaoButtonContent}>
-            <Text style={styles.leftIconText}>💬</Text>
+            <KakaoIcon width={24} height={24} style={styles.leftIcon} />
             <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
           </View>
         </TouchableOpacity>
