@@ -14,17 +14,19 @@ import CustomHeader, { CustomHeaderRef } from '../components/CustomHeader';
 import type {RootStackParamList} from '../navigation/RootNavigator';
 import {mapKoreanCategoryToSearchOption} from '../services/searchService';
 
-const recentSearches = [
-  {id: '1', term: '해운대'},
-  {id: '2', term: '이재모피자'},
-];
+const recentSearches: {id: string; term: string}[] = [];
 
-const popularSearches = [
-  {id: '1', term: '해변'},
-  {id: '2', term: '해수욕장'},
-  {id: '3', term: '국밥'},
-  {id: '4', term: '공원'},
-  {id: '5', term: '미포집'},
+const popularSearches: {id: string; term: string; trend: 'up' | 'down'}[] = [
+  {id: '1', term: '이재모피자', trend: 'up'},
+  {id: '2', term: '해운대', trend: 'down'},
+  {id: '3', term: '요트', trend: 'up'},
+  {id: '4', term: '국밥', trend: 'down'},
+  {id: '5', term: '불꽃축제', trend: 'up'},
+  {id: '6', term: '더베이 101', trend: 'up'},
+  {id: '7', term: '케이블카', trend: 'down'},
+  {id: '8', term: '공원', trend: 'up'},
+  {id: '9', term: '해변', trend: 'up'},
+  {id: '10', term: '미포집', trend: 'down'},
 ];
 
 const SearchScreen = () => {
@@ -85,6 +87,7 @@ const SearchScreen = () => {
   const handleSelectKeyword = (term: string) => {
     // 키워드 상태를 즉시 업데이트하고 검색 실행
     setKeyword(term);
+    headerRef.current?.setText(term);
     handleSearch(term);
   };
 
@@ -154,9 +157,9 @@ const SearchScreen = () => {
               ))}
             </View>
           ) : (
-            <Text style={styles.emptyText}>
-              지금 궁금한 장소를 검색해보세요!
-            </Text>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>지금 궁금한 장소를 검색해보세요!</Text>
+            </View>
           )}
         </View>
 
@@ -167,8 +170,15 @@ const SearchScreen = () => {
             renderItem={({item}) => (
               <TouchableOpacity style={styles.popularItem} onPress={() => handleSelectKeyword(item.term)}>
                 <Text style={styles.itemNumber}>{item.id}</Text>
-                <Text style={styles.itemText}>{item.term}</Text>
-                <Text style={styles.trendIcon}>🔺</Text>
+                <Text style={styles.itemText} numberOfLines={1} ellipsizeMode="tail">{item.term}</Text>
+                <Text
+                  style={[
+                    styles.trendIcon,
+                    item.trend === 'up' ? styles.trendUp : styles.trendDown,
+                  ]}
+                >
+                  {item.trend === 'up' ? '▲' : '▼'}
+                </Text>
               </TouchableOpacity>
             )}
             keyExtractor={item => item.id}
@@ -201,10 +211,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   selectedCategory: {
-    backgroundColor: '#8cb6ee',
+    backgroundColor: '#3b82f6',
   },
   unselectedCategory: {
-    backgroundColor: '#eaeaea',
+    backgroundColor: '#f2f4f6',
   },
   categoryText: {
     fontSize: 14,
@@ -229,15 +239,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
+    lineHeight: 25,
   },
   clearAllText: {
     fontSize: 14,
     color: '#999',
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   recentSearchContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 8,
   },
   recentSearchButton: {
     flexDirection: 'row',
@@ -254,27 +268,42 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   removeButton: {
-    width: 16,
-    height: 16,
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 6,
   },
   removeButtonText: {
-    fontSize: 16,
+    fontSize: 20,
     color: '#666',
     fontWeight: 'bold',
+    lineHeight: 20,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+    transform: [{translateY: 2}],
+  },
+  emptyCard: {
+    backgroundColor: '#f7f7f8',
+    borderWidth: 1,
+    borderColor: '#eee',
+    borderRadius: 8,
+    minHeight: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
   },
   emptyText: {
     fontSize: 14,
     color: '#999',
     textAlign: 'center',
-    marginTop: 40,
   },
   popularItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
     flex: 0.5,
+    paddingRight: 12,
   },
   itemNumber: {
     fontSize: 16,
@@ -287,10 +316,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     flex: 1,
+    marginRight: 4,
   },
   trendIcon: {
     fontSize: 12,
     marginLeft: 4,
+    width: 12,
+    textAlign: 'right',
+  },
+  trendUp: {
+    color: '#ef4444',
+  },
+  trendDown: {
+    color: '#3b82f6',
   },
 });
 
