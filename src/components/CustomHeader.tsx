@@ -51,6 +51,13 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [internalText, setInternalText] = useState<string>('');
 
+  // 외부에서 전달된 searchValue가 바뀌면 내부 상태 동기화
+  useEffect(() => {
+    if (searchValue !== undefined && searchValue !== internalText) {
+      setInternalText(searchValue);
+    }
+  }, [searchValue]);
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -86,7 +93,7 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
   }), [onSearchChange, onPressSearch, searchValue, internalText]);
 
   if (showSearchInput) {
-    const currentText = searchValue !== undefined ? searchValue : internalText;
+    const currentText = internalText;
     
     return (
       <View style={styles.headerContainer}>
