@@ -14,6 +14,8 @@ import {
   Image,
   AppState,
   Animated,
+  Keyboard,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
@@ -118,6 +120,8 @@ const BusanTalkScreen = () => {
 
   const [inputText, setInputText] = useState('');
   const listRef = useRef<any>(null);
+  // 키보드 높이에 따라 입력창을 올리기 위한 애니메이션 값
+  const keyboardTranslateY = useRef(new Animated.Value(0)).current;
   // 최근 내가 전송한 메시지 텍스트 기록(에코 방지)
   const pendingSentRef = useRef<{ text: string; ts: number }[]>([]);
   // 최근에 처리한 (userId+text) 키의 마지막 시간 기록(히스토리/실시간 중복 방지)
@@ -462,6 +466,35 @@ const BusanTalkScreen = () => {
     };
   }, [disconnectWebSocket]);
 
+  // 키보드에 맞춰 입력창만 올리기 (iOS/Android 모두 적용)
+  // Android는 Activity를 adjustPan으로 설정하여 탭바가 고정되고,
+  // 여기서 입력창만 키보드 높이만큼 올려 겹침을 방지한다.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow';
+    const hideEvent = Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide';
+    const handleShow = (e: any) => {
+      const height = e?.endCoordinates?.height ?? 0;
+      Animated.timing(keyboardTranslateY, {
+        toValue: height,
+        duration: Platform.OS === 'android' ? 0 : 250,
+        useNativeDriver: true,
+      }).start();
+    };
+    const handleHide = () => {
+      Animated.timing(keyboardTranslateY, {
+        toValue: 0,
+        duration: Platform.OS === 'android' ? 0 : 250,
+        useNativeDriver: true,
+      }).start();
+    };
+    const subShow = Keyboard.addListener(showEvent as any, handleShow);
+    const subHide = Keyboard.addListener(hideEvent as any, handleHide);
+    return () => {
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [keyboardTranslateY]);
+
   const renderMessage = ({item}: {item: Message}) => {
     // 봇 타이핑 로딩 메시지인지 확인
     const isBotTypingMessage = item.id === 'bot-typing';
@@ -655,7 +688,10 @@ const BusanTalkScreen = () => {
         )}
 
         {/* 입력창 */}
-        <View style={styles.inputContainer}>
+        <Animated.View style={[
+          styles.inputContainer,
+          { transform: [{ translateY: Animated.multiply(keyboardTranslateY, -1) }] },
+        ]}>
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.textInput}
@@ -673,7 +709,7 @@ const BusanTalkScreen = () => {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </LinearGradient>
     </SafeAreaView>
   );
