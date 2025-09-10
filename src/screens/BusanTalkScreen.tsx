@@ -14,7 +14,6 @@ import {
   Image,
   AppState,
   Animated,
-  Easing,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
@@ -29,6 +28,72 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const {width} = Dimensions.get('window');
 
+// 타이핑 인디케이터 컴포넌트
+const TypingIndicator = () => {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animateDot = (dot: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const animation1 = animateDot(dot1, 0);
+    const animation2 = animateDot(dot2, 200);
+    const animation3 = animateDot(dot3, 400);
+
+    animation1.start();
+    animation2.start();
+    animation3.start();
+
+    return () => {
+      animation1.stop();
+      animation2.stop();
+      animation3.stop();
+    };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={typingStyles.container}>
+      <Animated.View style={[typingStyles.dot, { opacity: dot1 }]} />
+      <Animated.View style={[typingStyles.dot, { opacity: dot2 }]} />
+      <Animated.View style={[typingStyles.dot, { opacity: dot3 }]} />
+    </View>
+  );
+};
+
+const typingStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#999999',
+    marginHorizontal: 2,
+  },
+});
+
 interface Message {
   // 백엔드 필드명과 동일
   user_id: number;
@@ -40,7 +105,6 @@ interface Message {
   // 클라이언트 보조 필드
   id: string;
   is_my?: boolean;
-  is_typing?: boolean;
 }
 
 const BusanTalkScreen = () => {
@@ -62,36 +126,6 @@ const BusanTalkScreen = () => {
   const myUserIdRef = useRef<number>(-1);
   // 히스토리 최초 1회만 로드 가드
   const hasLoadedHistoryRef = useRef<boolean>(false);
-  const typingIdRef = useRef<string | null>(null);
-
-  // 챗봇 타이핑 표시/해제
-  const showBotTyping = useCallback(() => {
-    if (isBotTyping) return;
-    const id = `typing-${Date.now()}`;
-    typingIdRef.current = id;
-    const typingMsg: Message = {
-      id,
-      user_id: 0,
-      name: '챗봇',
-      image_url: '',
-      message: '...',
-      time: new Date().toISOString(),
-      type: 'BOT_RESPONSE',
-      is_my: false,
-      is_typing: true,
-    };
-    setIsBotTyping(true);
-    setMessages(prev => sortByIsoTimeAsc([...prev, typingMsg]));
-    setTimeout(() => scrollToBottom(true), 50);
-  }, [isBotTyping]);
-
-  const hideBotTyping = useCallback(() => {
-    if (!isBotTyping && !typingIdRef.current) return;
-    setIsBotTyping(false);
-    const id = typingIdRef.current;
-    typingIdRef.current = null;
-    setMessages(prev => prev.filter(m => !m.is_typing && m.id !== id));
-  }, [isBotTyping]);
 
   const parseJwtSub = (token?: string | null): number => {
     try {
@@ -170,7 +204,6 @@ const BusanTalkScreen = () => {
   // 웹소켓 수신 메시지 → Message (정규 스키마 유지)
   const mapWebSocketToMessage = (wsMessage: ChatMessage): Message => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
-    const isMy = (wsMessage.type !== 'BOT_RESPONSE') && (Number(wsMessage.user_id ?? -999) === myId);
     return {
       id: `ws-${wsMessage.time}-${wsMessage.user_id}-${Math.random().toString(36).slice(2, 8)}`,
       user_id: Number(wsMessage.user_id ?? 0),
@@ -179,7 +212,7 @@ const BusanTalkScreen = () => {
       message: wsMessage.message ?? '',
       time: wsMessage.time ?? new Date().toISOString(),
       type: wsMessage.type,
-      is_my: isMy,
+      is_my: Number(wsMessage.user_id ?? -999) === myId,
     };
   };
 
@@ -188,19 +221,6 @@ const BusanTalkScreen = () => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
     const userIdNum = Number(chat.user_id ?? 0);
     const isMyFromServer = typeof (chat as any)?.is_my === 'boolean' ? (chat as any).is_my : undefined;
-    const isBotResponse = chat.type === 'BOT_RESPONSE';
-    const isBotRequest = chat.type === 'BOT_REQUEST';
-    let isMy: boolean;
-    if (isBotResponse) {
-      isMy = false;
-    } else if (isBotRequest) {
-      // 봇 요청은 항상 사용자가 보낸 메시지로 처리 (서버 is_my 무시)
-      isMy = userIdNum === myId;
-    } else if (isMyFromServer !== undefined) {
-      isMy = isMyFromServer;
-    } else {
-      isMy = userIdNum === myId;
-    }
     return {
       id: `api-${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
       user_id: userIdNum,
@@ -209,7 +229,7 @@ const BusanTalkScreen = () => {
       message: chat.message ?? '',
       time: chat.time ?? new Date().toISOString(),
       type: chat.type,
-      is_my: isMy,
+      is_my: isMyFromServer !== undefined ? isMyFromServer : (userIdNum === myId),
     };
   };
 
@@ -392,12 +412,8 @@ const BusanTalkScreen = () => {
       const removeOptimisticWithSameText = (list: Message[]) =>
         list.filter(m => !(m.id?.startsWith?.('temp-') && m.message === mappedMessage.message));
 
-      if (mappedMessage.type === 'BOT_RESPONSE') {
-        hideBotTyping();
-      }
       setMessages(prev => {
-        const withoutTyping = prev.filter(m => !m.is_typing);
-        const cleaned = removeOptimisticWithSameText(withoutTyping);
+        const cleaned = removeOptimisticWithSameText(prev);
         const updated = appendDedupeAndSort(cleaned, mappedMessage);
         return updated;
       });
@@ -446,54 +462,58 @@ const BusanTalkScreen = () => {
     };
   }, [disconnectWebSocket]);
 
-  const renderMessage = ({item}: {item: Message}) => (
-    <View
-      style={[
-        styles.messageContainer,
-        (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botMessage : styles.userMessage,
-      ]}>
-      <View style={styles.messageWrapper}>
-        {(item.type === 'BOT_RESPONSE' || !item.is_my) && (
-          <View style={styles.profileContainer}>
-            <View style={styles.profileIcon}>
-              {item.type === 'BOT_RESPONSE' ? (
-                <Logo width={30} height={30} />
-              ) : item.image_url ? (
-                <Image source={{ uri: item.image_url }} style={styles.profileImage} />
-              ) : (
-                <IcNickname width={30} height={30} stroke="none" />
-              )}
+  const renderMessage = ({item}: {item: Message}) => {
+    // 봇 타이핑 로딩 메시지인지 확인
+    const isBotTypingMessage = item.id === 'bot-typing';
+    
+    return (
+      <View
+        style={[
+          styles.messageContainer,
+          (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botMessage : styles.userMessage,
+        ]}>
+        <View style={styles.messageWrapper}>
+          {(item.type === 'BOT_RESPONSE' || !item.is_my) && (
+            <View style={styles.profileContainer}>
+              <View style={styles.profileIcon}>
+                {item.type === 'BOT_RESPONSE' ? (
+                  <Logo width={30} height={30} />
+                ) : item.image_url ? (
+                  <Image source={{ uri: item.image_url }} style={styles.profileImage} />
+                ) : (
+                  <IcNickname width={30} height={30} stroke="none" />
+                )}
+              </View>
+              <Text style={styles.nickname}>{item.type === 'BOT_RESPONSE' || isBotTypingMessage ? '챗봇' : (item.name ?? '닉네임')}</Text>
             </View>
-            <Text style={styles.nickname}>{item.type === 'BOT_RESPONSE' ? '챗봇' : (item.name ?? '닉네임')}</Text>
-          </View>
-        )}
-        <View style={(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser}>
-          <View style={[styles.messageRow, (item.is_my && item.type !== 'BOT_RESPONSE') ? styles.userMessageRow : {}]}>
-            {(item.is_my && item.type !== 'BOT_RESPONSE') && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
-            <View
-              style={[
-                styles.messageBubble,
-                (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botBubble : styles.userBubble,
-                item.is_typing ? styles.typingBubble : {},
-              ]}>
-              {item.is_typing ? (
-                <TypingIndicator color="#000" />
-              ) : (
-                <Text
-                  style={[
-                    styles.messageText,
-                    (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botText : styles.userText,
-                  ]}>
-                  {softWrap(item.message)}
-                </Text>
-              )}
+          )}
+          <View style={(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser}>
+            <View style={[styles.messageRow, (item.is_my && item.type !== 'BOT_RESPONSE') ? styles.userMessageRow : {}]}>
+              {(item.is_my && item.type !== 'BOT_RESPONSE') && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
+              <View
+                style={[
+                  styles.messageBubble,
+                  (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botBubble : styles.userBubble,
+                ]}>
+                {isBotTypingMessage ? (
+                  <TypingIndicator />
+                ) : (
+                  <Text
+                    style={[
+                      styles.messageText,
+                      (item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.botText : styles.userText,
+                    ]}>
+                    {softWrap(item.message)}
+                  </Text>
+                )}
+              </View>
+              {(item.type === 'BOT_RESPONSE' || !item.is_my) && !isBotTypingMessage && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
             </View>
-            {(item.type === 'BOT_RESPONSE' || !item.is_my) && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
           </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const sendMessage = async () => {
     const text = inputText.trim();
@@ -537,15 +557,35 @@ const BusanTalkScreen = () => {
     } catch {}
 
     setIsSending(true);
+    
+    // 챗봇 질문인 경우 타이핑 로딩 메시지 추가
+    const isBotQuestion = text.startsWith('/');
+    if (isBotQuestion) {
+      setIsBotTyping(true);
+      const typingMessage: Message = {
+        id: 'bot-typing',
+        user_id: -1,
+        name: '챗봇',
+        image_url: '',
+        message: '',
+        time: new Date().toISOString(),
+        type: 'BOT_RESPONSE',
+        is_my: false,
+      };
+      setMessages(prev => [...prev, typingMessage]);
+      setTimeout(() => scrollToBottom(true), 100);
+    }
+    
     try { console.log('[send] request FULL', { length: text.length, text }); } catch {}
     try {
-      if (isSlash) {
-        showBotTyping();
-      }
       const res = await ChatService.send(text);
-      // 챗봇 질문인 경우 API 응답으로 받은 메시지를 추가
-      if (text.startsWith('/')) {
-        hideBotTyping();
+      
+      // 챗봇 질문인 경우 타이핑 메시지 제거 후 실제 응답 추가
+      if (isBotQuestion) {
+        setIsBotTyping(false);
+        // 타이핑 메시지 제거
+        setMessages(prev => prev.filter(msg => msg.id !== 'bot-typing'));
+        
         const botMsg: Message = mapChatToMessage(res.result, 0);
         setMessages(prev => dedupeAndSort([...prev, botMsg]));
         setTimeout(() => scrollToBottom(true), 100);
@@ -565,7 +605,12 @@ const BusanTalkScreen = () => {
       console.error('[send] fail', e);
       // 전송 실패 시 낙관적 업데이트 제거
       setMessages(prev => prev.filter(msg => msg.id !== optimistic.id));
-      hideBotTyping();
+      
+      // 챗봇 질문 실패 시 타이핑 메시지도 제거
+      if (isBotQuestion) {
+        setIsBotTyping(false);
+        setMessages(prev => prev.filter(msg => msg.id !== 'bot-typing'));
+      }
     } finally {
       setIsSending(false);
     }
@@ -592,7 +637,6 @@ const BusanTalkScreen = () => {
             renderItem={renderMessage}
             keyExtractor={item => item.id}
             style={styles.messagesList}
-            contentContainerStyle={styles.messagesContentContainer}
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => {
               if (!isLoadingMore) {
@@ -672,10 +716,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 4,
     backgroundColor: 'transparent',
-  },
-  messagesContentContainer: {
-    paddingTop: 16,
-    paddingBottom: 30,
   },
   messageContainer: {
     marginBottom: 8,
@@ -816,60 +856,5 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 12,
   },
-  typingContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 4.5,
-    backgroundColor: '#000',
-    marginHorizontal: 2,
-  },
-  typingBubble: {
-    paddingVertical: 10,
-    minHeight: 30,
-  },
 
 });
-
-// 챗봇 타이핑 애니메이션 컴포넌트 (점이 위아래로 움직임)
-const TypingIndicator = ({ color = '#000' }: { color?: string }) => {
-  const d1 = React.useRef(new Animated.Value(0)).current;
-  const d2 = React.useRef(new Animated.Value(0)).current;
-  const d3 = React.useRef(new Animated.Value(0)).current;
-
-  const makeAnim = (val: Animated.Value, delay: number) => {
-    return Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(val, { toValue: -7, duration: 240, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(val, { toValue: 0, duration: 240, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]),
-    );
-  };
-
-  React.useEffect(() => {
-    const a1 = makeAnim(d1, 0);
-    const a2 = makeAnim(d2, 120);
-    const a3 = makeAnim(d3, 240);
-    a1.start();
-    a2.start();
-    a3.start();
-    return () => {
-      a1.stop();
-      a2.stop();
-      a3.stop();
-    };
-  }, [d1, d2, d3]);
-
-  return (
-    <View style={styles.typingContainer}>
-      <Animated.View style={[styles.typingDot, { backgroundColor: color, transform: [{ translateY: d1 }] }]} />
-      <Animated.View style={[styles.typingDot, { backgroundColor: color, transform: [{ translateY: d2 }] }]} />
-      <Animated.View style={[styles.typingDot, { backgroundColor: color, transform: [{ translateY: d3 }] }]} />
-    </View>
-  );
-};
