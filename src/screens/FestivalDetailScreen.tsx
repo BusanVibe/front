@@ -23,6 +23,7 @@ import IcCalendar from '../assets/icon/ic_calendar.svg';
 import IcMapPin from '../assets/icon/ic_map_pin.svg';
 import IcDollar from '../assets/icon/ic_dollar.svg';
 import IcCall from '../assets/icon/ic_call.svg';
+import StrokeText from '../components/common/StrokeText';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -282,9 +283,9 @@ const FestivalDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <Text style={styles.likeCount}>
+          <StrokeText strokeColor="#000" strokeWidth={1.5} style={styles.likeCount}>
             {festivalDetail?.like_amount || currentFestival.like_amount || 0}
-          </Text>
+          </StrokeText>
         </View>
       </View>
 

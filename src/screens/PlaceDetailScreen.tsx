@@ -26,6 +26,7 @@ import IcMapPin from '../assets/icon/ic_map_pin.svg';
 import IcClock from '../assets/icon/ic_clock.svg';
 import IcCall from '../assets/icon/ic_call.svg';
 import IcCalendar from '../assets/icon/ic_calendar.svg';
+import StrokeText from '../components/common/StrokeText';
 
 const {width: screenWidth} = Dimensions.get('window');
 
@@ -248,7 +249,9 @@ const PlaceDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <Text style={styles.likeCount}>{likeAmount}</Text>
+          <StrokeText strokeColor="#000" strokeWidth={1.5} style={styles.likeCount}>
+            {likeAmount}
+          </StrokeText>
         </View>
       </View>
 
