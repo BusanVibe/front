@@ -17,7 +17,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { UserService } from '../services/userService';
 
 type RootStackParamList = {
-  Main: undefined;
+  Main: { screen?: string } | undefined;
   Search: undefined;
   MyPage: undefined;
 };
@@ -161,7 +161,13 @@ const CustomHeader = forwardRef<CustomHeaderRef, CustomHeaderProps>(({
           </TouchableOpacity>
         )}
         {title && ['홈', '혼잡도', '명소', '축제', '부산톡'].includes(title) ? (
-          <IcTitle width={100} height={30} />
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Main', { screen: '홈' })}
+            accessibilityRole="button"
+            accessibilityLabel="홈으로 이동"
+          >
+            <IcTitle width={100} height={30} />
+          </TouchableOpacity>
         ) : (
           <Text style={[styles.headerTitle, title === '부산스럽다' ? { color: '#0057CC' } : null]}>{title}</Text>
         )}
