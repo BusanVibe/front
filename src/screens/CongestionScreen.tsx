@@ -22,6 +22,7 @@ import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMapHTML } from '../components/map/mapTemplate.ts';
 import CongestionBadge from '../components/common/CongestionBadge';
+import { useLocation } from '../contexts/LocationContext';
 
 // 타입 정의
 interface Location {
@@ -96,6 +97,7 @@ const CongestionScreen = () => {
   const route = useRoute<CongestionScreenRouteProp>();
   const navigation = useNavigation<any>();
   const selectedPlaceId = route.params?.selectedPlaceId;
+  const { userLocation, isLocationLoading, fastRefreshLocation, refreshLocation } = useLocation();
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
   const [mapKey, setMapKey] = useState(0); // WebView 강제 리렌더링용
@@ -105,14 +107,14 @@ const CongestionScreen = () => {
   const [isMapDragging, setIsMapDragging] = useState(false); // 지도 드래그 상태
   const [shouldShowCurrentLocation, setShouldShowCurrentLocation] = useState(false); // 현재위치 표시 여부
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태
-  const [isLocationLoading, setIsLocationLoading] = useState(false); // 위치 로딩 상태 (초기에는 로딩 표시 안 함)
+  // isLocationLoading은 LocationContext에서 관리
   const [realtimeStandardHour, setRealtimeStandardHour] = useState<number | null>(null);
   const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
   const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
   const [visitorDistribution, setVisitorDistribution] = useState<{ age: string; male: number; female: number }[] | null>(null);
   const webViewRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastLocationRef = useRef<CachedLocation | null>(null);
+  // lastLocationRef는 LocationService에서 관리
   const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
   const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
   const webViewReloadReasonRef = useRef<string | null>(null); // WebView 재로딩 사유 추적
@@ -136,9 +138,10 @@ const CongestionScreen = () => {
   };
 
 
-  // 컴포넌트 마운트 시 기본 좌표로 지도 초기화
+  // 컴포넌트 마운트 시 기본 좌표로 초기화
   React.useEffect(() => {
     console.log('=== CongestionScreen 마운트 - 기본 좌표로 초기화 ===');
+    // 항상 기본 좌표로 시작 (현재위치는 버튼 클릭 시에만 사용)
     setMapCenter({ latitude: DEFAULT_CENTER.latitude, longitude: DEFAULT_CENTER.longitude });
     setIsInitialLoad(false);
     // 데이터 조회는 WebView 렌더 완료 시점(onLoadEnd)에서 handleMapBoundsChange로 즉시 수행
@@ -584,267 +587,55 @@ const CongestionScreen = () => {
     }, delay);
   };
 
-    // 현재 위치 가져오기 (실제 기기 위치)
+  // 현재 위치 가져오기 (새로운 LocationService 사용)
   const getCurrentLocation = async () => {
-    console.log('=== 현재 위치 가져오기 시작 ===');
-    setIsLocationLoading(true);
+    console.log('=== 빠른 현재 위치 가져오기 시작 ===');
     
     try {
-      // 최근 위치 캐시 확인 (30초 이내) - 버튼 클릭 시에만 사용
-      const now = Date.now();
-      if (!isInitialLoad && lastLocationRef.current && now - lastLocationRef.current.timestamp < 30000) {
-        console.log('캐시된 위치 사용');
-        const cachedLocation = lastLocationRef.current;
-        setCurrentLocation(cachedLocation);
-        setShouldShowCurrentLocation(true);
-        setIsLocationLoading(false);
+      // fastRefreshLocation을 사용하여 캐시된 위치를 우선 사용
+      const location = await fastRefreshLocation();
+      
+      if (location) {
+        console.log('✅ 위치 획득 성공 (캐시 또는 새로 요청):', location.latitude, location.longitude);
         
-        // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
-        // 항상 현재위치 핑 표시
+        const currentPos = { latitude: location.latitude, longitude: location.longitude };
+        
+        // 기존 state 업데이트
+        setCurrentLocation(currentPos);
+        setShouldShowCurrentLocation(true);
+        
+        // 지도 이동 및 현재위치 핑 표시
         if (webViewRef.current) {
           webViewRef.current.postMessage(JSON.stringify({
             type: 'setCurrentLocationPing',
-            latitude: cachedLocation.latitude,
-            longitude: cachedLocation.longitude
+            latitude: location.latitude,
+            longitude: location.longitude
           }));
-          // 지도도 현재위치로 이동
           webViewRef.current.postMessage(JSON.stringify({
             type: 'moveToLocation',
-            latitude: cachedLocation.latitude,
-            longitude: cachedLocation.longitude,
+            latitude: location.latitude,
+            longitude: location.longitude,
             showCurrentLocation: false
           }));
         } else {
-          pendingCurrentLocationPingRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude };
-          pendingMoveToLocationRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude, show: false };
+          pendingCurrentLocationPingRef.current = { lat: location.latitude, lng: location.longitude };
+          pendingMoveToLocationRef.current = { lat: location.latitude, lng: location.longitude, show: false };
         }
 
         // API 호출 (bounds 사용)
         setTimeout(() => {
-          const bounds = calculateBounds(cachedLocation.latitude, cachedLocation.longitude, 15);
+          const bounds = calculateBounds(location.latitude, location.longitude, 15);
           fetchCongestionData(bounds, selectedCategory);
         }, 1000);
 
-        console.log('📍 캐시된 현재 위치로 이동 완료 - 기본 줌 레벨: 5로 설정');
-        return;
+        console.log('📍 현재 위치로 이동 완료');
+      } else {
+        console.warn('위치를 가져올 수 없음');
+        Alert.alert('위치 오류', '현재 위치를 가져올 수 없습니다. 위치 권한을 확인해 주세요.');
       }
-
-      // Android 권한 요청 (정밀/저정밀 동시 요청 및 영구 거부 대응)
-      if (Platform.OS === 'android') {
-        const results = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ]);
-
-        const fineResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-        const coarseResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
-        const isFineGranted = fineResult === PermissionsAndroid.RESULTS.GRANTED;
-        const isCoarseGranted = coarseResult === PermissionsAndroid.RESULTS.GRANTED;
-        const isAnyGranted = isFineGranted || isCoarseGranted;
-
-        if (!isAnyGranted) {
-          const isAnyNeverAskAgain =
-            fineResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
-            coarseResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
-          console.log('위치 권한이 거부됨 - fine:', fineResult, 'coarse:', coarseResult);
-
-          if (isInitialLoad) {
-            const defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-            setMapCenter(defaultLocation);
-            setCurrentLocation(null);
-            setShouldShowCurrentLocation(false);
-            setIsInitialLoad(false);
-            setIsLocationLoading(false);
-            webViewReloadReasonRef.current = 'initialPermissionDeniedDefaultBusan';
-            setMapKey(prev => prev + 1);
-
-            setTimeout(() => {
-              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-              fetchCongestionData(bounds, selectedCategory);
-            }, 1000);
-            // 기본 위치로 이동 예약(현재위치 핑은 표시하지 않음)
-            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
-
-            console.log('권한 거부 - 부산 중심으로 설정');
-          } else {
-            Alert.alert(
-              '권한 필요',
-              isAnyNeverAskAgain
-                ? '위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해 주세요.'
-                : '위치 권한이 거부되었습니다. 다시 시도해 주세요.',
-              [
-                isAnyNeverAskAgain
-                  ? { text: '설정 열기', onPress: () => Linking.openSettings() }
-                  : { text: '확인', style: 'default' },
-              ],
-            );
-            setIsLocationLoading(false);
-          }
-          return;
-        }
-      }
-
-      console.log('위치 정보 요청 중...');
-
-      // 현재 위치 가져오기 (정밀 우선 → 실패 시 저정밀 폴백)
-      const attemptGetPosition = (
-        options: { enableHighAccuracy: boolean; timeout: number; maximumAge: number },
-        onSuccess: (lat: number, lng: number, acc?: number) => void,
-        onFailure: (error: any) => void,
-      ) => {
-        Geolocation.getCurrentPosition(
-          (position) => {
-            onSuccess(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
-          },
-          (error) => {
-            onFailure(error);
-          },
-          options,
-        );
-      };
-
-      const highOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 };
-      const lowOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 };
-
-      const onPositionSuccess = (latitude: number, longitude: number, accuracy?: number) => {
-          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', (accuracy ?? '-') + 'm', '- 기본 줌 레벨: 5로 설정 예정');
-
-          const currentPos = { latitude, longitude };
-
-          // 위치 캐시 저장
-          lastLocationRef.current = {
-            latitude,
-            longitude,
-            timestamp: Date.now(),
-          };
-
-          setCurrentLocation(currentPos);
-          setShouldShowCurrentLocation(true);
-          setIsLocationLoading(false);
-
-          // 초기 로드인 경우에만 mapCenter 설정하여 WebView 재렌더링
-          if (isInitialLoad) {
-            setMapCenter({ latitude, longitude });
-            setIsInitialLoad(false);
-            // 초기 로드 시에만 WebView 재렌더링
-            isUpdatingMapRef.current = true;
-            webViewReloadReasonRef.current = 'initialCurrentLocation';
-            setMapKey(prev => prev + 1);
-            // 로드 완료 후 이동 예약 + 현재위치 점 표시 예약
-            pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
-            pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
-          } else {
-            // 현재위치 핑은 항상 유지하고 지도 이동도 수행
-            if (webViewRef.current) {
-              webViewRef.current.postMessage(JSON.stringify({
-                type: 'setCurrentLocationPing',
-                latitude,
-                longitude
-              }));
-              webViewRef.current.postMessage(JSON.stringify({
-                type: 'moveToLocation',
-                latitude,
-                longitude,
-                showCurrentLocation: false
-              }));
-            } else {
-              pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
-              pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
-            }
-          }
-
-          // API 호출은 지도 로딩 후에 (bounds 사용)
-          setTimeout(() => {
-            const bounds = calculateBounds(latitude, longitude, 15);
-            fetchCongestionData(bounds, selectedCategory);
-            isUpdatingMapRef.current = false;
-          }, 1000);
-
-          console.log('현재 위치 지도 업데이트 완료');
-      };
-
-      const onPositionFailure = (error: any) => {
-          console.error('❌ 위치 가져오기 실패:', error?.code, error?.message);
-
-          let defaultLocation: Location;
-          let errorMessage = '';
-
-          switch (error?.code) {
-            case 1: // PERMISSION_DENIED
-              errorMessage = '위치 권한이 거부되었습니다.';
-              break;
-            case 2: // POSITION_UNAVAILABLE
-              errorMessage = '위치 정보를 사용할 수 없습니다.';
-              break;
-            case 3: // TIMEOUT
-              errorMessage = '위치 요청 시간이 초과되었습니다.';
-              break;
-            default:
-              errorMessage = '위치를 가져올 수 없습니다.';
-          }
-
-          if (isInitialLoad) {
-            // 초기 로드 시 실패하면 부산 중심으로 설정
-            defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-            console.log('초기 로드 실패 - 부산 중심으로 설정');
-            
-            setCurrentLocation(null);
-            setShouldShowCurrentLocation(false);
-            setMapCenter(defaultLocation);
-            setIsInitialLoad(false);
-            setIsLocationLoading(false);
-
-            isUpdatingMapRef.current = true;
-            webViewReloadReasonRef.current = 'initialGetLocationFailedDefaultBusan';
-            setMapKey(prev => prev + 1);
-
-            // API 호출은 지도 로딩 후에 (bounds 사용)
-            setTimeout(() => {
-              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-              fetchCongestionData(bounds, selectedCategory);
-              isUpdatingMapRef.current = false;
-            }, 1000);
-            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
-          } else {
-            // 버튼 클릭 시 실패하면 사용자에게 알림
-            Alert.alert('위치 오류', errorMessage);
-            setIsLocationLoading(false);
-            return;
-          }
-
-          console.log('기본 위치로 설정 완료');
-      };
-
-      // 1차(정밀) → 실패 시 2차(저정밀)
-      attemptGetPosition(
-        highOptions,
-        onPositionSuccess,
-        (err) => {
-          console.warn('정밀 위치 실패, 저정밀로 재시도:', err);
-          attemptGetPosition(lowOptions, onPositionSuccess, onPositionFailure);
-        }
-      );
     } catch (error) {
-      console.error('위치 권한 요청 실패:', error);
-
-      if (isInitialLoad) {
-        // 초기 로드 시 오류가 발생하면 부산 중심으로 설정
-        const defaultLocation: Location = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-        setMapCenter(defaultLocation);
-        setCurrentLocation(null);
-        setShouldShowCurrentLocation(false);
-        setIsInitialLoad(false);
-        setIsLocationLoading(false);
-        webViewReloadReasonRef.current = 'initialPermissionRequestErrorDefaultBusan';
-        setMapKey(prev => prev + 1);
-
-        setTimeout(() => {
-          const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-          fetchCongestionData(bounds, selectedCategory);
-        }, 1000);
-
-        console.log('권한 요청 실패 - 부산 중심으로 설정');
-      }
+      console.error('현재 위치 가져오기 실패:', error);
+      Alert.alert('위치 오류', '위치 서비스에 문제가 발생했습니다.');
     }
   };
 
@@ -1190,7 +981,11 @@ const CongestionScreen = () => {
             style={[styles.currentLocationButton, isLocationLoading && { opacity: 0.6 }]}
             onPress={getCurrentLocation}
             disabled={isLocationLoading}>
-            <Text style={styles.compassText}>⊕</Text>
+            {isLocationLoading ? (
+              <ActivityIndicator size="small" color="#333333" />
+            ) : (
+              <Text style={styles.compassText}>⊕</Text>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </View>

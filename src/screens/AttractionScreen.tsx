@@ -7,6 +7,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import CurationComponent from '../components/common/Curration';
 import AttractionCard from '../components/common/AttractionCard';
@@ -30,6 +31,17 @@ const AttractionScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   const sortOptions = ['기본순', '좋아요순', '혼잡도순'];
+
+  // 화면 크기와 아이템 높이 상수 정의
+  const SCREEN_HEIGHT = Dimensions.get('window').height;
+  const CURATION_HEIGHT = 400;
+  const FILTER_HEIGHT = 60;
+  const ITEM_HEIGHT = 112; // 패딩 포함 아이템 높이
+  
+  // 가상화 최적화 설정
+  const INITIAL_NUM_TO_RENDER = Math.ceil(SCREEN_HEIGHT / ITEM_HEIGHT);
+  const WINDOW_SIZE = 10;
+  const MAX_TO_RENDER_PER_BATCH = 5;
 
   
 
@@ -97,7 +109,8 @@ const AttractionScreen = () => {
     [filteredData],
   );
 
-  const renderItem = ({item, index}: {item: any; index: number}) => {
+  // 메모이제이션된 렌더 아이템 함수
+  const renderItem = useCallback(({item, index}: {item: any; index: number}) => {
     switch (item.type) {
       case 'curation':
         return (
@@ -127,7 +140,50 @@ const AttractionScreen = () => {
       default:
         return null;
     }
-  };
+  }, [
+    categories,
+    selectedCategory,
+    selectedSort,
+    showFilter,
+    sortOptions,
+    handleCategorySelect,
+    handleSortSelect,
+    handleToggleFilter,
+  ]);
+
+  // getItemLayout으로 스크롤 성능 최적화
+  const getItemLayout = useCallback((data: any, index: number) => {
+    if (index === 0) {
+      // Curation component
+      return {
+        length: CURATION_HEIGHT,
+        offset: 0,
+        index,
+      };
+    } else if (index === 1) {
+      // Filter component
+      return {
+        length: FILTER_HEIGHT,
+        offset: CURATION_HEIGHT,
+        index,
+      };
+    } else {
+      // Attraction items
+      const offset = CURATION_HEIGHT + FILTER_HEIGHT + (index - 2) * ITEM_HEIGHT;
+      return {
+        length: ITEM_HEIGHT,
+        offset,
+        index,
+      };
+    }
+  }, []);
+
+  // 최적화된 keyExtractor
+  const keyExtractor = useCallback((item: any, index: number) => {
+    if (item.type === 'curation') return 'curation';
+    if (item.type === 'filter') return 'filter';
+    return `attraction_${item.id}`;
+  }, []);
 
   const renderEmpty = () => (
     <View>
@@ -187,11 +243,23 @@ const AttractionScreen = () => {
         <FlatList
           data={headerData}
           renderItem={renderItem}
-          keyExtractor={(item, index) => item?.id?.toString() || index.toString()}
+          keyExtractor={keyExtractor}
+          getItemLayout={getItemLayout}
           ListEmptyComponent={renderEmpty}
           showsVerticalScrollIndicator={false}
           stickyHeaderIndices={[1]}
           contentContainerStyle={styles.listContent}
+          // 가상화 최적화 설정
+          initialNumToRender={INITIAL_NUM_TO_RENDER}
+          maxToRenderPerBatch={MAX_TO_RENDER_PER_BATCH}
+          windowSize={WINDOW_SIZE}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={true}
+          // 성능 최적화
+          legacyImplementation={false}
+          disableVirtualization={false}
+          // 스크롤 최적화
+          scrollEventThrottle={16}
         />
       </View>
     </>
