@@ -6,6 +6,7 @@ import {LocationProvider} from './src/contexts/LocationContext';
 import {LikesProvider} from './src/contexts/LikesContext';
 import {ToastProvider} from './src/contexts/ToastContext';
 import {AuthProvider, useAuth} from './src/contexts/AuthContext';
+import locationService from './src/services/locationService';
 import {
   View,
   Text,
@@ -38,6 +39,19 @@ const AppContent: React.FC = () => {
   const [attemptedEmailRefresh, setAttemptedEmailRefresh] = useState(false);
 
   useEffect(() => {
+    // LocationService 초기화 (앱 시작 시 백그라운드에서 위치 가져오기)
+    const initializeLocationService = async () => {
+      try {
+        console.log('=== LocationService 초기화 시작 ===');
+        await locationService.initialize();
+        console.log('=== LocationService 초기화 완료 ===');
+      } catch (error) {
+        console.warn('LocationService 초기화 실패:', error);
+      }
+    };
+
+    initializeLocationService();
+
     // 딥링크 처리 설정
     const handleDeepLink = (url: string) => {
       console.log('=== 딥링크 수신 ===');
@@ -62,6 +76,8 @@ const AppContent: React.FC = () => {
 
     return () => {
       linkingListener.remove();
+      // 앱 종료 시 LocationService 정리
+      locationService.cleanup();
     };
   }, []);
 

@@ -1,7 +1,7 @@
 /**
  * 명소 및 축제 카드 컴포넌트
  */
-import React, {useState} from 'react';
+import React, {useState, memo, useCallback} from 'react';
 import {
   View,
   Text,
@@ -48,23 +48,23 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   const placeData = place as PlaceListItem;
   const festivalData = place as FestivalListItem;
 
-  const formatDateRange = (startDate: string, endDate: string) => {
+  const formatDateRange = useCallback((startDate: string, endDate: string) => {
     const formatDate = (dateStr: string) => {
       return dateStr.replace(/-/g, '.');
     };
     return `${formatDate(startDate)} ~ ${formatDate(endDate)}`;
-  };
+  }, []);
 
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     if (isPlace) {
       navigation.navigate('PlaceDetail', {place: placeData});
     } else {
       navigation.navigate('FestivalDetail', {festival: festivalData});
     }
-  };
+  }, [isPlace, navigation, placeData, festivalData]);
 
-  // 거리 계산
-  const getDistanceText = (): string | null => {
+  // 거리 계산 - 메모이제이션
+  const getDistanceText = useCallback((): string | null => {
     if (!isPlace || !hasLocationPermission || !userLocation) {
       return null;
     }
@@ -81,9 +81,9 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     }
 
     return null;
-  };
+  }, [isPlace, hasLocationPermission, userLocation, place]);
 
-  const handleLikePress = async () => {
+  const handleLikePress = useCallback(async () => {
     console.log('=== AttractionCard handleLikePress 시작 ===');
     console.log('isLikeLoading:', isLikeLoading, 'onToggleLike:', !!onToggleLike);
     console.log('isPlace:', isPlace, 'festivalId:', isPlace ? placeData.id : festivalData.id);
@@ -105,12 +105,21 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     } finally {
       setIsLikeLoading(false);
     }
-  };
+  }, [isLikeLoading, onToggleLike, isPlace, placeData.id, festivalData.id, togglePlaceLikeInContext]);
 
-  // 이미지 URL이 있는지 확인
+  // 이미지 URL이 있는지 확인 - 메모이제이션
   const imageUrl = place.img;
   const hasImage = imageUrl && imageUrl.trim() !== '';
   const distanceText = getDistanceText();
+
+  // 이미지 로드 핸들러들 메모이제이션
+  const handleImageLoadStart = useCallback(() => setImageLoading(true), []);
+  const handleImageLoadEnd = useCallback(() => setImageLoading(false), []);
+  const handleImageError = useCallback(() => {
+    console.log('이미지 로드 실패:', imageUrl);
+    setImageError(true);
+    setImageLoading(false);
+  }, [imageUrl]);
 
   return (
     <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
@@ -120,13 +129,10 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             <Image
               source={{uri: imageUrl}}
               style={styles.attractionImage}
-              onLoadStart={() => setImageLoading(true)}
-              onLoadEnd={() => setImageLoading(false)}
-              onError={() => {
-                console.log('이미지 로드 실패:', imageUrl);
-                setImageError(true);
-                setImageLoading(false);
-              }}
+              onLoadStart={handleImageLoadStart}
+              onLoadEnd={handleImageLoadEnd}
+              onError={handleImageError}
+              resizeMode="cover"
             />
             {imageLoading && (
               <View style={styles.imageLoadingOverlay}>
@@ -188,7 +194,26 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   );
 };
 
-export default AttractionCard;
+// React.memo로 컴포넌트 메모이제이션
+export default memo(AttractionCard, (prevProps, nextProps) => {
+  // place 객체의 변경사항만 체크
+  if (prevProps.place.id !== nextProps.place.id) return false;
+  if (prevProps.place.name !== nextProps.place.name) return false;
+  if (prevProps.place.img !== nextProps.place.img) return false;
+  if (prevProps.place.is_like !== nextProps.place.is_like) return false;
+  if (prevProps.cardType !== nextProps.cardType) return false;
+  
+  // PlaceListItem의 경우 추가 필드 체크
+  if (prevProps.cardType === CardType.PLACE) {
+    const prevPlace = prevProps.place as PlaceListItem;
+    const nextPlace = nextProps.place as PlaceListItem;
+    if (prevPlace.congestion_level !== nextPlace.congestion_level) return false;
+    if (prevPlace.type !== nextPlace.type) return false;
+    if (prevPlace.address !== nextPlace.address) return false;
+  }
+  
+  return true;
+});
 
 const styles = StyleSheet.create({
   attractionItem: {

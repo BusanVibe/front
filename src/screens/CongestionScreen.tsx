@@ -22,6 +22,7 @@ import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMapHTML } from '../components/map/mapTemplate.ts';
 import CongestionBadge from '../components/common/CongestionBadge';
+import { useLocation } from '../contexts/LocationContext';
 
 // 타입 정의
 interface Location {
@@ -96,6 +97,7 @@ const CongestionScreen = () => {
   const route = useRoute<CongestionScreenRouteProp>();
   const navigation = useNavigation<any>();
   const selectedPlaceId = route.params?.selectedPlaceId;
+  const { userLocation, isLocationLoading, fastRefreshLocation, refreshLocation } = useLocation();
   const [selectedCategory, setSelectedCategory] = useState('전체');
   const [selectedLocation, setSelectedLocation] = useState(locationData[0]);
   const [mapKey, setMapKey] = useState(0); // WebView 강제 리렌더링용
@@ -105,14 +107,28 @@ const CongestionScreen = () => {
   const [isMapDragging, setIsMapDragging] = useState(false); // 지도 드래그 상태
   const [shouldShowCurrentLocation, setShouldShowCurrentLocation] = useState(false); // 현재위치 표시 여부
   const [isInitialLoad, setIsInitialLoad] = useState(true); // 초기 로드 상태
-  const [isLocationLoading, setIsLocationLoading] = useState(false); // 위치 로딩 상태 (초기에는 로딩 표시 안 함)
+  // isLocationLoading은 LocationContext에서 관리
   const [realtimeStandardHour, setRealtimeStandardHour] = useState<number | null>(null);
   const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
   const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
   const [visitorDistribution, setVisitorDistribution] = useState<{ age: string; male: number; female: number }[] | null>(null);
+  // 새로운 혼잡도 데이터 (주간/시간별)
+  const [weekCongestionData, setWeekCongestionData] = useState<{
+    standardDay: number;
+    standardTime: number;
+    realtimeLevel: number;
+    congestionsByDay: number[];
+    congestionsByTime: number[][];
+  } | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    // JavaScript getDay(): 일요일=0, 월요일=1, ..., 토요일=6
+    // API: 월요일=0, 화요일=1, ..., 일요일=6
+    const jsDay = new Date().getDay();
+    return jsDay === 0 ? 6 : jsDay - 1; // 일요일(0)을 6으로, 나머지는 -1
+  });
   const webViewRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastLocationRef = useRef<CachedLocation | null>(null);
+  // lastLocationRef는 LocationService에서 관리
   const isUpdatingMapRef = useRef(false); // 지도 업데이트 중인지 확인
   const lastMapBoundsRef = useRef<{lat1: number, lng1: number, lat2: number, lng2: number} | null>(null); // 마지막 지도 경계
   const webViewReloadReasonRef = useRef<string | null>(null); // WebView 재로딩 사유 추적
@@ -136,9 +152,10 @@ const CongestionScreen = () => {
   };
 
 
-  // 컴포넌트 마운트 시 기본 좌표로 지도 초기화
+  // 컴포넌트 마운트 시 기본 좌표로 초기화
   React.useEffect(() => {
     console.log('=== CongestionScreen 마운트 - 기본 좌표로 초기화 ===');
+    // 항상 기본 좌표로 시작 (현재위치는 버튼 클릭 시에만 사용)
     setMapCenter({ latitude: DEFAULT_CENTER.latitude, longitude: DEFAULT_CENTER.longitude });
     setIsInitialLoad(false);
     // 데이터 조회는 WebView 렌더 완료 시점(onLoadEnd)에서 handleMapBoundsChange로 즉시 수행
@@ -148,10 +165,11 @@ const CongestionScreen = () => {
   React.useEffect(() => {
     if (selectedPlaceId) {
       console.log('=== 선택된 장소 ID로 초기화 ===', selectedPlaceId);
-      // 장소 상세 정보, 실시간 혼잡도, 이용객 분포를 모두 가져오기
+      // 장소 상세 정보, 실시간 혼잡도, 이용객 분포, 주간 혼잡도를 모두 가져오기
       fetchPlaceDetail(selectedPlaceId);
       fetchRealtimeCongestion(selectedPlaceId);
       fetchVisitorDistribution(selectedPlaceId);
+      fetchWeekCongestion(selectedPlaceId);
       setIsBottomSheetEnabled(true);
       changeBottomSheetMode('half');
     }
@@ -233,6 +251,56 @@ const CongestionScreen = () => {
       }
     } catch (e) {
       console.warn('이용객 분포 조회 실패', e);
+    }
+  };
+
+  // 주간/시간별 혼잡도 조회
+  const fetchWeekCongestion = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+      const now = new Date();
+      const iso = new Date(now.getTime() - now.getMilliseconds()).toISOString().slice(0, 19); // yyyy-MM-ddTHH:mm:ss
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}/congestions?standard-time=${encodeURIComponent(iso)}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+      });
+      const txt = await res.text();
+      console.log('주간 혼잡도 응답:', txt);
+      const data = JSON.parse(txt);
+      const ok = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && ok && data.result) {
+        const r = data.result;
+        const unwrapArrayList = (v: any) => (Array.isArray(v) && v.length === 2 && v[0] === 'java.util.ArrayList') ? v[1] : (Array.isArray(v) ? v : []);
+        
+        const congestionsByDay = unwrapArrayList(r.congestions_by_day).map((n: any) => Number(n) || 0);
+        const congestionsByTimeRaw = unwrapArrayList(r.congestions_by_time);
+        const congestionsByTime = congestionsByTimeRaw.map((dayData: any) => 
+          unwrapArrayList(dayData).map((n: any) => Number(n) || 0)
+        );
+
+        const standardDay = Number(r.standard_day) || 0;
+        setWeekCongestionData({
+          standardDay,
+          standardTime: Number(r.standard_time) || 0,
+          realtimeLevel: Number(r.real_time_congestion_level) || 0,
+          congestionsByDay,
+          congestionsByTime
+        });
+        
+        // API의 standardDay를 기본 선택값으로 설정
+        setSelectedDay(standardDay);
+
+        console.log('주간 혼잡도 데이터 설정 완료:', {
+          standardDay: r.standard_day,
+          standardTime: r.standard_time,
+          daysCount: congestionsByDay.length,
+          timeDataCount: congestionsByTime.length
+        });
+      }
+    } catch (e) {
+      console.warn('주간 혼잡도 조회 실패', e);
     }
   };
 
@@ -584,267 +652,55 @@ const CongestionScreen = () => {
     }, delay);
   };
 
-    // 현재 위치 가져오기 (실제 기기 위치)
+  // 현재 위치 가져오기 (새로운 LocationService 사용)
   const getCurrentLocation = async () => {
-    console.log('=== 현재 위치 가져오기 시작 ===');
-    setIsLocationLoading(true);
+    console.log('=== 빠른 현재 위치 가져오기 시작 ===');
     
     try {
-      // 최근 위치 캐시 확인 (30초 이내) - 버튼 클릭 시에만 사용
-      const now = Date.now();
-      if (!isInitialLoad && lastLocationRef.current && now - lastLocationRef.current.timestamp < 30000) {
-        console.log('캐시된 위치 사용');
-        const cachedLocation = lastLocationRef.current;
-        setCurrentLocation(cachedLocation);
-        setShouldShowCurrentLocation(true);
-        setIsLocationLoading(false);
+      // fastRefreshLocation을 사용하여 캐시된 위치를 우선 사용
+      const location = await fastRefreshLocation();
+      
+      if (location) {
+        console.log('✅ 위치 획득 성공 (캐시 또는 새로 요청):', location.latitude, location.longitude);
         
-        // 지도 중심을 캐시된 위치로 이동 (WebView 내부에서만 처리)
-        // 항상 현재위치 핑 표시
+        const currentPos = { latitude: location.latitude, longitude: location.longitude };
+        
+        // 기존 state 업데이트
+        setCurrentLocation(currentPos);
+        setShouldShowCurrentLocation(true);
+        
+        // 지도 이동 및 현재위치 핑 표시
         if (webViewRef.current) {
           webViewRef.current.postMessage(JSON.stringify({
             type: 'setCurrentLocationPing',
-            latitude: cachedLocation.latitude,
-            longitude: cachedLocation.longitude
+            latitude: location.latitude,
+            longitude: location.longitude
           }));
-          // 지도도 현재위치로 이동
           webViewRef.current.postMessage(JSON.stringify({
             type: 'moveToLocation',
-            latitude: cachedLocation.latitude,
-            longitude: cachedLocation.longitude,
+            latitude: location.latitude,
+            longitude: location.longitude,
             showCurrentLocation: false
           }));
         } else {
-          pendingCurrentLocationPingRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude };
-          pendingMoveToLocationRef.current = { lat: cachedLocation.latitude, lng: cachedLocation.longitude, show: false };
+          pendingCurrentLocationPingRef.current = { lat: location.latitude, lng: location.longitude };
+          pendingMoveToLocationRef.current = { lat: location.latitude, lng: location.longitude, show: false };
         }
 
         // API 호출 (bounds 사용)
         setTimeout(() => {
-          const bounds = calculateBounds(cachedLocation.latitude, cachedLocation.longitude, 15);
+          const bounds = calculateBounds(location.latitude, location.longitude, 15);
           fetchCongestionData(bounds, selectedCategory);
         }, 1000);
 
-        console.log('📍 캐시된 현재 위치로 이동 완료 - 기본 줌 레벨: 5로 설정');
-        return;
+        console.log('📍 현재 위치로 이동 완료');
+      } else {
+        console.warn('위치를 가져올 수 없음');
+        Alert.alert('위치 오류', '현재 위치를 가져올 수 없습니다. 위치 권한을 확인해 주세요.');
       }
-
-      // Android 권한 요청 (정밀/저정밀 동시 요청 및 영구 거부 대응)
-      if (Platform.OS === 'android') {
-        const results = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        ]);
-
-        const fineResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-        const coarseResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
-        const isFineGranted = fineResult === PermissionsAndroid.RESULTS.GRANTED;
-        const isCoarseGranted = coarseResult === PermissionsAndroid.RESULTS.GRANTED;
-        const isAnyGranted = isFineGranted || isCoarseGranted;
-
-        if (!isAnyGranted) {
-          const isAnyNeverAskAgain =
-            fineResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
-            coarseResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
-          console.log('위치 권한이 거부됨 - fine:', fineResult, 'coarse:', coarseResult);
-
-          if (isInitialLoad) {
-            const defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-            setMapCenter(defaultLocation);
-            setCurrentLocation(null);
-            setShouldShowCurrentLocation(false);
-            setIsInitialLoad(false);
-            setIsLocationLoading(false);
-            webViewReloadReasonRef.current = 'initialPermissionDeniedDefaultBusan';
-            setMapKey(prev => prev + 1);
-
-            setTimeout(() => {
-              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-              fetchCongestionData(bounds, selectedCategory);
-            }, 1000);
-            // 기본 위치로 이동 예약(현재위치 핑은 표시하지 않음)
-            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
-
-            console.log('권한 거부 - 부산 중심으로 설정');
-          } else {
-            Alert.alert(
-              '권한 필요',
-              isAnyNeverAskAgain
-                ? '위치 권한이 영구적으로 거부되었습니다. 설정에서 권한을 허용해 주세요.'
-                : '위치 권한이 거부되었습니다. 다시 시도해 주세요.',
-              [
-                isAnyNeverAskAgain
-                  ? { text: '설정 열기', onPress: () => Linking.openSettings() }
-                  : { text: '확인', style: 'default' },
-              ],
-            );
-            setIsLocationLoading(false);
-          }
-          return;
-        }
-      }
-
-      console.log('위치 정보 요청 중...');
-
-      // 현재 위치 가져오기 (정밀 우선 → 실패 시 저정밀 폴백)
-      const attemptGetPosition = (
-        options: { enableHighAccuracy: boolean; timeout: number; maximumAge: number },
-        onSuccess: (lat: number, lng: number, acc?: number) => void,
-        onFailure: (error: any) => void,
-      ) => {
-        Geolocation.getCurrentPosition(
-          (position) => {
-            onSuccess(position.coords.latitude, position.coords.longitude, position.coords.accuracy);
-          },
-          (error) => {
-            onFailure(error);
-          },
-          options,
-        );
-      };
-
-      const highOptions = { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 };
-      const lowOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 120000 };
-
-      const onPositionSuccess = (latitude: number, longitude: number, accuracy?: number) => {
-          console.log('✅ 현재 위치 획득 성공:', latitude, longitude, '정확도:', (accuracy ?? '-') + 'm', '- 기본 줌 레벨: 5로 설정 예정');
-
-          const currentPos = { latitude, longitude };
-
-          // 위치 캐시 저장
-          lastLocationRef.current = {
-            latitude,
-            longitude,
-            timestamp: Date.now(),
-          };
-
-          setCurrentLocation(currentPos);
-          setShouldShowCurrentLocation(true);
-          setIsLocationLoading(false);
-
-          // 초기 로드인 경우에만 mapCenter 설정하여 WebView 재렌더링
-          if (isInitialLoad) {
-            setMapCenter({ latitude, longitude });
-            setIsInitialLoad(false);
-            // 초기 로드 시에만 WebView 재렌더링
-            isUpdatingMapRef.current = true;
-            webViewReloadReasonRef.current = 'initialCurrentLocation';
-            setMapKey(prev => prev + 1);
-            // 로드 완료 후 이동 예약 + 현재위치 점 표시 예약
-            pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
-            pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
-          } else {
-            // 현재위치 핑은 항상 유지하고 지도 이동도 수행
-            if (webViewRef.current) {
-              webViewRef.current.postMessage(JSON.stringify({
-                type: 'setCurrentLocationPing',
-                latitude,
-                longitude
-              }));
-              webViewRef.current.postMessage(JSON.stringify({
-                type: 'moveToLocation',
-                latitude,
-                longitude,
-                showCurrentLocation: false
-              }));
-            } else {
-              pendingCurrentLocationPingRef.current = { lat: latitude, lng: longitude };
-              pendingMoveToLocationRef.current = { lat: latitude, lng: longitude, show: false };
-            }
-          }
-
-          // API 호출은 지도 로딩 후에 (bounds 사용)
-          setTimeout(() => {
-            const bounds = calculateBounds(latitude, longitude, 15);
-            fetchCongestionData(bounds, selectedCategory);
-            isUpdatingMapRef.current = false;
-          }, 1000);
-
-          console.log('현재 위치 지도 업데이트 완료');
-      };
-
-      const onPositionFailure = (error: any) => {
-          console.error('❌ 위치 가져오기 실패:', error?.code, error?.message);
-
-          let defaultLocation: Location;
-          let errorMessage = '';
-
-          switch (error?.code) {
-            case 1: // PERMISSION_DENIED
-              errorMessage = '위치 권한이 거부되었습니다.';
-              break;
-            case 2: // POSITION_UNAVAILABLE
-              errorMessage = '위치 정보를 사용할 수 없습니다.';
-              break;
-            case 3: // TIMEOUT
-              errorMessage = '위치 요청 시간이 초과되었습니다.';
-              break;
-            default:
-              errorMessage = '위치를 가져올 수 없습니다.';
-          }
-
-          if (isInitialLoad) {
-            // 초기 로드 시 실패하면 부산 중심으로 설정
-            defaultLocation = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-            console.log('초기 로드 실패 - 부산 중심으로 설정');
-            
-            setCurrentLocation(null);
-            setShouldShowCurrentLocation(false);
-            setMapCenter(defaultLocation);
-            setIsInitialLoad(false);
-            setIsLocationLoading(false);
-
-            isUpdatingMapRef.current = true;
-            webViewReloadReasonRef.current = 'initialGetLocationFailedDefaultBusan';
-            setMapKey(prev => prev + 1);
-
-            // API 호출은 지도 로딩 후에 (bounds 사용)
-            setTimeout(() => {
-              const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-              fetchCongestionData(bounds, selectedCategory);
-              isUpdatingMapRef.current = false;
-            }, 1000);
-            pendingMoveToLocationRef.current = { lat: defaultLocation.latitude, lng: defaultLocation.longitude, show: false };
-          } else {
-            // 버튼 클릭 시 실패하면 사용자에게 알림
-            Alert.alert('위치 오류', errorMessage);
-            setIsLocationLoading(false);
-            return;
-          }
-
-          console.log('기본 위치로 설정 완료');
-      };
-
-      // 1차(정밀) → 실패 시 2차(저정밀)
-      attemptGetPosition(
-        highOptions,
-        onPositionSuccess,
-        (err) => {
-          console.warn('정밀 위치 실패, 저정밀로 재시도:', err);
-          attemptGetPosition(lowOptions, onPositionSuccess, onPositionFailure);
-        }
-      );
     } catch (error) {
-      console.error('위치 권한 요청 실패:', error);
-
-      if (isInitialLoad) {
-        // 초기 로드 시 오류가 발생하면 부산 중심으로 설정
-        const defaultLocation: Location = { latitude: 35.1796, longitude: 129.0756 }; // 부산 중심
-        setMapCenter(defaultLocation);
-        setCurrentLocation(null);
-        setShouldShowCurrentLocation(false);
-        setIsInitialLoad(false);
-        setIsLocationLoading(false);
-        webViewReloadReasonRef.current = 'initialPermissionRequestErrorDefaultBusan';
-        setMapKey(prev => prev + 1);
-
-        setTimeout(() => {
-          const bounds = calculateBounds(defaultLocation.latitude, defaultLocation.longitude, 15);
-          fetchCongestionData(bounds, selectedCategory);
-        }, 1000);
-
-        console.log('권한 요청 실패 - 부산 중심으로 설정');
-      }
+      console.error('현재 위치 가져오기 실패:', error);
+      Alert.alert('위치 오류', '위치 서비스에 문제가 발생했습니다.');
     }
   };
 
@@ -1161,10 +1017,11 @@ const CongestionScreen = () => {
                   }
                   const pid = typeof data.placeId === 'number' ? data.placeId : (typeof data.id === 'string' && data.id.startsWith('poi-') ? Number(data.id.replace('poi-', '')) : NaN);
                   if (!isNaN(pid)) {
-                    // 상세 + 실시간 + 분포 병렬 호출
+                    // 상세 + 실시간 + 분포 + 주간 혼잡도 병렬 호출
                     fetchPlaceDetail(pid);
                     fetchRealtimeCongestion(pid);
                     fetchVisitorDistribution(pid);
+                    fetchWeekCongestion(pid);
                   }
                 }
               } catch (error) {
@@ -1190,7 +1047,11 @@ const CongestionScreen = () => {
             style={[styles.currentLocationButton, isLocationLoading && { opacity: 0.6 }]}
             onPress={getCurrentLocation}
             disabled={isLocationLoading}>
-            <Text style={styles.compassText}>⊕</Text>
+            {isLocationLoading ? (
+              <ActivityIndicator size="small" color="#333333" />
+            ) : (
+              <Text style={styles.compassText}>⊕</Text>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -1278,52 +1139,115 @@ const CongestionScreen = () => {
                 )}
               </ScrollView>
 
-              {/* 실시간 혼잡도 */}
+              {/* 주간/시간별 혼잡도 */}
               <View style={styles.chartSection}>
                 <View style={styles.realtimeSection}>
                   <View style={styles.chartHeader}>
-                    <Text style={styles.chartTitle}>실시간 혼잡도</Text>
-                    <Text style={styles.chartTime}>
-                      {realtimeStandardHour !== null ? `${String(realtimeStandardHour).padStart(2,'0')}:00 기준` : '실시간'}
-                    </Text>
+                    <Text style={styles.chartTitle}>혼잡도 정보</Text>
+                    <Text style={styles.weekSummarySubtitle}>최근 한달 기준</Text>
                   </View>
+                  
+                  {/* 실시간 혼잡도 상태 */}
                   <View style={styles.congestionStatus}>
-                    <View style={[styles.congestionIndicator, { backgroundColor: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]} />
-                    <Text style={[styles.congestionStatusText, { color: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]}>
-                      {realtimeLevel !== null ? getCongestionTextLocal(realtimeLevel) : '혼잡'}
+                    <View style={[styles.congestionIndicator, { backgroundColor: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]} />
+                    <Text style={[styles.congestionStatusText, { color: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]}>
+                      {weekCongestionData ? getCongestionTextLocal(weekCongestionData.realtimeLevel) : '혼잡'}
                     </Text>
                   </View>
 
-                  <View style={styles.chartWrapper}>
-                    <View style={styles.chartContainer}>
-                      {(realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent : congestionData.map(d => d.level)).map((val: any, index: number) => {
-                        const arr = realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent as number[] : congestionData.map(d => d.level);
-                        const max = Math.max(...arr.map((n: any) => Number(n) || 0), 1);
-                        const scale = max <= 5 ? 20 : 1;
-                        const height = Math.max(6, Math.min(100, Math.round((Number(val) || 0) * scale)));
-                        let label = '';
-                        if (realtimeByPercent && realtimeByPercent.length > 0 && realtimeStandardHour !== null) {
-                          const hour = (realtimeStandardHour - (arr.length - 1 - index) + 24 * 4) % 24;
-                          label = index === (arr.length - 1) ? '현재' : `${String(hour).padStart(2,'0')}시`;
-                        } else if (!realtimeByPercent || realtimeByPercent.length === 0) {
-                          label = congestionData[index]?.time;
-                        }
-                        return (
-                          <View key={index} style={styles.barContainer}>
-                            <View style={[styles.bar, { height, backgroundColor: index === (arr.length - 1) ? (realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444') : '#cccccc' }]} />
-                            <Text style={styles.barLabel}>{label}</Text>
-                          </View>
-                        );
-                      })}
+                  {/* 요일별 평균 혼잡도 */}
+                  {weekCongestionData && weekCongestionData.congestionsByDay.length > 0 && (
+                    <View style={styles.weekSummary}>
+                      <Text style={styles.weekSummaryTitle}>요일별 혼잡도</Text>
+                      <View style={styles.weekBars}>
+                        {weekCongestionData.congestionsByDay.map((val: number, index: number) => {
+                          const max = Math.max(...weekCongestionData.congestionsByDay, 1);
+                          const height = Math.max(8, Math.round((val / max) * 60));
+                          const isSelected = selectedDay === index;
+                          const isToday = index === weekCongestionData.standardDay;
+                          
+                          return (
+                            <TouchableOpacity 
+                              key={index} 
+                              style={styles.weekBarContainer}
+                              onPress={() => setSelectedDay(index)}>
+                              <View style={[
+                                styles.weekBar, 
+                                { 
+                                  height, 
+                                  backgroundColor: isSelected ? getCongestionColor(val) : (isToday ? '#ffcccc' : '#d0d0d0')
+                                }
+                              ]} />
+                              <Text style={[
+                                styles.weekBarLabel, 
+                                isSelected && styles.selectedWeekLabel,
+                                isToday && styles.todayLabel
+                              ]}>
+                                {['월', '화', '수', '목', '금', '토', '일'][index]}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  </View>
+                  )}
 
+                  {/* 시간별 혼잡도 차트 */}
+                  {weekCongestionData && weekCongestionData.congestionsByTime.length > 0 && (
+                    <View style={styles.timeSection}>
+                      <Text style={styles.timeSectionTitle}>예상 시간별 혼잡도</Text>
+                      <View style={styles.chartWrapper}>
+                        <View style={styles.timeChartContainer}>
+                          {weekCongestionData.congestionsByTime[selectedDay]?.slice(6, 24).map((val: number, originalIndex: number) => {
+                            // originalIndex는 slice된 배열의 인덱스이므로 실제 시간을 위해 6을 더함
+                            const actualHour = originalIndex + 6;
+                            const timeData = weekCongestionData.congestionsByTime[selectedDay].slice(6, 24);
+                            const max = Math.max(...timeData.map(n => Number(n) || 0), 1);
+                            // 최소 높이를 1로 설정하여 모든 막대가 바닥에서 시작하도록 함
+                            const height = Math.max(1, Math.round((Number(val) || 0) / max * 80));
+                            
+                            // 현재 시간인지 확인 (선택된 요일이 오늘이고, 현재 시간과 같을 때)
+                            const isCurrentTime = selectedDay === weekCongestionData.standardDay && actualHour === weekCongestionData.standardTime;
+                            const backgroundColor = isCurrentTime ? getCongestionColor(val) : '#b7b7b7';
+                            
+                            // 06, 09, 12, 15, 18, 21시 라벨 표시
+                            const shouldShowLabel = [6, 9, 12, 15, 18, 21].includes(actualHour);
+                            const label = shouldShowLabel ? String(actualHour).padStart(2, '0') : '';
+                            
+                            return (
+                              <View key={actualHour} style={styles.timeBarContainer}>
+                                <View style={[styles.timeBar, { height, backgroundColor }]} />
+                                {shouldShowLabel && <Text style={styles.timeBarLabel}>{label}</Text>}
+                              </View>
+                            );
+                          }) || []}
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
               <View style={styles.infoBox}>
                 <Text style={styles.infoIcon}>💡</Text>
                 <Text style={styles.infoText}>
-                  오후 7시 이후에는 비교적 여유로울 전망입니다.
+                  {(() => {
+                    if (!selectedLocation?.name || !weekCongestionData?.congestionsByDay?.length) {
+                      return "오후 7시 이후에는 비교적 여유로울 전망입니다.";
+                    }
+                    
+                    // 가장 혼잡도가 낮은 요일 찾기
+                    const congestionsByDay = weekCongestionData.congestionsByDay;
+                    const minCongestionValue = Math.min(...congestionsByDay);
+                    const minDayIndex = congestionsByDay.findIndex(val => val === minCongestionValue);
+                    const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+                    const minDayName = dayNames[minDayIndex] || '평일';
+                    
+                    const placeName = selectedLocation.name;
+                    const isVowel = /^[aeiouAEIOU가-기나-니다-디라-리마-미바-비사-시아-이자-지차-치카-키타-티파-피하-히]/.test(placeName);
+                    const particle = isVowel ? '는' : '은';
+                    
+                    return `${placeName}${particle} ${minDayName}에 비교적 여유로울 전망입니다.`;
+                  })()}
                 </Text>
               </View>
 
@@ -1832,6 +1756,129 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
     fontWeight: '500',
+  },
+  // 새로운 차트 스타일들
+  dayTabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 4,
+  },
+  dayTab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  selectedDayTab: {
+    backgroundColor: '#0057cc',
+  },
+  todayDayTab: {
+    borderWidth: 2,
+    borderColor: '#ff6b6b',
+  },
+  dayTabText: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  selectedDayTabText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  todayDayTabText: {
+    color: '#ff6b6b',
+    fontWeight: 'bold',
+  },
+  timeChartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 120,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  timeBarContainer: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 1,
+    height: 120,
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
+  timeBar: {
+    width: 12,
+    backgroundColor: '#b7b7b7',
+    borderRadius: 1,
+    position: 'absolute',
+    bottom: 20,
+  },
+  timeBarLabel: {
+    fontSize: 10,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  weekSummary: {
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  weekSummaryTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  weekSummarySubtitle: {
+    fontSize: 12,
+    color: '#999999',
+    marginBottom: 16,
+  },
+  weekBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 80,
+    paddingHorizontal: 8,
+  },
+  weekBarContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  weekBar: {
+    width: 32,
+    backgroundColor: '#d0d0d0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  weekBarLabel: {
+    fontSize: 12,
+    color: '#666666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  todayLabel: {
+    color: '#ff6b6b',
+    fontWeight: 'bold',
+  },
+  selectedWeekLabel: {
+    color: '#333333',
+    fontWeight: 'bold',
+  },
+  timeSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  timeSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 16,
   },
 });
 

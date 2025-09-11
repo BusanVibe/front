@@ -1,13 +1,13 @@
-import React, {createContext, useContext, useState, useEffect, useRef, ReactNode} from 'react';
-import Geolocation from '@react-native-community/geolocation';
-import {UserLocation, getLocationWithPermission} from '../utils/locationUtils';
+import React, {createContext, useContext, useState, useEffect, ReactNode} from 'react';
+import locationService, {UserLocation} from '../services/locationService';
 
 interface LocationContextType {
   userLocation: UserLocation | null;
   isLocationLoading: boolean;
   hasLocationPermission: boolean;
-  refreshLocation: () => Promise<void>;
+  refreshLocation: (showAlert?: boolean) => Promise<UserLocation | null>;
   ensureFreshLocation: (maxAgeMs?: number) => Promise<UserLocation | null>;
+  fastRefreshLocation: () => Promise<UserLocation | null>;
   startWatching: () => void;
   stopWatching: () => void;
   lastUpdatedAt: number | null;
@@ -21,19 +21,22 @@ interface LocationProviderProps {
 
 export const LocationProvider: React.FC<LocationProviderProps> = ({children}) => {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
-  const watchIdRef = useRef<number | null>(null);
 
-  const refreshLocation = async () => {
-    setIsLocationLoading(true);
-    try {
-      const location = await getLocationWithPermission();
+  // LocationService 위치 변경 리스너 설정
+  useEffect(() => {
+    const locationListener = (location: UserLocation | null) => {
+      setUserLocation(location);
+      setLastUpdatedAt(location?.timestamp || null);
+      setHasLocationPermission(!!location);
+      
       if (location) {
-        console.log('LocationContext: 받아온 위치 정보', {
+        console.log('LocationContext: 위치 업데이트', {
           latitude: location.latitude,
           longitude: location.longitude,
+          timestamp: new Date(location.timestamp).toLocaleString(),
           위치설명: location.latitude > 33 && location.latitude < 39 && location.longitude > 124 && location.longitude < 132 
             ? '한국 내 위치' 
             : '해외 위치 (시뮬레이터일 가능성)'
@@ -44,94 +47,90 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({children}) =>
           console.warn('⚠️ 현재 위치가 한국 밖입니다. 시뮬레이터를 사용 중이거나 GPS 오류일 수 있습니다.');
           console.warn('시뮬레이터 사용 시 Debug > Location에서 한국 위치로 설정해주세요.');
         }
-        
-        setUserLocation(location);
-        setLastUpdatedAt(Date.now());
-        setHasLocationPermission(true);
-      } else {
-        setUserLocation(null);
-        setHasLocationPermission(false);
       }
-    } catch (error) {
-      console.error('위치 업데이트 실패:', error);
-      setUserLocation(null);
-      setHasLocationPermission(false);
-    } finally {
-      setIsLocationLoading(false);
-    }
-  };
+    };
 
-  const ensureFreshLocation = async (maxAgeMs: number = 30000): Promise<UserLocation | null> => {
-    try {
-      const now = Date.now();
-      if (userLocation && lastUpdatedAt && now - lastUpdatedAt <= maxAgeMs) {
-        return userLocation;
-      }
-      await refreshLocation();
-      // 최신 state 반환
-      return new Promise(resolve => {
-        // 다음 틱에서 최신 값을 읽어 반환
-        setTimeout(() => {
-          resolve(userLocation);
-        }, 0);
-      });
-    } catch {
-      return null;
-    }
-  };
+    const loadingListener = (isLoading: boolean) => {
+      setIsLocationLoading(isLoading);
+    };
 
-  const startWatching = () => {
-    if (watchIdRef.current !== null || !hasLocationPermission) return;
-    try {
-      const id = Geolocation.watchPosition(
-        position => {
-          const next: UserLocation = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-          setUserLocation(next);
-          setLastUpdatedAt(Date.now());
-        },
-        error => {
-          console.warn('위치 감시 실패:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          distanceFilter: 30, // 30m 이상 이동 시 업데이트
-          interval: 10000,
-          fastestInterval: 5000,
-          useSignificantChanges: false,
-        } as any,
-      );
-      watchIdRef.current = id as unknown as number;
-    } catch (e) {
-      console.warn('watchPosition 설정 실패:', e);
+    // 현재 위치가 있으면 즉시 설정
+    const currentLocation = locationService.getCurrentLocation();
+    if (currentLocation) {
+      locationListener(currentLocation);
     }
-  };
 
-  const stopWatching = () => {
-    if (watchIdRef.current !== null) {
-      try {
-        Geolocation.clearWatch(watchIdRef.current);
-      } catch {}
-      watchIdRef.current = null;
-    }
-  };
+    // 로딩 상태 동기화
+    setIsLocationLoading(locationService.isLoading());
 
-  useEffect(() => {
-    refreshLocation();
-    // 언마운트 시 워치 해제
+    // 리스너 등록
+    locationService.addLocationListener(locationListener);
+    locationService.addLoadingListener(loadingListener);
+
     return () => {
-      stopWatching();
+      // 리스너 제거
+      locationService.removeLocationListener(locationListener);
+      locationService.removeLoadingListener(loadingListener);
     };
   }, []);
 
-  // 권한이 있는 경우 워치 시작 (최초 위치 획득 이후)
-  useEffect(() => {
-    if (hasLocationPermission && userLocation && watchIdRef.current === null) {
-      startWatching();
+  const refreshLocation = async (showAlert: boolean = false): Promise<UserLocation | null> => {
+    console.log('LocationContext: 위치 새로고침 요청 (사용자 요청)');
+    return await locationService.updateLocation({ 
+      showAlert, 
+      forceUpdate: true, 
+      isUserRequest: true // 사용자 요청이므로 로딩 표시
+    });
+  };
+
+  const ensureFreshLocation = async (maxAgeMs: number = 30000): Promise<UserLocation | null> => {
+    const currentLocation = locationService.getCurrentLocation();
+    
+    // 캐시된 위치가 유효한 경우
+    if (currentLocation && currentLocation.timestamp) {
+      const now = Date.now();
+      if (now - currentLocation.timestamp <= maxAgeMs) {
+        console.log('LocationContext: 캐시된 위치 사용 (유효 기간 내)');
+        return currentLocation;
+      }
     }
-  }, [hasLocationPermission, userLocation]);
+
+    // 새로운 위치 요청 (사용자 요청)
+    console.log('LocationContext: 새로운 위치 요청 (캐시 만료 또는 없음)');
+    return await locationService.updateLocation({ 
+      showAlert: false, 
+      isUserRequest: true // 사용자 요청이므로 로딩 표시
+    });
+  };
+
+  // 빠른 위치 가져오기 (캐시 우선, 없으면 즉시 요청)
+  const fastRefreshLocation = async (): Promise<UserLocation | null> => {
+    const cachedLocation = locationService.getCurrentLocation();
+    
+    // 유효한 캐시가 있으면 즉시 반환
+    if (cachedLocation && locationService.isLocationValid()) {
+      console.log('LocationContext: 캐시된 위치 즉시 반환');
+      return cachedLocation;
+    }
+
+    // 캐시가 없거나 만료된 경우 새로 요청 (사용자 요청)
+    console.log('LocationContext: 빠른 위치 업데이트 요청');
+    return await locationService.updateLocation({ 
+      showAlert: false, 
+      timeout: 10000, 
+      isUserRequest: true // 사용자가 버튼을 눌렀으므로 로딩 표시
+    });
+  };
+
+  const startWatching = () => {
+    console.log('LocationContext: 위치 추적 시작');
+    locationService.startLocationTracking();
+  };
+
+  const stopWatching = () => {
+    console.log('LocationContext: 위치 추적 중지');
+    locationService.stopLocationTracking();
+  };
 
   const value: LocationContextType = {
     userLocation,
@@ -139,6 +138,7 @@ export const LocationProvider: React.FC<LocationProviderProps> = ({children}) =>
     hasLocationPermission,
     refreshLocation,
     ensureFreshLocation,
+    fastRefreshLocation,
     startWatching,
     stopWatching,
     lastUpdatedAt,
