@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Dimensions,
 } from 'react-native';
 import {RouteProp, useRoute, useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -25,6 +26,8 @@ import IcMapPin from '../assets/icon/ic_map_pin.svg';
 import IcClock from '../assets/icon/ic_clock.svg';
 import IcCall from '../assets/icon/ic_call.svg';
 import IcCalendar from '../assets/icon/ic_calendar.svg';
+
+const {width: screenWidth} = Dimensions.get('window');
 
 type PlaceDetailScreenRouteProp = RouteProp<RootStackParamList, 'PlaceDetail'>;
 type PlaceDetailScreenNavigationProp = StackNavigationProp<
@@ -187,14 +190,33 @@ const PlaceDetailScreen = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        <Image
-          source={images.length > 0 && images[currentImageIndex] 
-            ? {uri: images[currentImageIndex]} 
-            : require('../assets/detail_image_default.png')
-          }
-          style={styles.image}
-          resizeMode="cover"
-        />
+        {images.length > 0 ? (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+              setCurrentImageIndex(index);
+            }}
+            scrollEventThrottle={16}
+            decelerationRate="fast">
+            {images.map((imageUri, index) => (
+              <Image
+                key={index}
+                source={{uri: imageUri}}
+                style={[styles.image, {width: screenWidth}]}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <Image
+            source={require('../assets/detail_image_default.png')}
+            style={styles.image}
+            resizeMode="cover"
+          />
+        )}
 
         {/* 이미지 인디케이터 */}
         {images.length > 1 && (

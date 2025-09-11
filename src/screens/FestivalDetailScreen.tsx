@@ -24,6 +24,8 @@ import IcMapPin from '../assets/icon/ic_map_pin.svg';
 import IcDollar from '../assets/icon/ic_dollar.svg';
 import IcCall from '../assets/icon/ic_call.svg';
 
+const {width: screenWidth} = Dimensions.get('window');
+
 type FestivalDetailScreenRouteProp = RouteProp<
   RootStackParamList,
   'FestivalDetail'
@@ -210,18 +212,41 @@ const FestivalDetailScreen = () => {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* 이미지 영역 */}
       <View style={styles.imageContainer}>
-        <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
-          <Image
-            source={images.length > 0
-              ? {uri: images[currentImageIndex]}
-              : require('../assets/detail_image_default.png')
-            }
-            style={styles.festivalImage}
-            onError={() =>
-              console.log('이미지 로드 실패:', images[currentImageIndex])
-            }
-          />
-        </TouchableOpacity>
+        {images.length > 0 ? (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+              setCurrentImageIndex(index);
+            }}
+            scrollEventThrottle={16}
+            decelerationRate="fast">
+            {images.map((imageUri, index) => (
+              <TouchableOpacity 
+                key={index} 
+                onPress={handleImagePress} 
+                activeOpacity={0.9}
+                style={{width: screenWidth}}>
+                <Image
+                  source={{uri: imageUri}}
+                  style={[styles.festivalImage, {width: screenWidth}]}
+                  onError={() =>
+                    console.log('이미지 로드 실패:', imageUri)
+                  }
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <TouchableOpacity onPress={handleImagePress} activeOpacity={0.9}>
+            <Image
+              source={require('../assets/detail_image_default.png')}
+              style={styles.festivalImage}
+            />
+          </TouchableOpacity>
+        )}
 
         {/* 이미지 인디케이터 */}
         {images.length > 1 && (
