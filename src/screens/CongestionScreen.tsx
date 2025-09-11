@@ -112,6 +112,20 @@ const CongestionScreen = () => {
   const [realtimeLevel, setRealtimeLevel] = useState<number | null>(null);
   const [realtimeByPercent, setRealtimeByPercent] = useState<number[] | null>(null);
   const [visitorDistribution, setVisitorDistribution] = useState<{ age: string; male: number; female: number }[] | null>(null);
+  // 새로운 혼잡도 데이터 (주간/시간별)
+  const [weekCongestionData, setWeekCongestionData] = useState<{
+    standardDay: number;
+    standardTime: number;
+    realtimeLevel: number;
+    congestionsByDay: number[];
+    congestionsByTime: number[][];
+  } | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number>(() => {
+    // JavaScript getDay(): 일요일=0, 월요일=1, ..., 토요일=6
+    // API: 월요일=0, 화요일=1, ..., 일요일=6
+    const jsDay = new Date().getDay();
+    return jsDay === 0 ? 6 : jsDay - 1; // 일요일(0)을 6으로, 나머지는 -1
+  });
   const webViewRef = useRef<any>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   // lastLocationRef는 LocationService에서 관리
@@ -151,10 +165,11 @@ const CongestionScreen = () => {
   React.useEffect(() => {
     if (selectedPlaceId) {
       console.log('=== 선택된 장소 ID로 초기화 ===', selectedPlaceId);
-      // 장소 상세 정보, 실시간 혼잡도, 이용객 분포를 모두 가져오기
+      // 장소 상세 정보, 실시간 혼잡도, 이용객 분포, 주간 혼잡도를 모두 가져오기
       fetchPlaceDetail(selectedPlaceId);
       fetchRealtimeCongestion(selectedPlaceId);
       fetchVisitorDistribution(selectedPlaceId);
+      fetchWeekCongestion(selectedPlaceId);
       setIsBottomSheetEnabled(true);
       changeBottomSheetMode('half');
     }
@@ -236,6 +251,56 @@ const CongestionScreen = () => {
       }
     } catch (e) {
       console.warn('이용객 분포 조회 실패', e);
+    }
+  };
+
+  // 주간/시간별 혼잡도 조회
+  const fetchWeekCongestion = async (placeId: number) => {
+    try {
+      const accessToken = await AsyncStorage.getItem('accessToken');
+      if (!accessToken) return;
+      const now = new Date();
+      const iso = new Date(now.getTime() - now.getMilliseconds()).toISOString().slice(0, 19); // yyyy-MM-ddTHH:mm:ss
+      const url = `https://api.busanvibe.site/api/congestion/place/${placeId}/congestions?standard-time=${encodeURIComponent(iso)}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' }
+      });
+      const txt = await res.text();
+      console.log('주간 혼잡도 응답:', txt);
+      const data = JSON.parse(txt);
+      const ok = !!(data && (data.isSuccess === true || data.is_success === true));
+      if (res.ok && ok && data.result) {
+        const r = data.result;
+        const unwrapArrayList = (v: any) => (Array.isArray(v) && v.length === 2 && v[0] === 'java.util.ArrayList') ? v[1] : (Array.isArray(v) ? v : []);
+        
+        const congestionsByDay = unwrapArrayList(r.congestions_by_day).map((n: any) => Number(n) || 0);
+        const congestionsByTimeRaw = unwrapArrayList(r.congestions_by_time);
+        const congestionsByTime = congestionsByTimeRaw.map((dayData: any) => 
+          unwrapArrayList(dayData).map((n: any) => Number(n) || 0)
+        );
+
+        const standardDay = Number(r.standard_day) || 0;
+        setWeekCongestionData({
+          standardDay,
+          standardTime: Number(r.standard_time) || 0,
+          realtimeLevel: Number(r.real_time_congestion_level) || 0,
+          congestionsByDay,
+          congestionsByTime
+        });
+        
+        // API의 standardDay를 기본 선택값으로 설정
+        setSelectedDay(standardDay);
+
+        console.log('주간 혼잡도 데이터 설정 완료:', {
+          standardDay: r.standard_day,
+          standardTime: r.standard_time,
+          daysCount: congestionsByDay.length,
+          timeDataCount: congestionsByTime.length
+        });
+      }
+    } catch (e) {
+      console.warn('주간 혼잡도 조회 실패', e);
     }
   };
 
@@ -952,10 +1017,11 @@ const CongestionScreen = () => {
                   }
                   const pid = typeof data.placeId === 'number' ? data.placeId : (typeof data.id === 'string' && data.id.startsWith('poi-') ? Number(data.id.replace('poi-', '')) : NaN);
                   if (!isNaN(pid)) {
-                    // 상세 + 실시간 + 분포 병렬 호출
+                    // 상세 + 실시간 + 분포 + 주간 혼잡도 병렬 호출
                     fetchPlaceDetail(pid);
                     fetchRealtimeCongestion(pid);
                     fetchVisitorDistribution(pid);
+                    fetchWeekCongestion(pid);
                   }
                 }
               } catch (error) {
@@ -1073,52 +1139,115 @@ const CongestionScreen = () => {
                 )}
               </ScrollView>
 
-              {/* 실시간 혼잡도 */}
+              {/* 주간/시간별 혼잡도 */}
               <View style={styles.chartSection}>
                 <View style={styles.realtimeSection}>
                   <View style={styles.chartHeader}>
-                    <Text style={styles.chartTitle}>실시간 혼잡도</Text>
-                    <Text style={styles.chartTime}>
-                      {realtimeStandardHour !== null ? `${String(realtimeStandardHour).padStart(2,'0')}:00 기준` : '실시간'}
-                    </Text>
+                    <Text style={styles.chartTitle}>혼잡도 정보</Text>
+                    <Text style={styles.weekSummarySubtitle}>최근 한달 기준</Text>
                   </View>
+                  
+                  {/* 실시간 혼잡도 상태 */}
                   <View style={styles.congestionStatus}>
-                    <View style={[styles.congestionIndicator, { backgroundColor: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]} />
-                    <Text style={[styles.congestionStatusText, { color: realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444' }]}>
-                      {realtimeLevel !== null ? getCongestionTextLocal(realtimeLevel) : '혼잡'}
+                    <View style={[styles.congestionIndicator, { backgroundColor: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]} />
+                    <Text style={[styles.congestionStatusText, { color: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]}>
+                      {weekCongestionData ? getCongestionTextLocal(weekCongestionData.realtimeLevel) : '혼잡'}
                     </Text>
                   </View>
 
-                  <View style={styles.chartWrapper}>
-                    <View style={styles.chartContainer}>
-                      {(realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent : congestionData.map(d => d.level)).map((val: any, index: number) => {
-                        const arr = realtimeByPercent && realtimeByPercent.length > 0 ? realtimeByPercent as number[] : congestionData.map(d => d.level);
-                        const max = Math.max(...arr.map((n: any) => Number(n) || 0), 1);
-                        const scale = max <= 5 ? 20 : 1;
-                        const height = Math.max(6, Math.min(100, Math.round((Number(val) || 0) * scale)));
-                        let label = '';
-                        if (realtimeByPercent && realtimeByPercent.length > 0 && realtimeStandardHour !== null) {
-                          const hour = (realtimeStandardHour - (arr.length - 1 - index) + 24 * 4) % 24;
-                          label = index === (arr.length - 1) ? '현재' : `${String(hour).padStart(2,'0')}시`;
-                        } else if (!realtimeByPercent || realtimeByPercent.length === 0) {
-                          label = congestionData[index]?.time;
-                        }
-                        return (
-                          <View key={index} style={styles.barContainer}>
-                            <View style={[styles.bar, { height, backgroundColor: index === (arr.length - 1) ? (realtimeLevel !== null ? getCongestionColor(realtimeLevel) : '#ff4444') : '#cccccc' }]} />
-                            <Text style={styles.barLabel}>{label}</Text>
-                          </View>
-                        );
-                      })}
+                  {/* 요일별 평균 혼잡도 */}
+                  {weekCongestionData && weekCongestionData.congestionsByDay.length > 0 && (
+                    <View style={styles.weekSummary}>
+                      <Text style={styles.weekSummaryTitle}>요일별 혼잡도</Text>
+                      <View style={styles.weekBars}>
+                        {weekCongestionData.congestionsByDay.map((val: number, index: number) => {
+                          const max = Math.max(...weekCongestionData.congestionsByDay, 1);
+                          const height = Math.max(8, Math.round((val / max) * 60));
+                          const isSelected = selectedDay === index;
+                          const isToday = index === weekCongestionData.standardDay;
+                          
+                          return (
+                            <TouchableOpacity 
+                              key={index} 
+                              style={styles.weekBarContainer}
+                              onPress={() => setSelectedDay(index)}>
+                              <View style={[
+                                styles.weekBar, 
+                                { 
+                                  height, 
+                                  backgroundColor: isSelected ? getCongestionColor(val) : (isToday ? '#ffcccc' : '#d0d0d0')
+                                }
+                              ]} />
+                              <Text style={[
+                                styles.weekBarLabel, 
+                                isSelected && styles.selectedWeekLabel,
+                                isToday && styles.todayLabel
+                              ]}>
+                                {['월', '화', '수', '목', '금', '토', '일'][index]}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  </View>
+                  )}
 
+                  {/* 시간별 혼잡도 차트 */}
+                  {weekCongestionData && weekCongestionData.congestionsByTime.length > 0 && (
+                    <View style={styles.timeSection}>
+                      <Text style={styles.timeSectionTitle}>예상 시간별 혼잡도</Text>
+                      <View style={styles.chartWrapper}>
+                        <View style={styles.timeChartContainer}>
+                          {weekCongestionData.congestionsByTime[selectedDay]?.slice(6, 24).map((val: number, originalIndex: number) => {
+                            // originalIndex는 slice된 배열의 인덱스이므로 실제 시간을 위해 6을 더함
+                            const actualHour = originalIndex + 6;
+                            const timeData = weekCongestionData.congestionsByTime[selectedDay].slice(6, 24);
+                            const max = Math.max(...timeData.map(n => Number(n) || 0), 1);
+                            // 최소 높이를 1로 설정하여 모든 막대가 바닥에서 시작하도록 함
+                            const height = Math.max(1, Math.round((Number(val) || 0) / max * 80));
+                            
+                            // 현재 시간인지 확인 (선택된 요일이 오늘이고, 현재 시간과 같을 때)
+                            const isCurrentTime = selectedDay === weekCongestionData.standardDay && actualHour === weekCongestionData.standardTime;
+                            const backgroundColor = isCurrentTime ? getCongestionColor(val) : '#b7b7b7';
+                            
+                            // 06, 09, 12, 15, 18, 21시 라벨 표시
+                            const shouldShowLabel = [6, 9, 12, 15, 18, 21].includes(actualHour);
+                            const label = shouldShowLabel ? String(actualHour).padStart(2, '0') : '';
+                            
+                            return (
+                              <View key={actualHour} style={styles.timeBarContainer}>
+                                <View style={[styles.timeBar, { height, backgroundColor }]} />
+                                {shouldShowLabel && <Text style={styles.timeBarLabel}>{label}</Text>}
+                              </View>
+                            );
+                          }) || []}
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </View>
               <View style={styles.infoBox}>
                 <Text style={styles.infoIcon}>💡</Text>
                 <Text style={styles.infoText}>
-                  오후 7시 이후에는 비교적 여유로울 전망입니다.
+                  {(() => {
+                    if (!selectedLocation?.name || !weekCongestionData?.congestionsByDay?.length) {
+                      return "오후 7시 이후에는 비교적 여유로울 전망입니다.";
+                    }
+                    
+                    // 가장 혼잡도가 낮은 요일 찾기
+                    const congestionsByDay = weekCongestionData.congestionsByDay;
+                    const minCongestionValue = Math.min(...congestionsByDay);
+                    const minDayIndex = congestionsByDay.findIndex(val => val === minCongestionValue);
+                    const dayNames = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일'];
+                    const minDayName = dayNames[minDayIndex] || '평일';
+                    
+                    const placeName = selectedLocation.name;
+                    const isVowel = /^[aeiouAEIOU가-기나-니다-디라-리마-미바-비사-시아-이자-지차-치카-키타-티파-피하-히]/.test(placeName);
+                    const particle = isVowel ? '는' : '은';
+                    
+                    return `${placeName}${particle} ${minDayName}에 비교적 여유로울 전망입니다.`;
+                  })()}
                 </Text>
               </View>
 
@@ -1627,6 +1756,129 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
     fontWeight: '500',
+  },
+  // 새로운 차트 스타일들
+  dayTabContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 4,
+  },
+  dayTab: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  selectedDayTab: {
+    backgroundColor: '#0057cc',
+  },
+  todayDayTab: {
+    borderWidth: 2,
+    borderColor: '#ff6b6b',
+  },
+  dayTabText: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  selectedDayTabText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  todayDayTabText: {
+    color: '#ff6b6b',
+    fontWeight: 'bold',
+  },
+  timeChartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: 120,
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  timeBarContainer: {
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 1,
+    height: 120,
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
+  timeBar: {
+    width: 12,
+    backgroundColor: '#b7b7b7',
+    borderRadius: 1,
+    position: 'absolute',
+    bottom: 20,
+  },
+  timeBarLabel: {
+    fontSize: 10,
+    color: '#666666',
+    textAlign: 'center',
+  },
+  weekSummary: {
+    marginBottom: 20,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  weekSummaryTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 4,
+  },
+  weekSummarySubtitle: {
+    fontSize: 12,
+    color: '#999999',
+    marginBottom: 16,
+  },
+  weekBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 80,
+    paddingHorizontal: 8,
+  },
+  weekBarContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  weekBar: {
+    width: 32,
+    backgroundColor: '#d0d0d0',
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  weekBarLabel: {
+    fontSize: 12,
+    color: '#666666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  todayLabel: {
+    color: '#ff6b6b',
+    fontWeight: 'bold',
+  },
+  selectedWeekLabel: {
+    color: '#333333',
+    fontWeight: 'bold',
+  },
+  timeSection: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+  },
+  timeSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333333',
+    marginBottom: 16,
   },
 });
 
