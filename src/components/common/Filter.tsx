@@ -31,62 +31,64 @@ const FilterComponent: React.FC<FilterComponentProps> = ({
 }) => {
   return (
     <View style={styles.filterContainer}>
-      {/* 카테고리 버튼들 */}
-      <View style={styles.categoriesRow}>
-        {categories.map(category => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category
-                ? styles.selectedCategory
-                : styles.unselectedCategory,
-            ]}
-            onPress={() => onCategorySelect(category)}>
-            <Text
+      <View style={styles.mainRow}>
+        {/* 카테고리 버튼들 */}
+        <View style={styles.categoriesRow}>
+          {categories.map(category => (
+            <TouchableOpacity
+              key={category}
               style={[
-                styles.categoryText,
+                styles.categoryButton,
                 selectedCategory === category
-                  ? styles.selectedText
-                  : styles.unselectedText,
-              ]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* 정렬 필터 */}
-      <View style={styles.filterWrapper}>
-        <TouchableOpacity style={styles.filterButton} onPress={onToggleFilter}>
-          <Text style={styles.filterText}>{selectedSort}</Text>
-          <View
-            style={[styles.iconContainer, showFilter && styles.iconRotated]}>
-            <ChevronDown />
-          </View>
-        </TouchableOpacity>
-
-        {showFilter && (
-          <View style={styles.filterDropdown}>
-            {sortOptions.map(option => (
-              <TouchableOpacity
-                key={option}
+                  ? styles.selectedCategory
+                  : styles.unselectedCategory,
+              ]}
+              onPress={() => onCategorySelect(category)}>
+              <Text
                 style={[
-                  styles.filterOption,
-                  selectedSort === option && styles.selectedFilterOption,
-                ]}
-                onPress={() => onSortSelect(option)}>
-                <Text
+                  styles.categoryText,
+                  selectedCategory === category
+                    ? styles.selectedText
+                    : styles.unselectedText,
+                ]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* 정렬 필터 */}
+        <View style={styles.filterWrapper}>
+          <TouchableOpacity style={styles.filterButton} onPress={onToggleFilter}>
+            <Text style={styles.filterText}>{selectedSort}</Text>
+            <View
+              style={[styles.iconContainer, showFilter && styles.iconRotated]}>
+              <ChevronDown />
+            </View>
+          </TouchableOpacity>
+
+          {showFilter && (
+            <View style={styles.filterDropdown}>
+              {sortOptions.map(option => (
+                <TouchableOpacity
+                  key={option}
                   style={[
-                    styles.filterOptionText,
-                    selectedSort === option && styles.selectedFilterOptionText,
-                  ]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+                    styles.filterOption,
+                    selectedSort === option && styles.selectedFilterOption,
+                  ]}
+                  onPress={() => onSortSelect(option)}>
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      selectedSort === option && styles.selectedFilterOptionText,
+                    ]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -110,16 +112,20 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 3,
   },
+  mainRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   categoriesRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    flex: 1,
   },
   categoryButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    minWidth: 60,
     alignItems: 'center',
   },
   selectedCategory: {
@@ -129,7 +135,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[400],
   },
   categoryText: {
-    ...typography.bodyLg,
+    ...typography.bodyMd,
+    fontSize: 12,
   },
   selectedText: {
     color: colors.white,
