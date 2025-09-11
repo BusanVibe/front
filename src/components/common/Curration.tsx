@@ -1,7 +1,7 @@
 /**
  * 큐레이션 컴포넌트
  */
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ImageBackground,
+  ScrollView,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
@@ -36,11 +37,19 @@ interface CurationItem {
 const CurationComponent: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // 자동 슬라이드 기능
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex(prevIndex => (prevIndex + 1) % curationData.length);
+      setCurrentIndex(prevIndex => {
+        const nextIndex = (prevIndex + 1) % curationData.length;
+        scrollViewRef.current?.scrollTo({
+          x: nextIndex * screenWidth,
+          animated: true,
+        });
+        return nextIndex;
+      });
     }, 5000);
 
     return () => clearInterval(interval);
@@ -125,7 +134,26 @@ const CurationComponent: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {renderCurationItem(currentItem)}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(event) => {
+          const slideSize = screenWidth;
+          const index = Math.round(event.nativeEvent.contentOffset.x / slideSize);
+          setCurrentIndex(index);
+        }}
+        scrollEventThrottle={16}
+        decelerationRate="fast"
+        snapToInterval={screenWidth}
+        snapToAlignment="center">
+        {curationData.map((item, index) => (
+          <View key={item.id} style={styles.slideContainer}>
+            {renderCurationItem(item)}
+          </View>
+        ))}
+      </ScrollView>
 
       <View style={styles.paginationContainer}>
         {curationData.map((_, index) => (
@@ -148,10 +176,13 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     marginBottom: 24,
   },
+  slideContainer: {
+    width: screenWidth,
+    paddingHorizontal: 16,
+  },
   curationCard: {
     width: screenWidth - 32,
     height: 360,
-    marginHorizontal: 16,
   },
   curationImageContainer: {
     flex: 1,
