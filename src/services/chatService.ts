@@ -141,7 +141,21 @@ export class ChatService {
 
     // 다양한 응답 형태 방어적 파싱
     const result = raw.result ?? {};
-    const nextCursor = result.cursor_id ?? result.cursorId ?? null;
+    // cursor 다양한 키 케이스 허용
+    const pickCursor = (obj: any): any =>
+      obj?.cursor_id ?? obj?.cursorId ?? obj?.next_cursor_id ?? obj?.nextCursorId ?? obj?.next_cursor ?? obj?.nextCursor ?? obj?.cursor ?? null;
+    let nextCursor: any = pickCursor(result) ?? pickCursor(raw) ?? pickCursor(result?.page) ?? pickCursor(result?.page_info) ?? null;
+    if (!nextCursor) {
+      try {
+        const h = response.headers as any;
+        const get = (k: string) => (h?.get ? h.get(k) : (h?.[k] ?? h?.[k.toLowerCase?.()]));
+        nextCursor = get('x-next-cursor') || get('x-cursor-id') || get('next-cursor') || get('next-cursor-id') || null;
+      } catch {}
+    }
+    if (typeof nextCursor === 'string') {
+      const trimmed = nextCursor.trim();
+      nextCursor = (trimmed.length === 0 || trimmed.toLowerCase() === 'null') ? null : trimmed;
+    }
 
     let messages: ChatMessage[] = [];
 
@@ -209,6 +223,40 @@ export class ChatService {
           time: iso,
           type: normalized,
           is_my: Boolean(item?.is_my),
+        } as ChatMessage;
+      });
+    } else if (Array.isArray(result.list)) {
+      messages = (result.list as any[]).map((m) => {
+        const t = (m.type ?? 'CHAT') as string;
+        let normalized: ChatType = 'CHAT';
+        if (t === 'CHAT') normalized = 'CHAT';
+        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
+        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalized = 'BOT_RESPONSE';
+        return {
+          user_id: Number(m.user_id ?? 0),
+          name: String(m.name ?? m.user_name ?? ''),
+          image_url: String(m.image_url ?? m.user_image ?? ''),
+          message: String(m.message ?? m.content ?? m.text ?? ''),
+          time: String(m.time ?? m.date_time ?? new Date().toISOString()),
+          type: normalized,
+          is_my: Boolean(m.is_my),
+        } as ChatMessage;
+      });
+    } else if (Array.isArray(result.data)) {
+      messages = (result.data as any[]).map((m) => {
+        const t = (m.type ?? 'CHAT') as string;
+        let normalized: ChatType = 'CHAT';
+        if (t === 'CHAT') normalized = 'CHAT';
+        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
+        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalized = 'BOT_RESPONSE';
+        return {
+          user_id: Number(m.user_id ?? 0),
+          name: String(m.name ?? m.user_name ?? ''),
+          image_url: String(m.image_url ?? m.user_image ?? ''),
+          message: String(m.message ?? m.content ?? m.text ?? ''),
+          time: String(m.time ?? m.date_time ?? new Date().toISOString()),
+          type: normalized,
+          is_my: Boolean(m.is_my),
         } as ChatMessage;
       });
     } else {

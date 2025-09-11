@@ -10,10 +10,13 @@ import {
   StatusBar,
   Dimensions,
   ActivityIndicator,
+  RefreshControl,
   InteractionManager,
   Image,
   AppState,
   Animated,
+  LayoutAnimation,
+  UIManager,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -115,6 +118,7 @@ const BusanTalkScreen = () => {
   const [cursorId, setCursorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isBotTyping, setIsBotTyping] = useState<boolean>(false);
 
@@ -122,6 +126,7 @@ const BusanTalkScreen = () => {
   const listRef = useRef<any>(null);
   // 키보드 높이에 따라 입력창을 올리기 위한 애니메이션 값
   const keyboardTranslateY = useRef(new Animated.Value(0)).current;
+  const keyboardVisibleRef = useRef<boolean>(false);
   // 최근 내가 전송한 메시지 텍스트 기록(에코 방지)
   const pendingSentRef = useRef<{ text: string; ts: number }[]>([]);
   // 최근에 처리한 (userId+text) 키의 마지막 시간 기록(히스토리/실시간 중복 방지)
@@ -130,6 +135,15 @@ const BusanTalkScreen = () => {
   const myUserIdRef = useRef<number>(-1);
   // 히스토리 최초 1회만 로드 가드
   const hasLoadedHistoryRef = useRef<boolean>(false);
+
+  // Android 레이아웃 애니메이션 활성화
+  useEffect(() => {
+    try {
+      if (Platform.OS === 'android' && (UIManager as any)?.setLayoutAnimationEnabledExperimental) {
+        (UIManager as any).setLayoutAnimationEnabledExperimental(true);
+      }
+    } catch {}
+  }, []);
 
   const parseJwtSub = (token?: string | null): number => {
     try {
@@ -306,6 +320,81 @@ const BusanTalkScreen = () => {
     return result;
   };
 
+  // 히스토리 페이지를 기존 목록 앞에 붙이되, 기존 항목의 순서를 재정렬하지 않음
+  const prependHistoryNoResort = (prev: Message[], incoming: Message[]) => {
+    const existsKey = new Set<string>();
+    for (const m of prev) {
+      existsKey.add(`${m.user_id}|${m.message}|${m.time}`);
+    }
+    const filtered = incoming.filter(m => !existsKey.has(`${m.user_id}|${m.message}|${m.time}`));
+    return [...filtered, ...prev];
+  };
+
+  const filterNewHistoryItems = (current: Message[], incoming: Message[]) => {
+    const existsKey = new Set<string>();
+    for (const m of current) {
+      existsKey.add(`${m.user_id}|${m.message}|${m.time}`);
+    }
+    return incoming.filter(m => !existsKey.has(`${m.user_id}|${m.message}|${m.time}`));
+  };
+
+  // 점진적 프리펜드 큐
+  const progressiveQueueRef = useRef<Message[]>([]);
+  const progressiveTimerRef = useRef<any>(null);
+  const progressiveActiveRef = useRef<boolean>(false);
+
+  const stopProgressiveTimer = () => {
+    if (progressiveTimerRef.current) {
+      clearTimeout(progressiveTimerRef.current);
+      progressiveTimerRef.current = null;
+    }
+  };
+
+  const processProgressive = () => {
+    if (progressiveQueueRef.current.length === 0) {
+      progressiveActiveRef.current = false;
+      stopProgressiveTimer();
+      return;
+    }
+    const nextItem = progressiveQueueRef.current.shift() as Message;
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch {}
+    setMessages(prev => [nextItem, ...prev]);
+    progressiveTimerRef.current = setTimeout(processProgressive, 60);
+  };
+
+  const startProgressivePrepend = (items: Message[]) => {
+    if (!items || items.length === 0) return;
+    progressiveQueueRef.current = [...items, ...progressiveQueueRef.current];
+    if (!progressiveActiveRef.current) {
+      progressiveActiveRef.current = true;
+      processProgressive();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopProgressiveTimer();
+    };
+  }, []);
+
+  // 상단 로드 트리거 안정화용 레퍼런스들
+  const isNearBottomRef = useRef<boolean>(true);
+  const isLoadingMoreRef = useRef<boolean>(false);
+  const lastRequestedCursorRef = useRef<string | null>(null);
+  const lastRequestTsRef = useRef<number>(0);
+  const topCooldownUntilRef = useRef<number>(0);
+  const topLockRef = useRef<boolean>(false);
+  // 스크롤/앵커 상태 추적
+  const lastOffsetYRef = useRef<number>(0);
+  const lastContentHeightRef = useRef<number>(0);
+  const anchorPendingRef = useRef<{ oldHeight: number; oldOffset: number } | null>(null);
+
+  useEffect(() => {
+    isLoadingMoreRef.current = isLoadingMore;
+  }, [isLoadingMore]);
+
   const loadInitialHistory = async () => {
     setIsLoading(true);
     try {
@@ -337,9 +426,21 @@ const BusanTalkScreen = () => {
   };
 
   const loadMoreHistory = async () => {
-    if (isLoadingMore || cursorId === null) return;
+    const now = Date.now();
+    if (isLoadingMoreRef.current || cursorId === null) return;
+    if (lastRequestedCursorRef.current === cursorId && now - lastRequestTsRef.current < 1000) {
+      return; // 같은 커서로 1초 내 중복 요청 방지
+    }
+    isLoadingMoreRef.current = true;
+    lastRequestedCursorRef.current = cursorId;
+    lastRequestTsRef.current = now;
     setIsLoadingMore(true);
     try {
+      // 현재 높이/오프셋 저장 → 프리펜드 후 보정
+      anchorPendingRef.current = {
+        oldHeight: lastContentHeightRef.current || 0,
+        oldOffset: lastOffsetYRef.current || 0,
+      };
       const page = await ChatService.history(cursorId, 30);
       const mapped = page.messages.map(mapChatToMessage);
       try {
@@ -358,8 +459,14 @@ const BusanTalkScreen = () => {
           seen.set(key, timeToMs(m.time));
         }
       } catch {}
-      setMessages(prev => dedupeAndSort([...prev, ...mapped]));
+      // 점진적 프리펜드 비활성화: 한 번 호출당 최대 30개를 즉시 붙임
+      stopProgressiveTimer();
+      progressiveQueueRef.current = [];
+      progressiveActiveRef.current = false;
+      setMessages(prev => prependHistoryNoResort(prev, mapped));
       setCursorId(page.cursorId);
+      // 상단 연속 트리거 방지 쿨다운
+      topCooldownUntilRef.current = Date.now() + 600;
       // 통신 결과를 생략 없이 로그 출력
       console.log('[history] full response page:', page);
       console.log('[history] full response mapped:', mapped);
@@ -367,8 +474,50 @@ const BusanTalkScreen = () => {
       console.error(e);
     } finally {
       setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    if (isRefreshing || cursorId === null) return;
+    setIsRefreshing(true);
+    try {
+      console.log('[history] pull-to-refresh triggered');
+      await loadMoreHistory();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, cursorId]);
+
+  const handleScroll = useCallback((e: any) => {
+    try {
+      const { contentOffset, layoutMeasurement, contentSize } = e?.nativeEvent ?? {};
+      const offsetY = contentOffset?.y ?? 0;
+      const viewportH = layoutMeasurement?.height ?? 0;
+      const contentH = contentSize?.height ?? 0;
+
+      lastOffsetYRef.current = offsetY;
+      lastContentHeightRef.current = contentH;
+
+      // 하단 근접 여부 갱신 (자동 스크롤 제어용)
+      const bottomThreshold = 80;
+      const distanceFromBottom = contentH - (offsetY + viewportH);
+      isNearBottomRef.current = distanceFromBottom <= bottomThreshold;
+
+      // 상단 근접 시 이전 히스토리 로드
+      if (offsetY <= 12) {
+        // 상단 근접 시 추가 로드
+        if (Date.now() >= topCooldownUntilRef.current && !isLoadingMoreRef.current && cursorId !== null && !topLockRef.current) {
+          topLockRef.current = true; // 같은 제스처에서 한 번만
+          loadMoreHistory();
+        }
+      }
+      // 사용자가 충분히 아래로 내려오면 락 해제
+      if (offsetY > 140 && topLockRef.current) {
+        topLockRef.current = false;
+      }
+    } catch {}
+  }, [cursorId]);
 
   const connectWebSocket = useCallback(async () => {
     try { console.log('Connecting WebSocket...'); } catch {}
@@ -453,6 +602,12 @@ const BusanTalkScreen = () => {
         hasLoadedHistoryRef.current = true;
       }
       connectWebSocket();
+      // 포커스 복귀 시 항상 맨 아래로 스크롤 고정
+      setTimeout(() => {
+        scrollToBottom(false);
+        requestAnimationFrame(() => scrollToBottom(false));
+        setTimeout(() => scrollToBottom(false), 120);
+      }, 0);
       return () => {
         console.log('Screen unfocused');
         // 연결 유지 (실시간 알림을 위해)
@@ -473,17 +628,26 @@ const BusanTalkScreen = () => {
     const showEvent = Platform.OS === 'android' ? 'keyboardDidShow' : 'keyboardWillShow';
     const hideEvent = Platform.OS === 'android' ? 'keyboardDidHide' : 'keyboardWillHide';
     const handleShow = (e: any) => {
+      keyboardVisibleRef.current = true;
+      if (Platform.OS === 'android') {
+        // Android는 adjustResize로 전체 레이아웃이 줄어듦. 수동 이동 금지
+        return;
+      }
       const height = e?.endCoordinates?.height ?? 0;
       Animated.timing(keyboardTranslateY, {
         toValue: height,
-        duration: Platform.OS === 'android' ? 0 : 250,
+        duration: 250,
         useNativeDriver: true,
       }).start();
     };
     const handleHide = () => {
+      keyboardVisibleRef.current = false;
+      if (Platform.OS === 'android') {
+        return;
+      }
       Animated.timing(keyboardTranslateY, {
         toValue: 0,
-        duration: Platform.OS === 'android' ? 0 : 250,
+        duration: 250,
         useNativeDriver: true,
       }).start();
     };
@@ -671,19 +835,48 @@ const BusanTalkScreen = () => {
             keyExtractor={item => item.id}
             style={styles.messagesList}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => {
-              if (!isLoadingMore) {
+            onContentSizeChange={(w, h) => {
+              // 키보드 표시 중에는 자동 스크롤 금지
+              if (keyboardVisibleRef.current) return;
+              // 히스토리 프리펜드 후에도 현재 시점 유지 보정
+              if (anchorPendingRef.current) {
+                const { oldHeight, oldOffset } = anchorPendingRef.current;
+                const delta = (h ?? 0) - (oldHeight ?? 0);
+                const target = Math.max(0, (oldOffset ?? 0) + delta);
+                try {
+                  listRef.current?.scrollToOffset?.({ offset: target, animated: false });
+                } catch {}
+                anchorPendingRef.current = null;
+                return;
+              }
+              // 사용자 시야가 하단 거의 근처일 때만 자동 스크롤
+              if (!isLoadingMore && isNearBottomRef.current) {
                 scrollToBottom(true);
               }
             }}
             showsVerticalScrollIndicator={false}
-            onEndReachedThreshold={0.2}
-            onEndReached={loadMoreHistory}
-            ListFooterComponent={isLoadingMore ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color="#333" />
-              </View>
-            ) : null}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+            ListHeaderComponent={
+              isLoadingMore ? (
+                <View style={styles.headerLoader}>
+                  <ActivityIndicator size="small" color="#333" />
+                </View>
+              ) : (cursorId ? (
+                <TouchableOpacity style={styles.headerLoadMoreBtn} onPress={loadMoreHistory}>
+                  <Text style={styles.headerLoadMoreText}>이전 채팅 더 보기</Text>
+                </TouchableOpacity>
+              ) : null)
+            }
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={onRefresh}
+                tintColor="#333"
+                colors={["#333"]}
+              />
+            }
           />
         )}
 
@@ -891,6 +1084,17 @@ const styles = StyleSheet.create({
   },
   footerLoader: {
     paddingVertical: 12,
+  },
+  headerLoader: {
+    paddingVertical: 12,
+  },
+  headerLoadMoreBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  headerLoadMoreText: {
+    fontSize: 12,
+    color: '#333',
   },
 
 });
