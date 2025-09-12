@@ -94,14 +94,14 @@ export class UserService {
             return PlaceType.RESTAURANT;
           case 'CULTURE':
             return PlaceType.CULTURE;
+          case 'FESTIVAL':
+            return PlaceType.FESTIVAL;
           default:
             return PlaceType.SIGHT;
         }
       };
 
-      // option이 restaurant인 경우 축제는 제외하고 장소로 매핑
       const places: PlaceListItem[] = (list as any[])
-        .filter(item => String(item?.type_en ?? '').toUpperCase() !== 'FESTIVAL')
         .map(item => {
           const placeItem: unknown = {
             id: Number(item.id),
@@ -114,6 +114,11 @@ export class UserService {
             img: String(item.img_url ?? ''), // 이미지 경로 매핑
             latitude: item.latitude == null ? undefined : Number(item.latitude),
             longitude: item.longitude == null ? undefined : Number(item.longitude),
+            ...(String(item.type_en ?? '').toUpperCase() === 'FESTIVAL' && {
+              start_date: item.start_date,
+              end_date: item.end_date,
+              like_count: item.like_count,
+            }),
           };
           return placeItem as PlaceListItem;
         });

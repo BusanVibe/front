@@ -2,6 +2,7 @@ export enum PlaceType {
   SIGHT = 'SIGHT',
   RESTAURANT = 'RESTAURANT',
   CULTURE = 'CULTURE',
+  FESTIVAL = 'FESTIVAL',
 }
 
 export enum CardType {

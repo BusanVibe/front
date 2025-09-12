@@ -13,6 +13,8 @@ export const getPlaceTypeText = (type: PlaceType): string => {
       return '맛집/카페';
     case PlaceType.CULTURE:
       return '문화시설';
+    case PlaceType.FESTIVAL:
+      return '축제';
     default:
       return '기타';
   }

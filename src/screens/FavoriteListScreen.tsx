@@ -16,7 +16,7 @@ import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
 
-const categories = ['전체', '관광명소', '맛집/카페', '문화시설'];
+const categories = ['전체', '관광명소', '맛집/카페', '문화시설', '축제'];
 const sortOptions = ['담은순', '기본순', '추천순', '좋아요순'];
 
 type SortType = '담은순' | '기본순' | '추천순' | '좋아요순';
@@ -50,6 +50,9 @@ const FavoriteListScreen: React.FC = () => {
           break;
         case '문화시설':
           option = 'CULTURE';
+          break;
+        case '축제':
+          option = 'FESTIVAL';
           break;
         case '전체':
         default:
@@ -225,10 +228,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     alignItems: 'center',
-    gap: 8,
+    gap: 2,
   },
   categoryButton: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: colors.gray[100],

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {PlaceListItem, FestivalListItem, CardType} from '../../types/place';
+import {PlaceListItem, FestivalListItem, CardType, PlaceType} from '../../types/place';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
@@ -56,12 +56,22 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   }, []);
 
   const handlePress = useCallback(() => {
-    if (isPlace) {
+    if (isPlace && placeData.type !== PlaceType.FESTIVAL) {
       navigation.navigate('PlaceDetail', {place: placeData});
     } else {
-      navigation.navigate('FestivalDetail', {festival: festivalData});
+      const festivalItem = {
+        id: place.id,
+        name: place.name,
+        is_like: place.is_like,
+        address: place.address,
+        img: place.img,
+        start_date: (place as any).start_date || '',
+        end_date: (place as any).end_date || '',
+        like_amount: (place as any).like_count || 0,
+      };
+      navigation.navigate('FestivalDetail', {festival: festivalItem});
     }
-  }, [isPlace, navigation, placeData, festivalData]);
+  }, [isPlace, navigation, placeData, place]);
 
   // 거리 계산 - 메모이제이션
   const getDistanceText = useCallback((): string | null => {
@@ -152,7 +162,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             <Text style={styles.attractionName}>
               {place.name.split('(')[0]}
             </Text>
-            {isPlace && (
+            {isPlace && placeData.type !== PlaceType.FESTIVAL && (
               <CongestionBadge
                 level={placeData.congestion_level}
                 style={styles.congestionBadge}
@@ -172,9 +182,13 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
           </TouchableOpacity>
         </View>
         <Text style={styles.attractionCategory}>
-          {isPlace
+          {isPlace && placeData.type !== PlaceType.FESTIVAL
             ? getPlaceTypeText(placeData.type)
-            : formatDateRange(festivalData.start_date, festivalData.end_date)}
+            : placeData.type === PlaceType.FESTIVAL && (place as any).start_date && (place as any).end_date
+            ? formatDateRange((place as any).start_date, (place as any).end_date)
+            : !isPlace
+            ? formatDateRange(festivalData.start_date, festivalData.end_date)
+            : getPlaceTypeText(placeData.type)}
         </Text>
         <View style={styles.attractionDetails}>
           {distanceText && (
