@@ -26,6 +26,8 @@ const TabNavigator = () => {
         tabBarShowLabel: true,
         tabBarActiveTintColor: '#0057cc',
         tabBarInactiveTintColor: '#2E2E2E',
+        // 키보드가 열릴 때 하단 탭바는 숨기고, 입력창만 키보드 위에 보이도록
+        tabBarHideOnKeyboard: true,
       })}>
       <Tab.Screen
         name="혼잡도"
