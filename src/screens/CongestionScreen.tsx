@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMapHTML } from '../components/map/mapTemplate.ts';
 import CongestionBadge from '../components/common/CongestionBadge';
 import { useLocation } from '../contexts/LocationContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 타입 정의
 interface Location {
@@ -732,6 +733,15 @@ const CongestionScreen = () => {
   ).current;
   const [isBottomSheetEnabled, setIsBottomSheetEnabled] = useState(false);
 
+  // 상단 헤더에 가리지 않도록, 기기별 안전 상단 여백을 고려한 최대 높이 계산
+  const getFullMaxHeight = () => {
+    const statusH = (StatusBar as any)?.currentHeight ?? 0;
+    const headerH = 56; // CustomHeader 추정 높이
+    const iosSafeTop = 88; // 노치/헤더 포함 여유치(기기별 상이하므로 보수적으로 확보)
+    const topGap = Platform.OS === 'ios' ? iosSafeTop : statusH + headerH;
+    return Math.max(40, screenHeight - topGap);
+  };
+
   // 바텀시트 높이 계산
   const getBottomSheetHeight = (mode: 'minimized' | 'half' | 'full') => {
     switch (mode) {
@@ -740,7 +750,7 @@ const CongestionScreen = () => {
       case 'half':
         return screenHeight * 0.5; // 화면의 절반
       case 'full':
-        return screenHeight * 0.9; // 거의 전체 화면
+        return getFullMaxHeight(); // 헤더에 안 가리도록 최대 높이 제한
       default:
         return 40;
     }
@@ -763,8 +773,8 @@ const CongestionScreen = () => {
       const currentHeight = getBottomSheetHeight(bottomSheetMode);
       const newHeight = currentHeight - gestureState.dy;
       
-      // 최소 40px, 최대 90% 높이로 제한
-      if (newHeight >= 40 && newHeight <= screenHeight * 0.9) {
+      // 최소 40px, 최대 헤더 고려 최대 높이로 제한
+      if (newHeight >= 40 && newHeight <= getFullMaxHeight()) {
         bottomSheetHeight.setValue(newHeight);
       }
     },
@@ -794,7 +804,7 @@ const CongestionScreen = () => {
       } else {
         // 드래그 거리가 적으면 현재 위치에서 가장 가까운 모드로
         const halfHeight = screenHeight * 0.5;
-        const fullHeight = screenHeight * 0.9;
+        const fullHeight = getFullMaxHeight();
         
         if (finalHeight < halfHeight / 2) {
           changeBottomSheetMode('minimized');
