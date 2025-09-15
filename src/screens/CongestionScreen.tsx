@@ -1195,33 +1195,57 @@ const CongestionScreen = () => {
                   {/* 시간별 혼잡도 차트 */}
                   {weekCongestionData && weekCongestionData.congestionsByTime.length > 0 && (
                     <View style={styles.timeSection}>
-                      <Text style={styles.timeSectionTitle}>예상 시간별 혼잡도</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.timeSectionTitle}>예상 시간별 혼잡도</Text>
+                        <Text style={{ color: '#999999', fontSize: 11 }}>(명/시간)</Text>
+                      </View>
                       <View style={styles.chartWrapper}>
-                        <View style={styles.timeChartContainer}>
-                          {weekCongestionData.congestionsByTime[selectedDay]?.slice(6, 24).map((val: number, originalIndex: number) => {
-                            // originalIndex는 slice된 배열의 인덱스이므로 실제 시간을 위해 6을 더함
-                            const actualHour = originalIndex + 6;
-                            const timeData = weekCongestionData.congestionsByTime[selectedDay].slice(6, 24);
-                            const max = Math.max(...timeData.map(n => Number(n) || 0), 1);
-                            // 최소 높이를 1로 설정하여 모든 막대가 바닥에서 시작하도록 함
-                            const height = Math.max(1, Math.round((Number(val) || 0) / max * 80));
-                            
-                            // 현재 시간인지 확인 (선택된 요일이 오늘이고, 현재 시간과 같을 때)
-                            const isCurrentTime = selectedDay === weekCongestionData.standardDay && actualHour === weekCongestionData.standardTime;
-                            const backgroundColor = isCurrentTime ? getCongestionColor(val) : '#b7b7b7';
-                            
-                            // 06, 09, 12, 15, 18, 21시 라벨 표시
-                            const shouldShowLabel = [6, 9, 12, 15, 18, 21].includes(actualHour);
-                            const label = shouldShowLabel ? String(actualHour).padStart(2, '0') : '';
-                            
-                            return (
-                              <View key={actualHour} style={styles.timeBarContainer}>
-                                <View style={[styles.timeBar, { height, backgroundColor }]} />
-                                {shouldShowLabel && <Text style={styles.timeBarLabel}>{label}</Text>}
+                        {(() => {
+                          const dayDataRaw = weekCongestionData.congestionsByTime[selectedDay] || [];
+                          const timeDataRaw = dayDataRaw.slice(6, 24).map((v: any) => Number(v) || 0);
+                          // 값(1~5미만)을 1000배 하여 '명' 단위의 정수로 환산
+                          const timeDataCounts = timeDataRaw.map(v => Math.round(v * 1000));
+                          const maxCount = Math.max(...timeDataCounts, 1);
+                          const topTick = Math.ceil(maxCount / 1000) * 1000;
+                          const step = Math.max(1000, Math.ceil(topTick / 5 / 1000) * 1000);
+                          const ticks: number[] = [];
+                          for (let t = topTick; t >= 0; t -= step) {
+                            ticks.push(t);
+                          }
+                          const formatCount = (n: number) => {
+                            const thousands = Math.round(Math.max(0, n));
+                            return thousands.toLocaleString('ko-KR');
+                          };
+                          return (
+                            <View style={{ flexDirection: 'row', alignItems: 'flex-end', width: '100%' }}>
+                              <View style={[styles.yAxisContainer, { height: 130, marginRight: 8 }]}>
+                                <View style={{ height: 80, marginTop: 20, marginBottom: 20, justifyContent: 'space-between' }}>
+                                  {ticks.map((t, i) => (
+                                    <Text key={i} style={styles.yAxisLabel}>{formatCount(t)}</Text>
+                                  ))}
+                                </View>
                               </View>
-                            );
-                          }) || []}
-                        </View>
+                              <View style={styles.timeChartContainer}>
+                                {timeDataCounts.map((count: number, idx: number) => {
+                                  const actualHour = idx + 6;
+                                  const height = Math.max(1, Math.round((count / (topTick || 1)) * 80));
+                                  // 현재 시간인지 확인 (선택된 요일이 오늘이고, 현재 시간과 같을 때)
+                                  const isCurrentTime = selectedDay === weekCongestionData.standardDay && actualHour === weekCongestionData.standardTime;
+                                  const backgroundColor = isCurrentTime ? getCongestionColor(timeDataRaw[idx]) : '#b7b7b7';
+                                  // 06, 09, 12, 15, 18, 21시 라벨 표시
+                                  const shouldShowLabel = [6, 9, 12, 15, 18, 21].includes(actualHour);
+                                  const label = shouldShowLabel ? String(actualHour).padStart(2, '0') : '';
+                                  return (
+                                    <View key={actualHour} style={styles.timeBarContainer}>
+                                      <View style={[styles.timeBar, { height, backgroundColor }]} />
+                                      {shouldShowLabel && <Text style={styles.timeBarLabel}>{label}</Text>}
+                                    </View>
+                                  );
+                                })}
+                              </View>
+                            </View>
+                          );
+                        })()}
                       </View>
                     </View>
                   )}
@@ -1696,6 +1720,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#999999',
     textAlign: 'right',
+    marginBottom: 1,
   },
   visitorChartContainer: {
     flex: 1,
@@ -1794,6 +1819,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   timeChartContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -1831,7 +1857,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333333',
-    marginBottom: 4,
+    marginBottom: 16,
   },
   weekSummarySubtitle: {
     fontSize: 12,
@@ -1844,6 +1870,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     height: 80,
     paddingHorizontal: 8,
+    marginTop: 16,
   },
   weekBarContainer: {
     alignItems: 'center',

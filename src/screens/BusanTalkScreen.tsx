@@ -127,6 +127,8 @@ const BusanTalkScreen = () => {
   // 키보드 높이에 따라 입력창을 올리기 위한 애니메이션 값
   const keyboardTranslateY = useRef(new Animated.Value(0)).current;
   const keyboardVisibleRef = useRef<boolean>(false);
+  // 현재까지 본 메시지 중 가장 큰 타임스탬프(ms) 추적 → 동시각 충돌 방지용
+  const lastTimestampMsRef = useRef<number>(0);
   // 최근 내가 전송한 메시지 텍스트 기록(에코 방지)
   const pendingSentRef = useRef<{ text: string; ts: number }[]>([]);
   // 최근에 처리한 (userId+text) 키의 마지막 시간 기록(히스토리/실시간 중복 방지)
@@ -235,18 +237,33 @@ const BusanTalkScreen = () => {
   };
 
   // API 응답 메시지 → Message (정규 스키마 유지)
-  const mapChatToMessage = (chat: ChatMessage, index: number): Message => {
+  const mapChatToMessage = (chat: ChatMessage, index: number, fallbackTimeMs?: number): Message => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
     const userIdNum = Number(chat.user_id ?? 0);
     const isMyFromServer = typeof (chat as any)?.is_my === 'boolean' ? (chat as any).is_my : undefined;
+    // 타입 정규화: 백엔드가 'BOT'을 줄 수 있으므로 'BOT_RESPONSE'로 매핑
+    const normalizedType = ((): Message['type'] => {
+      const t = String((chat as any)?.type ?? '').toUpperCase();
+      if (t === 'BOT' || t === 'BOT_RESPONSE') return 'BOT_RESPONSE';
+      if (t === 'BOT_REQUEST') return 'BOT_REQUEST';
+      return 'CHAT';
+    })();
+    // 시간 파싱 실패/누락 시 폴백: 호출 시점 밀리초
+    let timeIso = chat.time as any;
+    const parsed = timeToMs(String(timeIso ?? ''));
+    if (!timeIso || isNaN(parsed)) {
+      const base = typeof fallbackTimeMs === 'number' ? fallbackTimeMs : Date.now();
+      const assigned = Math.max(base, (lastTimestampMsRef.current || 0) + 1);
+      timeIso = new Date(assigned).toISOString();
+    }
     return {
       id: `api-${chat.time}-${index}-${Math.random().toString(36).slice(2, 8)}`,
       user_id: userIdNum,
       name: chat.name ?? '',
       image_url: chat.image_url ?? '',
       message: chat.message ?? '',
-      time: chat.time ?? new Date().toISOString(),
-      type: chat.type,
+      time: String(timeIso ?? new Date().toISOString()),
+      type: normalizedType,
       is_my: isMyFromServer !== undefined ? isMyFromServer : (userIdNum === myId),
     };
   };
@@ -279,12 +296,8 @@ const BusanTalkScreen = () => {
     list.sort((a, b) => {
       const ta = timeToMs(a.time);
       const tb = timeToMs(b.time);
-      if (ta !== tb) return ta - tb;
-      // tie-breaker: type priority
-      const pa = getTypePriority(a);
-      const pb = getTypePriority(b);
-      if (pa !== pb) return pa - pb;
-      // final tie-breaker: stable-ish by id string
+      if (ta !== tb) return ta - tb; // 밀리초까지 시간 기준 절대 정렬
+      // 완전히 동일한 타임스탬프일 때만 안정화용 보조 정렬
       return String(a.id).localeCompare(String(b.id));
     });
 
@@ -326,8 +339,10 @@ const BusanTalkScreen = () => {
     for (const m of prev) {
       existsKey.add(`${m.user_id}|${m.message}|${m.time}`);
     }
+    // 히스토리 페이지 내부도 절대 시간순으로 정렬 후 앞에 붙임
     const filtered = incoming.filter(m => !existsKey.has(`${m.user_id}|${m.message}|${m.time}`));
-    return [...filtered, ...prev];
+    const sortedIncoming = sortByIsoTimeAsc(filtered);
+    return [...sortedIncoming, ...prev];
   };
 
   const filterNewHistoryItems = (current: Message[], incoming: Message[]) => {
@@ -379,6 +394,18 @@ const BusanTalkScreen = () => {
     };
   }, []);
 
+  // 메시지 배열이 바뀔 때마다 현재까지의 최대 타임스탬프(ms) 갱신
+  useEffect(() => {
+    try {
+      let maxMs = lastTimestampMsRef.current || 0;
+      for (const m of messages) {
+        const t = timeToMs(m.time);
+        if (t > maxMs) maxMs = t;
+      }
+      lastTimestampMsRef.current = maxMs;
+    } catch {}
+  }, [messages]);
+
   // 상단 로드 트리거 안정화용 레퍼런스들
   const isNearBottomRef = useRef<boolean>(true);
   const isLoadingMoreRef = useRef<boolean>(false);
@@ -399,7 +426,7 @@ const BusanTalkScreen = () => {
     setIsLoading(true);
     try {
       const page = await ChatService.history(null, 30);
-      const mapped = sortByIsoTimeAsc(page.messages.map(mapChatToMessage));
+      const mapped = sortByIsoTimeAsc(page.messages.map((m, i) => mapChatToMessage(m, i)));
       try {
         console.log('[history] loaded FULL', {
           count: mapped.length,
@@ -442,7 +469,7 @@ const BusanTalkScreen = () => {
         oldOffset: lastOffsetYRef.current || 0,
       };
       const page = await ChatService.history(cursorId, 30);
-      const mapped = page.messages.map(mapChatToMessage);
+      const mapped = sortByIsoTimeAsc(page.messages.map((m, i) => mapChatToMessage(m, i)));
       try {
         
         console.log('[history] page FULL', {
@@ -731,13 +758,16 @@ const BusanTalkScreen = () => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
     try { console.log('[send] optimistic FULL', { text }); } catch {}
     const isSlash = text.startsWith('/');
+    const clientSendMsRaw = Date.now();
+    const clientSendMs = Math.max(clientSendMsRaw, (lastTimestampMsRef.current || 0) + 1);
+    const clientSendIso = new Date(clientSendMs).toISOString();
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
       user_id: myId,
       name: (authUser as any)?.name ?? '',
       image_url: (authUser as any)?.image_url ?? '',
       message: text,
-      time: new Date().toISOString(),
+      time: clientSendIso,
       type: isSlash ? 'BOT_REQUEST' : 'CHAT',
       is_my: true,
     };
@@ -783,7 +813,7 @@ const BusanTalkScreen = () => {
         // 타이핑 메시지 제거
         setMessages(prev => prev.filter(msg => msg.id !== 'bot-typing'));
         
-        const botMsg: Message = mapChatToMessage(res.result, 0);
+        const botMsg: Message = mapChatToMessage(res.result, 0, clientSendMs);
         setMessages(prev => dedupeAndSort([...prev, botMsg]));
         setTimeout(() => scrollToBottom(true), 100);
         try { console.log('[send] bot_response FULL', botMsg); } catch {}
