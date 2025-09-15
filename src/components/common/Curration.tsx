@@ -10,13 +10,15 @@ import {
   Dimensions,
   ImageBackground,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 import colors from '../../styles/colors';
 import typography from '../../styles/typography';
-import {curationData} from '../../mocks/dummy';
+import {getCurationData} from '../../services/placeService';
+import {PlaceType} from '../../types/place';
 import IcChevronRight from '../../assets/icon/ic_chevron_right.svg';
 import IcClock from '../../assets/icon/ic_clock.svg';
 import IcCalendar from '../../assets/icon/ic_calendar.svg';
@@ -26,7 +28,11 @@ const {width: screenWidth} = Dimensions.get('window');
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
-interface CurationItem {
+interface CurationComponentProps {
+  type: 'PLACE' | 'FESTIVAL';
+}
+
+interface CurationItemUI {
   id: string;
   title: string;
   time?: string;
@@ -34,13 +40,59 @@ interface CurationItem {
   period?: string;
 }
 
-const CurationComponent: React.FC = () => {
+const CurationComponent: React.FC<CurationComponentProps> = ({type}) => {
   const navigation = useNavigation<NavigationProp>();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [curationData, setCurationData] = useState<CurationItemUI[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 큐레이션 데이터 로드
+  useEffect(() => {
+    const loadCurationData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getCurationData(type);
+
+        const transformedData: CurationItemUI[] = data.map(item => {
+          let time: string | undefined;
+          if (item.type_en === 'SIGHT' && item.duration !== '정보 없음') {
+            time = item.duration.split('\n')[0];
+          }
+
+          let title = item.name;
+          if (item.type_en === 'FESTIVAL' && title.includes('(')) {
+            title = title.split('(')[0];
+          }
+
+          return {
+            id: item.id.toString(),
+            title,
+            time,
+            image: item.img_url,
+            period: item.type_en === 'FESTIVAL' && item.duration !== '정보 없음' ? item.duration : undefined,
+          };
+        });
+
+        setCurationData(transformedData);
+      } catch (err) {
+        console.error('큐레이션 데이터 로드 실패:', err);
+        setError('큐레이션 데이터를 불러올 수 없습니다.');
+        setCurationData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCurationData();
+  }, [type]);
 
   // 자동 슬라이드 기능
   useEffect(() => {
+    if (curationData.length === 0) return;
+
     const interval = setInterval(() => {
       setCurrentIndex(prevIndex => {
         const nextIndex = (prevIndex + 1) % curationData.length;
@@ -53,17 +105,10 @@ const CurationComponent: React.FC = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [curationData.length]);
 
-  const currentItem = curationData[currentIndex];
-
-  const isFestival = (id: string) => {
-    const numericId = parseInt(id);
-    return numericId >= 200 && numericId < 300;
-  };
-
-  const handleCurationPress = (item: CurationItem) => {
-    if (isFestival(item.id)) {
+  const handleCurationPress = (item: CurationItemUI) => {
+    if (type === 'FESTIVAL') {
       const festivalData = {
         id: parseInt(item.id),
         festival_id: parseInt(item.id),
@@ -72,6 +117,9 @@ const CurationComponent: React.FC = () => {
         period: item.period || '',
         address: '부산광역시',
         is_like: false,
+        start_date: '',
+        end_date: '',
+        like_amount: 0,
       };
       navigation.navigate('FestivalDetail', {festival: festivalData});
     } else {
@@ -81,7 +129,7 @@ const CurationComponent: React.FC = () => {
         name: item.title,
         img: item.image || '',
         address: '부산광역시',
-        type: 0,
+        type: PlaceType.SIGHT,
         congestion_level: 0,
         is_like: false,
       };
@@ -89,7 +137,7 @@ const CurationComponent: React.FC = () => {
     }
   };
 
-  const renderCurationItem = (item: CurationItem) => (
+  const renderCurationItem = (item: CurationItemUI) => (
     <TouchableOpacity
       style={styles.curationCard}
       activeOpacity={0.9}
@@ -132,6 +180,25 @@ const CurationComponent: React.FC = () => {
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={colors.primary[500]} />
+        <Text style={styles.loadingText}>큐레이션 데이터를 불러오는 중...</Text>
+      </View>
+    );
+  }
+
+  if (error || curationData.length === 0) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorText}>
+          {error || '큐레이션 데이터가 없습니다.'}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -148,7 +215,7 @@ const CurationComponent: React.FC = () => {
         decelerationRate="fast"
         snapToInterval={screenWidth}
         snapToAlignment="center">
-        {curationData.map((item, index) => (
+        {curationData.map((item) => (
           <View key={item.id} style={styles.slideContainer}>
             {renderCurationItem(item)}
           </View>
@@ -156,14 +223,14 @@ const CurationComponent: React.FC = () => {
       </ScrollView>
 
       <View style={styles.paginationContainer}>
-        {curationData.map((_, index) => (
+        {curationData.map((_, dotIndex) => (
           <TouchableOpacity
-            key={index}
+            key={dotIndex}
             style={[
               styles.paginationDot,
-              index === currentIndex ? styles.activeDot : styles.inactiveDot,
+              dotIndex === currentIndex ? styles.activeDot : styles.inactiveDot,
             ]}
-            onPress={() => setCurrentIndex(index)}
+            onPress={() => setCurrentIndex(dotIndex)}
           />
         ))}
       </View>
@@ -266,6 +333,28 @@ const styles = StyleSheet.create({
   },
   inactiveDot: {
     backgroundColor: colors.gray[500],
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 360,
+  },
+  loadingText: {
+    ...typography.bodyLg,
+    color: colors.gray[600],
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 360,
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    ...typography.bodyLg,
+    color: colors.gray[600],
+    textAlign: 'center',
   },
 });
 

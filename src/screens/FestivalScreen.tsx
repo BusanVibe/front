@@ -180,7 +180,7 @@ const FestivalScreen = () => {
       case 'curation':
         return (
           <View style={styles.curationWrapper}>
-            <CurationComponent />
+            <CurationComponent type="FESTIVAL" />
           </View>
         );
       case 'filter':
@@ -225,7 +225,7 @@ const FestivalScreen = () => {
   const renderEmpty = () => (
     <View>
       <View style={styles.curationWrapper}>
-        <CurationComponent />
+        <CurationComponent type="FESTIVAL" />
       </View>
       <FilterComponent
         categories={categories}
@@ -251,7 +251,7 @@ const FestivalScreen = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.container}>
           <View style={styles.curationWrapper}>
-            <CurationComponent />
+            <CurationComponent type="FESTIVAL" />
           </View>
           <FilterComponent
             categories={categories}

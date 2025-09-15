@@ -358,6 +358,89 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
 /**
  * 홈화면 정보 조회 API
  */
+/**
+ * 큐레이션 아이템 타입
+ */
+export interface CurationItem {
+  id: number;
+  name: string;
+  duration: string;
+  type_kr: string;
+  type_en: string;
+  img_url: string;
+}
+
+/**
+ * 큐레이션 API 응답 타입
+ */
+interface CurationResponse {
+  curation_list: ['java.util.ArrayList', CurationItem[]];
+}
+
+/**
+ * 큐레이션 데이터 조회 API
+ * @param type 타입 (PLACE 또는 FESTIVAL)
+ */
+export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<CurationItem[]> => {
+  try {
+    const accessToken = await AsyncStorage.getItem('accessToken');
+
+    if (!accessToken) {
+      throw new Error('로그인이 필요합니다.');
+    }
+
+    const url = `${BASE_URL}/api/home/curation?type=${type}`;
+    console.log('큐레이션 API 호출:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: '*/*',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `API 호출 실패: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data: BaseApiResponse<CurationResponse> = await response.json();
+    console.log('큐레이션 API 응답:', data);
+
+    if (!data.is_success) {
+      throw new Error(`API 오류: ${data.message}`);
+    }
+
+    const result = data.result;
+    if (!result) {
+      throw new Error('응답 데이터가 없습니다.');
+    }
+
+    // curation_list가 ["java.util.ArrayList", [...]] 형태인지 확인
+    let curationList: CurationItem[] = [];
+    if (Array.isArray(result.curation_list)) {
+      if (
+        result.curation_list.length === 2 &&
+        result.curation_list[0] === 'java.util.ArrayList' &&
+        Array.isArray(result.curation_list[1])
+      ) {
+        curationList = result.curation_list[1];
+      } else {
+        curationList = result.curation_list as unknown as CurationItem[];
+      }
+    }
+
+    console.log(`큐레이션 데이터 개수: ${curationList.length}`);
+    return curationList;
+  } catch (error) {
+    console.error('큐레이션 데이터 조회 오류:', error);
+    throw error;
+  }
+};
+
 export const getHomeData = async (): Promise<{
   mostCrowded: PlaceListItem[];
   recommendPlace: PlaceListItem[];
