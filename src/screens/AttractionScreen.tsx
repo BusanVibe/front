@@ -115,7 +115,7 @@ const AttractionScreen = () => {
       case 'curation':
         return (
           <View style={styles.curationWrapper}>
-            <CurationComponent />
+            <CurationComponent type="PLACE" />
           </View>
         );
       case 'filter':
@@ -188,7 +188,7 @@ const AttractionScreen = () => {
   const renderEmpty = () => (
     <View>
       <View style={styles.curationWrapper}>
-        <CurationComponent />
+        <CurationComponent type="PLACE" />
       </View>
       <FilterComponent
         categories={categories}
@@ -215,7 +215,7 @@ const AttractionScreen = () => {
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <View style={styles.container}>
           <View style={styles.curationWrapper}>
-            <CurationComponent />
+            <CurationComponent type="PLACE" />
           </View>
           <FilterComponent
             categories={categories}
