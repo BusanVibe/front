@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState, useCallback} from 'react';
+import React, {useEffect, useRef, useState, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -222,15 +222,19 @@ const BusanTalkScreen = () => {
   };
 
   // 웹소켓 수신 메시지 → Message (정규 스키마 유지)
-  const mapWebSocketToMessage = (wsMessage: ChatMessage): Message => {
+  const mapWebSocketToMessage = (wsMessage: ChatMessage, ensureAfterMs?: number): Message => {
     const myId = myUserIdRef.current !== -1 ? myUserIdRef.current : Number((authUser as any)?.id ?? -1);
+    // 시간 클램핑: 실시간 수신은 반드시 현재 목록의 최댓값 이후로 배치
+    const parsedMs = timeToMs(String(wsMessage.time ?? ''));
+    const minMs = typeof ensureAfterMs === 'number' ? ensureAfterMs : (lastTimestampMsRef.current || 0);
+    const finalMs = Math.max(parsedMs, minMs + 1);
     return {
       id: `ws-${wsMessage.time}-${wsMessage.user_id}-${Math.random().toString(36).slice(2, 8)}`,
       user_id: Number(wsMessage.user_id ?? 0),
       name: wsMessage.name ?? '',
       image_url: wsMessage.image_url ?? '',
       message: wsMessage.message ?? '',
-      time: wsMessage.time ?? new Date().toISOString(),
+      time: new Date(finalMs).toISOString(),
       type: wsMessage.type,
       is_my: Number(wsMessage.user_id ?? -999) === myId,
     };
@@ -251,9 +255,14 @@ const BusanTalkScreen = () => {
     // 시간 파싱 실패/누락 시 폴백: 호출 시점 밀리초
     let timeIso = chat.time as any;
     const parsed = timeToMs(String(timeIso ?? ''));
-    if (!timeIso || isNaN(parsed)) {
-      const base = typeof fallbackTimeMs === 'number' ? fallbackTimeMs : Date.now();
-      const assigned = Math.max(base, (lastTimestampMsRef.current || 0) + 1);
+    if (typeof fallbackTimeMs === 'number') {
+      // forward 흐름: 파싱 실패이거나(parsed NaN) 혹은 서버 시간이 요청/현재 최대보다 이르면 클램핑
+      const minMs = Math.max(fallbackTimeMs, lastTimestampMsRef.current || 0);
+      const base = isNaN(parsed) ? minMs : Math.max(parsed, minMs + 1);
+      timeIso = new Date(base).toISOString();
+    } else if (!timeIso || isNaN(parsed)) {
+      // 히스토리 등: 실패 시에만 now로 보정(정렬 시 과거로 배치됨)
+      const assigned = Date.now();
       timeIso = new Date(assigned).toISOString();
     }
     return {
@@ -297,7 +306,11 @@ const BusanTalkScreen = () => {
       const ta = timeToMs(a.time);
       const tb = timeToMs(b.time);
       if (ta !== tb) return ta - tb; // 밀리초까지 시간 기준 절대 정렬
-      // 완전히 동일한 타임스탬프일 때만 안정화용 보조 정렬
+      // 동일 타임스탬프일 때 타입 우선순위로 안정 정렬: BOT_REQUEST < CHAT < BOT_RESPONSE
+      const pa = getTypePriority(a);
+      const pb = getTypePriority(b);
+      if (pa !== pb) return pa - pb;
+      // 마지막으로 ID로 안정화
       return String(a.id).localeCompare(String(b.id));
     });
 
@@ -561,7 +574,7 @@ const BusanTalkScreen = () => {
     }
 
     ChatSocket.connect((wsMessage: ChatMessage) => {
-      const mappedMessage = mapWebSocketToMessage(wsMessage);
+      const mappedMessage = mapWebSocketToMessage(wsMessage, lastTimestampMsRef.current || 0);
       // 가독성 로그
       try {
         console.log('[socket][received FULL]', mappedMessage);
@@ -843,6 +856,8 @@ const BusanTalkScreen = () => {
     }
   };
 
+  const sortedMessages = useMemo(() => sortByIsoTimeAsc([...(messages || [])]), [messages]);
+
       return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -860,7 +875,7 @@ const BusanTalkScreen = () => {
         ) : (
           <FlatList
             ref={listRef}
-            data={messages}
+            data={sortedMessages}
             renderItem={renderMessage}
             keyExtractor={item => item.id}
             style={styles.messagesList}
