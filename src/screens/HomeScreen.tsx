@@ -112,7 +112,7 @@ const HomeScreen = () => {
                 <Logo width={48} height={48} />
               </View>
               <Text style={styles.modalHeaderTitle}>부산스럽다</Text>
-              <Text style={styles.modalHeaderSubtitle}>부산 여행 혼잡도 가이드</Text>
+              <Text style={styles.modalHeaderSubtitle}>지금 가장 즐거운 곳, 가장 붐비는 곳 알려드립니다</Text>
             </LinearGradient>
 
             <View style={styles.modalContent}>
@@ -134,7 +134,7 @@ const HomeScreen = () => {
               </View>
 
               <Text style={styles.modalBody}>
-                부산스럽다는 부산 지역의 실시간 혼잡도 기반 여행 가이드 맵입니다. 인기 명소와 축제, 혼잡도를 한눈에 보고 더 여유로운 여행을 즐겨보세요. 부산의 다양한 정보를 모아 편리하게 제공해 드리니, 지금 바로 부산스럽다와 함께 특별한 여행을 시작해 보세요!
+                부산스럽다는 부산 지역의 실시간 혼잡도 기반 서비스입니다. 인기 명소와 축제, 혼잡도를 한눈에 보고 더 여유로운 여행을 즐겨보세요. 부산의 다양한 정보를 모아 편리하게 제공해 드리니, 지금 바로 부산스럽다와 함께 특별한 순간을 시작해 보세요!
               </Text>
 
               <TouchableOpacity
