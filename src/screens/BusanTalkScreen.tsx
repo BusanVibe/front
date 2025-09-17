@@ -23,7 +23,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import IcSend from '../assets/icon/ic_send.svg';
 import IcNickname from '../assets/icon/ic_talknickname.svg';
-import Logo from '../assets/logo.svg';
 import { ChatService, ChatMessage } from '../services/chatService';
 import { ChatSocket } from '../services/chatSocket';
 import { useFocusEffect } from '@react-navigation/native';
@@ -137,6 +136,8 @@ const BusanTalkScreen = () => {
   const myUserIdRef = useRef<number>(-1);
   // 히스토리 최초 1회만 로드 가드
   const hasLoadedHistoryRef = useRef<boolean>(false);
+  // 최신 챗봇 이미지 URL 캐시 (타이핑 시에도 표시)
+  const botImageUrlRef = useRef<string>('');
 
   // Android 레이아웃 애니메이션 활성화
   useEffect(() => {
@@ -447,6 +448,11 @@ const BusanTalkScreen = () => {
           messages: mapped,
         });
       } catch {}
+      // 최신 BOT 이미지 URL 갱신
+      try {
+        const lastBot = [...mapped].reverse().find(m => m.type === 'BOT_RESPONSE' && m.image_url);
+        if (lastBot?.image_url) botImageUrlRef.current = lastBot.image_url;
+      } catch {}
       // 최근 본 키로 마킹
       try {
         const seen = recentSeenRef.current;
@@ -498,6 +504,11 @@ const BusanTalkScreen = () => {
           const key = `${m.user_id}|${m.message}`;
           seen.set(key, timeToMs(m.time));
         }
+      } catch {}
+      // 최신 BOT 이미지 URL 갱신 (추가 페이징)
+      try {
+        const lastBot = [...mapped].reverse().find(m => m.type === 'BOT_RESPONSE' && m.image_url);
+        if (lastBot?.image_url) botImageUrlRef.current = lastBot.image_url;
       } catch {}
       // 점진적 프리펜드 비활성화: 한 번 호출당 최대 30개를 즉시 붙임
       stopProgressiveTimer();
@@ -578,6 +589,12 @@ const BusanTalkScreen = () => {
       // 가독성 로그
       try {
         console.log('[socket][received FULL]', mappedMessage);
+      } catch {}
+      // BOT 응답 수신 시 이미지 URL 캐시 갱신
+      try {
+        if ((mappedMessage.type as any) === 'BOT_RESPONSE' && mappedMessage.image_url) {
+          botImageUrlRef.current = mappedMessage.image_url;
+        }
       } catch {}
 
       // 1) 내 에코 중복 제거: 최근 전송 텍스트와 동일하면 무시(10초 윈도우)
@@ -713,18 +730,20 @@ const BusanTalkScreen = () => {
           {(item.type === 'BOT_RESPONSE' || !item.is_my) && (
             <View style={styles.profileContainer}>
               <View style={styles.profileIcon}>
-                {item.type === 'BOT_RESPONSE' ? (
-                  <Logo width={30} height={30} />
-                ) : item.image_url ? (
-                  <Image source={{ uri: item.image_url }} style={styles.profileImage} />
+                { (item.type === 'BOT_RESPONSE' ? (item.image_url || botImageUrlRef.current) : item.image_url) ? (
+                  <Image source={{ uri: item.type === 'BOT_RESPONSE' ? (item.image_url || botImageUrlRef.current) : item.image_url }} style={item.type === 'BOT_RESPONSE' ? styles.botProfileImage : styles.profileImage} />
                 ) : (
-                  <IcNickname width={30} height={30} stroke="none" />
+                  item.type === 'BOT_RESPONSE' ? (
+                    <IcNickname width={24} height={24} stroke="none" />
+                  ) : (
+                    <IcNickname width={30} height={30} stroke="none" />
+                  )
                 )}
               </View>
               <Text style={styles.nickname}>{item.type === 'BOT_RESPONSE' || isBotTypingMessage ? '챗봇' : (item.name ?? '닉네임')}</Text>
             </View>
           )}
-          <View style={(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser}>
+          <View style={[(item.type === 'BOT_RESPONSE' || !item.is_my) ? styles.messageContentBot : styles.messageContentUser, item.type === 'BOT_RESPONSE' ? { paddingLeft: 24 } : null]}>
             <View style={[styles.messageRow, (item.is_my && item.type !== 'BOT_RESPONSE') ? styles.userMessageRow : {}]}>
               {(item.is_my && item.type !== 'BOT_RESPONSE') && <Text style={styles.timeText}>{formatTime(item.time)}</Text>}
               <View
@@ -806,7 +825,7 @@ const BusanTalkScreen = () => {
         id: 'bot-typing',
         user_id: -1,
         name: '챗봇',
-        image_url: '',
+        image_url: botImageUrlRef.current || '',
         message: '',
         time: new Date().toISOString(),
         type: 'BOT_RESPONSE',
@@ -830,6 +849,10 @@ const BusanTalkScreen = () => {
         setMessages(prev => dedupeAndSort([...prev, botMsg]));
         setTimeout(() => scrollToBottom(true), 100);
         try { console.log('[send] bot_response FULL', botMsg); } catch {}
+        // BOT 이미지 URL 캐시 갱신
+        try {
+          if (botMsg.image_url) botImageUrlRef.current = botMsg.image_url;
+        } catch {}
         // 봇 응답도 최근 본 키로 기록하여 WS 중복 수신을 방지
         try {
           const key = `${botMsg.user_id}|${botMsg.message}`;
@@ -1019,6 +1042,11 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
+  },
+  botProfileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   profileText: {
     fontSize: 12,

@@ -23,6 +23,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMapHTML } from '../components/map/mapTemplate.ts';
 import CongestionBadge from '../components/common/CongestionBadge';
 import { useLocation } from '../contexts/LocationContext';
+import { useToast } from '../contexts/ToastContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 타입 정의
@@ -732,6 +733,7 @@ const CongestionScreen = () => {
     new Animated.Value(40), // 초기에는 최소화된 상태로 시작 (핸들만 보이게)
   ).current;
   const [isBottomSheetEnabled, setIsBottomSheetEnabled] = useState(false);
+  const { showToast } = useToast();
 
   // 상단 헤더에 가리지 않도록, 기기별 안전 상단 여백을 고려한 최대 높이 계산
   const getFullMaxHeight = () => {
@@ -1151,24 +1153,34 @@ const CongestionScreen = () => {
 
               {/* 주간/시간별 혼잡도 */}
               <View style={styles.chartSection}>
-                <View style={styles.realtimeSection}>
-                  <View style={styles.chartHeader}>
-                    <Text style={styles.chartTitle}>혼잡도 정보</Text>
-                    <Text style={styles.weekSummarySubtitle}>최근 한달 기준</Text>
-                  </View>
+                <View>
                   
-                  {/* 실시간 혼잡도 상태 */}
-                  <View style={styles.congestionStatus}>
-                    <View style={[styles.congestionIndicator, { backgroundColor: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]} />
-                    <Text style={[styles.congestionStatusText, { color: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]}>
-                      {weekCongestionData ? getCongestionTextLocal(weekCongestionData.realtimeLevel) : '혼잡'}
-                    </Text>
-                  </View>
+                  {/* 실시간 혼잡도 상태는 요일별 카드 안으로 이동 */}
 
                   {/* 요일별 평균 혼잡도 */}
                   {weekCongestionData && weekCongestionData.congestionsByDay.length > 0 && (
-                    <View style={styles.weekSummary}>
-                      <Text style={styles.weekSummaryTitle}>요일별 혼잡도</Text>
+                    <View style={[styles.weekSummary, styles.grayCard]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                        <Text style={styles.weekSummaryTitle}>요일별 혼잡도</Text>
+                        <View style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <Text style={styles.weekSummarySubtitle}>최근 한달 기준</Text>
+                          <TouchableOpacity
+                            onPress={() => showToast('요일별로 혼잡도 확인이 가능해요!')}
+                            accessibilityLabel="요일별 혼잡도 안내"
+                            accessibilityRole="button"
+                            style={[styles.hintButton, { marginTop: 2 }]}
+                          >
+                            <Text style={styles.hintButtonText}>?</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      {/* 실시간 혼잡도 상태 (카드 내 표시) */}
+                      <View style={[styles.congestionStatus, { marginTop: 2, marginBottom: 4 }] }>
+                        <View style={[styles.congestionIndicator, { backgroundColor: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]} />
+                        <Text style={[styles.congestionStatusText, { color: weekCongestionData ? getCongestionColor(weekCongestionData.realtimeLevel) : '#ff4444' }]}> 
+                          {weekCongestionData ? getCongestionTextLocal(weekCongestionData.realtimeLevel) : '혼잡'}
+                        </Text>
+                      </View>
                       <View style={styles.weekBars}>
                         {weekCongestionData.congestionsByDay.map((val: number, index: number) => {
                           const max = Math.max(...weekCongestionData.congestionsByDay, 1);
@@ -1190,7 +1202,7 @@ const CongestionScreen = () => {
                               ]} />
                               <Text style={[
                                 styles.weekBarLabel, 
-                                isSelected && styles.selectedWeekLabel,
+                                isSelected && { color: getCongestionColor(val), fontWeight: 'bold' },
                                 isToday && styles.todayLabel
                               ]}>
                                 {['월', '화', '수', '목', '금', '토', '일'][index]}
@@ -1204,7 +1216,7 @@ const CongestionScreen = () => {
 
                   {/* 시간별 혼잡도 차트 */}
                   {weekCongestionData && weekCongestionData.congestionsByTime.length > 0 && (
-                    <View style={styles.timeSection}>
+                    <View style={[styles.timeSection, styles.grayCard]}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={styles.timeSectionTitle}>예상 시간별 혼잡도</Text>
                         <Text style={{ color: '#999999', fontSize: 11 }}>(명/시간)</Text>
@@ -1228,17 +1240,17 @@ const CongestionScreen = () => {
                           };
                           return (
                             <View style={{ flexDirection: 'row', alignItems: 'flex-end', width: '100%' }}>
-                              <View style={[styles.yAxisContainer, { height: 130, marginRight: 8 }]}>
-                                <View style={{ height: 80, marginTop: 20, marginBottom: 20, justifyContent: 'space-between' }}>
+                              <View style={[styles.yAxisContainer, { height: 120, marginRight: 6 }]}>
+                                <View style={{ height: 74, marginTop: 16, marginBottom: 12, justifyContent: 'space-between' }}>
                                   {ticks.map((t, i) => (
                                     <Text key={i} style={styles.yAxisLabel}>{formatCount(t)}</Text>
                                   ))}
                                 </View>
                               </View>
-                              <View style={styles.timeChartContainer}>
+                              <View style={[styles.timeChartContainer, { height: 120 }]}>
                                 {timeDataCounts.map((count: number, idx: number) => {
                                   const actualHour = idx + 6;
-                                  const height = Math.max(1, Math.round((count / (topTick || 1)) * 80));
+                                  const height = Math.max(1, Math.round((count / (topTick || 1)) * 72));
                                   // 현재 시간인지 확인 (선택된 요일이 오늘이고, 현재 시간과 같을 때)
                                   const isCurrentTime = selectedDay === weekCongestionData.standardDay && actualHour === weekCongestionData.standardTime;
                                   const backgroundColor = isCurrentTime ? getCongestionColor(timeDataRaw[idx]) : '#b7b7b7';
@@ -1247,7 +1259,7 @@ const CongestionScreen = () => {
                                   const label = shouldShowLabel ? String(actualHour).padStart(2, '0') : '';
                                   return (
                                     <View key={actualHour} style={styles.timeBarContainer}>
-                                      <View style={[styles.timeBar, { height, backgroundColor }]} />
+                                      <View style={[styles.timeBar, { height, backgroundColor, borderRadius: isCurrentTime ? 4 : 1 }]} />
                                       {shouldShowLabel && <Text style={styles.timeBarLabel}>{label}</Text>}
                                     </View>
                                   );
@@ -1679,12 +1691,7 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     flex: 1,
   },
-  realtimeSection: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 12,
-    paddingBottom: 5,
-  },
+  // realtimeSection 제거됨
   chartWrapper: {
     position: 'relative',
     height: 140,
@@ -1833,15 +1840,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 120,
-    marginBottom: 10,
+    height: 110,
+    marginBottom: 4,
     paddingHorizontal: 4,
   },
   timeBarContainer: {
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 1,
-    height: 120,
+    height: 110,
     justifyContent: 'flex-end',
     position: 'relative',
   },
@@ -1850,7 +1857,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#b7b7b7',
     borderRadius: 1,
     position: 'absolute',
-    bottom: 20,
+    bottom: 18,
   },
   timeBarLabel: {
     fontSize: 10,
@@ -1859,28 +1866,46 @@ const styles = StyleSheet.create({
   },
   weekSummary: {
     marginBottom: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f7f7f7',
     borderRadius: 8,
     padding: 16,
+  },
+  grayCard: {
+    backgroundColor: '#f7f7f7',
   },
   weekSummaryTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333333',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   weekSummarySubtitle: {
     fontSize: 12,
     color: '#999999',
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  hintButton: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  hintButtonText: {
+    fontSize: 11,
+    color: '#6b7280',
+    fontWeight: '700',
+    lineHeight: 12,
   },
   weekBars: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: 80,
-    paddingHorizontal: 8,
-    marginTop: 16,
+    paddingHorizontal: 6,
+    marginTop: 8,
   },
   weekBarContainer: {
     alignItems: 'center',
@@ -1907,7 +1932,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   timeSection: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f7f7f7',
     borderRadius: 8,
     padding: 16,
   },
