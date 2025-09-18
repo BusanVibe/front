@@ -7,7 +7,7 @@ import colors from '../../styles/colors';
 import typography from '../../styles/typography';
 
 interface CongestionBadgeProps {
-  level: number; // 1: 여유, 2: 보통, 3: 약간혼잡, 4: 혼잡
+  level: number; // 1: 여유, 2: 보통, 3: 혼잡, 4: 매우혼잡
   style?: any;
 }
 
@@ -16,13 +16,13 @@ const CongestionBadge: React.FC<CongestionBadgeProps> = ({level, style}) => {
     switch (level) {
       case 4:
         return {
-          text: '혼잡',
+          text: '매우혼잡',
           backgroundColor: colors.red[100],
           textColor: colors.red[500],
         };
       case 3:
         return {
-          text: '약간혼잡',
+          text: '혼잡',
           backgroundColor: colors.orange[100],
           textColor: colors.orange[500],
         };
