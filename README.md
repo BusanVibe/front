@@ -1,3 +1,32 @@
+# 부산스럽다
+> 실시간 혼잡도 데이터를 기반으로 관광지·맛집·문화시설·축제 정보를 제공하는 부산 지역 특화 관광서비스
+
+![이미지 2025  9  23  오전 11 19 (9)](https://github.com/user-attachments/assets/51feb411-58e6-48af-8c96-2f962d8dc4f9)
+
+![이미지 2025  9  23  오전 11 19 (10)](https://github.com/user-attachments/assets/83563a4b-8653-4e95-b84f-093ec9edd8f2)
+
+![이미지 2025  9  23  오전 11 19 (7)](https://github.com/user-attachments/assets/0592532b-0c4d-4313-b987-b32642d54ab8)
+
+![이미지 2025  9  23  오전 11 19 (1)](https://github.com/user-attachments/assets/0f2208fa-db3e-4d1e-b9d7-5d4af7382a63)
+
+![이미지 2025  9  23  오전 11 19 (3)](https://github.com/user-attachments/assets/f06f8cb0-372b-4fac-8020-6f05fe8d822d)
+
+![이미지 2025  9  23  오전 11 19 (8)](https://github.com/user-attachments/assets/6832b03d-b0b6-4384-9bd2-1c7096fe5b2a)
+
+![이미지 2025  9  23  오전 11 19 (2)](https://github.com/user-attachments/assets/84adde99-6f2c-4036-9ebb-e03704437ef6)
+
+![이미지 2025  9  23  오전 11 19 (6)](https://github.com/user-attachments/assets/8fb50515-8f19-4182-854d-03ed6b7d8531)
+
+![이미지 2025  9  23  오전 11 19 (4)](https://github.com/user-attachments/assets/26d6bbcc-7789-4b57-90b4-f5ea9db8e156)
+
+![이미지 2025  9  23  오전 11 19 (11)](https://github.com/user-attachments/assets/e9e3e51c-9dba-4711-84bc-a03c8dd55b6d)
+
+![이미지 2025  9  23  오전 11 19 (5)](https://github.com/user-attachments/assets/5233d8d0-9463-4821-8bf2-68f35e628e27)
+
+![이미지 2025  9  23  오전 11 19](https://github.com/user-attachments/assets/6c0e06c5-2816-44fb-be0e-cda4faa9053d)
+
+
+
 # React Native 프로젝트 가이드
 
 이 프로젝트는 [`@react-native-community/cli`](https://github.com/react-native-community/cli)를 통해 생성된 [**React Native**](https://reactnative.dev) 기반 프로젝트입니다.
@@ -23,81 +52,6 @@
 - ⏪️ **Revert:** 이전 버전으로 롤백
 
 ---
-
-## ✅ Android Emulator 설치 및 사용 방법 (Windows & macOS 공통)
-
-### 1. **Android Studio 설치**
-
-* 공식 사이트: [https://developer.android.com/studio](https://developer.android.com/studio)
-* 운영체제에 맞게 다운로드 후 설치
-
----
-
-### 2. **Android SDK & Emulator 설치**
-
-Android Studio 설치 후 처음 실행 시, 다음과 같은 컴포넌트 설치 유무를 확인하거나 수동 설치 가능:
-
-* Android SDK
-* Android SDK Platform-tools
-* Android Emulator
-* Intel HAXM (Windows) / Apple Hypervisor Framework (macOS)
-* AVD Manager
-
-> 설치 유무 확인:
-> `Android Studio → More Actions → SDK Manager → SDK Tools 탭`
-> `Android Emulator` 체크되어 있어야 함
-
----
-
-### 3. **AVD(가상 디바이스) 생성 방법**
-
-**Android Studio GUI 사용**
-
-1. Android Studio 실행
-2. `More Actions → Virtual Device Manager` 클릭
-3. `+ Create Device` 버튼 클릭
-4. 원하는 기기 선택 (예: Pixel 6)
-5. 사용할 Android 버전 선택 (예: Android 13.0)
-6. 이름 지정 후 `Finish`
-
----
-
-## ✅ 에뮬레이터 실행
-
-### ▶ GUI로 실행:
-
-* Android Studio → Virtual Device Manager → `▶` 아이콘 클릭
-
-### ▶ CLI (명령어)로 실행:
-
-```bash
-emulator -avd <AVD_NAME>
-```
-
-> 예: `emulator -avd Pixel_6_API_33`
-
----
-
-## 🔧 SDK 경로 (중요)
-
-* **Windows**: `C:\Users\<username>\AppData\Local\Android\Sdk`
-* **macOS**: `~/Library/Android/sdk`
-
-환경변수 등록 시:
-
-```bash
-# Windows (PowerShell 또는 환경변수 설정)
-setx ANDROID_HOME "C:\Users\<username>\AppData\Local\Android\Sdk"
-
-# macOS (zsh)
-export ANDROID_HOME=$HOME/Library/Android/sdk
-export PATH=$ANDROID_HOME/emulator:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$PATH
-```
-
----
----
----
-
 ## 🚀 앱 실행 기본 명령어
 
 ### 1. Metro 서버 실행
@@ -179,47 +133,7 @@ npm install
 
 ---
 
-## 🛠 기타 명령어 정리
-
-| 기능 | 명령어 |
-|------|--------|
-| Metro 서버 시작 | `npx react-native start` |
-| Android 실행 | `npx react-native run-android` |
-| iOS 실행 | `npx react-native run-ios` |
-| 기기 목록 확인 (Android) | `adb devices` |
-| iOS 기기 목록 확인 | `xcrun simctl list devices` |
-| 앱 종료 (iOS 시뮬레이터) | `Cmd + Q` 또는 시뮬레이터 창 닫기 |
-
----
-
-## ✅ React Native 개발 시 코드 구성 단위
-
-| 단위 | 설명 | 예시 폴더명 |
-|------|------|-------------|
-| **Screen** | 하나의 전체 화면(페이지) | `screens/` |
-| **Component** | 여러 Screen에서 재사용되는 UI 블록 | `components/` |
-| **Navigation** | 스택/탭 구조 정의 | `navigation/` |
-| **Hooks** | 커스텀 로직 (상태/비즈니스) | `hooks/` |
-| **Context / Store** | 전역 상태 관리 (Redux, Context API 등) | `store/`, `contexts/` |
-| **Assets** | 이미지, 폰트 등 정적 자원 | `assets/` |
-| **Utils** | 날짜 처리, 숫자 포맷 등 유틸 함수 | `utils/` |
-| **Types** | TypeScript 인터페이스/타입 정의 | `types/` |
-| **Services / API** | 서버 통신, 로컬 DB 등 외부 의존성 | `api/`, `services/` |
-
----
-
-## 📝 React 와의 차이
-
-| 항목 | React (Web) | React Native |
-|------|-------------|--------------|
-| **단위** | page, component | screen, component |
-| **라우팅** | React Router | React Navigation (Stack/Tab/Drawer) |
-| **스타일** | CSS/SASS/Styled-components 등 | StyleSheet / Tailwind-like utility libraries |
-| **자원** | 이미지, SVG 등 웹 static | 로컬 이미지, 폰트, .ttf 등 직접 import 필요 |
-
----
-
-## 🧩 기본 폴더 구조 예시
+## 🧩 폴더 구조
 
 ```
 src/
@@ -234,15 +148,6 @@ src/
 ├── assets/            # 이미지, 폰트, 아이콘 등
 └── App.tsx            # 루트 앱 진입점
 ```
-
----
-
-
-
-## 🎉 축하합니다!
-
-React Native 프로젝트가 성공적으로 실행되었고, 디바이스 연결 및 앱 개발을 위한 환경이 갖추어졌습니다. 다음 단계로는 컴포넌트 개발, API 연동, 네비게이션 구성 등을 확장할 수 있습니다.
-
 
 ---
 
