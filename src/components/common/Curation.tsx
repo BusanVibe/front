@@ -78,7 +78,6 @@ const CurationComponent: React.FC<CurationComponentProps> = ({type}) => {
 
         setCurationData(transformedData);
       } catch (err) {
-        console.error('큐레이션 데이터 로드 실패:', err);
         setError('큐레이션 데이터를 불러올 수 없습니다.');
         setCurationData([]);
       } finally {

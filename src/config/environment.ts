@@ -5,7 +5,6 @@
 export type Environment = 'development' | 'staging' | 'production';
 
 const getEnvironment = (): Environment => {
-  // __DEV__는 React Native에서 제공하는 개발 모드 플래그입니다
   if (__DEV__) {
     return 'development';
   }
@@ -16,14 +15,17 @@ const ENVIRONMENT_CONFIG = {
   development: {
     API_BASE_URL: 'https://api.busanVibe.site/',
     DEBUG: true,
+    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
   },
   staging: {
     API_BASE_URL: 'https://api.busanVibe.site/',
     DEBUG: false,
+    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
   },
   production: {
     API_BASE_URL: 'https://api.busanVibe.site/',
     DEBUG: false,
+    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
   },
 };
 

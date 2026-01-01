@@ -17,33 +17,27 @@ export class UserService {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
-      console.log('=== User MyPage API ===');
-      console.log('response:', response);
+
       const responseText = await response.text();
 
       if (!response.ok) {
-        console.error('마이페이지 API 실패:', response.status, response.statusText, responseText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data: MyPageResponse = JSON.parse(responseText);
 
       if (!data.is_success || !data.result) {
-        console.error('마이페이지 API 비정상 응답:', data);
         throw new Error('마이페이지 데이터 로드 실패');
       }
 
       return data.result;
     } catch (error) {
-      console.error('마이페이지 API 호출 중 오류:', error);
       throw error;
     }
   }
 
   /**
    * 좋아요 목록 조회
-   * @param accessToken 사용자 액세스 토큰
-   * @param option 서버 옵션(e.g. 'restaurant', 'sight', 'festival', 'all')
    */
   static async getLikes(accessToken: string, option: string = 'restaurant'): Promise<PlaceListItem[]> {
     const normalized = String(option).toUpperCase();
@@ -60,31 +54,22 @@ export class UserService {
       });
 
       const text = await response.text();
-      // 안전 로깅: 민감정보 제외, 응답 일부만 출력
-      console.log('=== User Likes API RAW ===');
-      console.log('endpoint:', url);
-      console.log('status:', response.status, 'ok:', response.ok);
-      console.log('bodySnippet:', text.slice(0, 600));
+
       if (!response.ok) {
-        console.error('좋아요 목록 API 실패:', response.status, response.statusText, text);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = JSON.parse(text);
       const result = data?.result ?? {};
-      console.log('=== User Likes API PARSED ===');
-      console.log('sort:', result?.sort);
-      let list: any[] = [];
+      let list: unknown[] = [];
 
-      // result_list가 ["java.util.ArrayList", [ ... ]] 형태이거나 그냥 배열일 수 있음
       if (Array.isArray(result.result_list)) {
         if (Array.isArray(result.result_list[1])) {
-          list = result.result_list[1] as any[];
+          list = result.result_list[1];
         } else {
-          list = result.result_list as any[];
+          list = result.result_list;
         }
       }
-      console.log('listLength:', Array.isArray(list) ? list.length : 0);
 
       const toPlaceType = (typeEn: string): PlaceType => {
         switch (String(typeEn).toUpperCase()) {
@@ -101,17 +86,31 @@ export class UserService {
         }
       };
 
-      const places: PlaceListItem[] = (list as any[])
+      interface LikeItem {
+        id: number;
+        name?: string;
+        congestion_level?: number;
+        is_like?: boolean;
+        type_en?: string;
+        address?: string;
+        img_url?: string;
+        latitude?: number;
+        longitude?: number;
+        start_date?: string;
+        end_date?: string;
+        like_count?: number;
+      }
+
+      const places: PlaceListItem[] = (list as LikeItem[])
         .map(item => {
-          const placeItem: unknown = {
+          const placeItem: PlaceListItem = {
             id: Number(item.id),
             name: String(item.name ?? ''),
             congestion_level: Number(item.congestion_level ?? 0),
-            // 즐겨찾기 목록에 포함된 항목은 기본적으로 좋아요 상태로 간주
             is_like: item.is_like == null ? true : Boolean(item.is_like),
             type: toPlaceType(item.type_en ?? 'SIGHT'),
             address: String(item.address ?? ''),
-            img: String(item.img_url ?? ''), // 이미지 경로 매핑
+            img: String(item.img_url ?? ''),
             latitude: item.latitude == null ? undefined : Number(item.latitude),
             longitude: item.longitude == null ? undefined : Number(item.longitude),
             ...(String(item.type_en ?? '').toUpperCase() === 'FESTIVAL' && {
@@ -120,23 +119,14 @@ export class UserService {
               like_count: item.like_count,
             }),
           };
-          return placeItem as PlaceListItem;
+          return placeItem;
         });
 
-      console.log('=== User Likes MAPPED ===');
-      console.log('mappedCount:', places.length);
-      if (places.length > 0) {
-        const p = places[0];
-        console.log('firstItem:', { id: p.id, name: p.name, type: p.type });
-      }
       return places;
     } catch (error) {
-      console.error('좋아요 목록 API 호출 중 오류:', error);
       throw error;
     }
   }
 }
 
 export default UserService;
-
-

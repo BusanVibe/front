@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {API_CONFIG} from '../config/api';
 import {
   ApiResponse,
   ApiPlaceListResponse,
@@ -14,7 +15,43 @@ import {
 } from '../types/place';
 import {BaseApiResponse} from '../types/common';
 
-const BASE_URL = 'https://api.busanvibe.site';
+const BASE_URL = API_CONFIG.BASE_URL;
+
+/**
+ * Java ArrayList 형식 데이터 파싱
+ */
+const parseJavaArrayList = <T>(data: unknown): T[] => {
+  if (!Array.isArray(data)) return [];
+  if (data.length === 2 && data[0] === 'java.util.ArrayList' && Array.isArray(data[1])) {
+    return data[1];
+  }
+  return data as T[];
+};
+
+/**
+ * Java BigDecimal 형식 좌표 파싱
+ */
+const parseJavaBigDecimal = (value: unknown): number | undefined => {
+  if (Array.isArray(value) && value[0] === 'java.math.BigDecimal') {
+    return Number(value[1]);
+  }
+  return typeof value === 'number' ? value : undefined;
+};
+
+/**
+ * API 타입을 앱 타입으로 변환
+ */
+const getPlaceType = (apiType: string): PlaceType => {
+  const typeMap: Record<string, PlaceType> = {
+    'SIGHT': PlaceType.SIGHT,
+    'RESTAURANT': PlaceType.RESTAURANT,
+    'CULTURE': PlaceType.CULTURE,
+    '관광지': PlaceType.SIGHT,
+    '식당': PlaceType.RESTAURANT,
+    '문화시설': PlaceType.CULTURE,
+  };
+  return typeMap[apiType] || PlaceType.SIGHT;
+};
 
 /**
  * 명소 좋아요 토글 API
@@ -22,14 +59,7 @@ const BASE_URL = 'https://api.busanvibe.site';
 export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<{success: boolean; message: string}>> => {
   try {
     const accessToken = await AsyncStorage.getItem('accessToken');
-    console.log('=== PlaceService 좋아요 API 요청 시작 ===');
-    console.log('accessToken:', accessToken);
-    console.log('placeId:', placeId);
-
     const url = `${BASE_URL}/api/places/like/${placeId}`;
-
-    console.log('=== 명소 좋아요 API 호출 ===');
-    console.log('API URL:', url);
 
     const response = await fetch(url, {
       method: 'PATCH',
@@ -40,38 +70,16 @@ export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<
       },
     });
 
-    console.log('=== API 응답 정보 ===');
-    console.log('응답 상태:', response.status);
-    console.log('응답 상태 텍스트:', response.statusText);
-
     const responseText = await response.text();
-    console.log('응답 데이터:', responseText);
 
     if (!response.ok) {
-      console.error('=== 명소 좋아요 API 호출 실패 ===');
-      console.error('상태 코드:', response.status);
-      console.error('응답 내용:', responseText);
-
       throw new Error(
         `HTTP error! status: ${response.status}, response: ${responseText}`,
       );
     }
 
-    const data: BaseApiResponse<{success: boolean; message: string}> =
-      JSON.parse(responseText);
-
-    console.log('=== 명소 좋아요 API 응답 성공 ===');
-    console.log('응답 데이터:', {
-      isSuccess: data.is_success,
-      code: data.code,
-      message: data.message,
-      result: data.result,
-    });
-
-    return data;
+    return JSON.parse(responseText);
   } catch (error) {
-    console.error('=== 명소 좋아요 API 에러 ===');
-    console.error('에러 상세:', error);
     throw error;
   }
 };
@@ -82,21 +90,7 @@ export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<
 const transformApiPlaceToPlaceItem = (
   apiPlace: ApiPlaceItem,
 ): PlaceListItem => {
-  // API 타입을 앱 타입으로 변환
-  const getPlaceType = (apiType: string): PlaceType => {
-    switch (apiType) {
-      case 'SIGHT':
-        return PlaceType.SIGHT;
-      case 'RESTAURANT':
-        return PlaceType.RESTAURANT;
-      case 'CULTURE':
-        return PlaceType.CULTURE;
-      default:
-        return PlaceType.SIGHT; // 기본값
-    }
-  };
-
-  const anyPlace: any = apiPlace as any;
+  const place = apiPlace as ApiPlaceItem & { latitude?: unknown; longitude?: unknown };
   return {
     id: apiPlace.id,
     name: apiPlace.name,
@@ -105,22 +99,19 @@ const transformApiPlaceToPlaceItem = (
     type: getPlaceType(apiPlace.type),
     address: apiPlace.address,
     img: apiPlace.img || undefined,
-    latitude: typeof anyPlace.latitude === 'number' ? anyPlace.latitude : undefined,
-    longitude: typeof anyPlace.longitude === 'number' ? anyPlace.longitude : undefined,
+    latitude: parseJavaBigDecimal(place.latitude),
+    longitude: parseJavaBigDecimal(place.longitude),
   };
 };
 
 /**
  * 명소 목록 조회 API
- * @param category 카테고리 (ALL, SIGHT, RESTAURANT, CULTURE)
- * @param sort 정렬 (DEFAULT, LIKE, CONGESTION)
  */
 export const getPlaceList = async (
   category: PlaceCategory = PlaceCategory.ALL,
   sort: PlaceSort = PlaceSort.DEFAULT,
 ): Promise<PlaceListItem[]> => {
   try {
-    // AsyncStorage에서 Access Token 가져오기
     const accessToken = await AsyncStorage.getItem('accessToken');
 
     if (!accessToken) {
@@ -128,7 +119,6 @@ export const getPlaceList = async (
     }
 
     const url = `${BASE_URL}/api/places?category=${category}&sort=${sort}`;
-    console.log('명소 목록 API 호출:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -146,65 +136,24 @@ export const getPlaceList = async (
     }
 
     const data: ApiResponse<ApiPlaceListResponse> = await response.json();
-    console.log('명소 목록 API 응답:', data);
 
     if (!data.is_success) {
       throw new Error(`API 오류: ${data.message}`);
     }
 
-    // API 응답 처리
-    let placeList: any[] = [];
+    const placeList = parseJavaArrayList<ApiPlaceItem>(data.result?.place_list);
 
-    if (data.result?.place_list) {
-      if (Array.isArray(data.result.place_list)) {
-        // 첫 번째 요소가 "java.util.ArrayList"인지 확인
-        if (
-          data.result.place_list.length === 2 &&
-          data.result.place_list[0] === 'java.util.ArrayList' &&
-          Array.isArray(data.result.place_list[1])
-        ) {
-          // ["java.util.ArrayList", [...]] 형태인 경우
-          placeList = data.result.place_list[1];
-        } else {
-          // 직접 배열인 경우
-          placeList = data.result.place_list;
-        }
-      }
-    }
-
-    const normalizedPlaces = placeList.map((place: any) => {
-      console.log('원본 장소 데이터:', place);
-
-      const normalizedPlace = {
+    const normalizedPlaces = placeList.map((place) => {
+      const placeWithCoords = place as ApiPlaceItem & { latitude?: unknown; longitude?: unknown };
+      return {
         ...place,
-        latitude:
-          Array.isArray(place.latitude) &&
-          place.latitude[0] === 'java.math.BigDecimal'
-            ? place.latitude[1]
-            : place.latitude,
-        longitude:
-          Array.isArray(place.longitude) &&
-          place.longitude[0] === 'java.math.BigDecimal'
-            ? place.longitude[1]
-            : place.longitude,
+        latitude: parseJavaBigDecimal(placeWithCoords.latitude),
+        longitude: parseJavaBigDecimal(placeWithCoords.longitude),
       };
-
-      console.log('정규화된 장소 데이터:', normalizedPlace);
-      return normalizedPlace;
     });
 
-    console.log(`변환 전 장소 개수: ${normalizedPlaces.length}`);
-
-    const transformedPlaces = normalizedPlaces.map(
-      transformApiPlaceToPlaceItem,
-    );
-
-    console.log(`변환 후 장소 개수: ${transformedPlaces.length}`);
-    console.log('첫 번째 장소 샘플:', transformedPlaces[0]);
-
-    return transformedPlaces;
+    return normalizedPlaces.map(transformApiPlaceToPlaceItem);
   } catch (error) {
-    console.error('명소 목록 조회 오류:', error);
     throw error;
   }
 };
@@ -242,19 +191,6 @@ export const getSortFromKorean = (koreanSort: string): PlaceSort => {
  * 홈화면 데이터를 PlaceListItem으로 변환
  */
 const transformHomePlaceToPlaceItem = (homePlace: HomePlace): PlaceListItem => {
-  const getPlaceType = (apiType: string): PlaceType => {
-    switch (apiType) {
-      case '관광지':
-        return PlaceType.SIGHT;
-      case '식당':
-        return PlaceType.RESTAURANT;
-      case '문화시설':
-        return PlaceType.CULTURE;
-      default:
-        return PlaceType.SIGHT;
-    }
-  };
-
   return {
     id: homePlace.id,
     name: homePlace.name,
@@ -280,7 +216,6 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
     }
 
     const url = `${BASE_URL}/api/places/${placeId}`;
-    console.log('명소 상세 API 호출:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -298,7 +233,6 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
     }
 
     const data: ApiResponse<ApiPlaceDetailResponse> = await response.json();
-    console.log('명소 상세 API 응답:', data);
 
     if (!data.is_success) {
       throw new Error(`API 오류: ${data.message}`);
@@ -309,25 +243,8 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
       throw new Error('응답 데이터가 없습니다.');
     }
 
-    // 이미지 배열 처리
-    let images: string[] = [];
-    if (result.img && Array.isArray(result.img)) {
-      if (result.img[0] === 'java.util.ArrayList' && Array.isArray(result.img[1])) {
-        images = result.img[1];
-      } else {
-        images = result.img;
-      }
-    }
+    const images = parseJavaArrayList<string>(result.img);
 
-    // BigDecimal 형태의 좌표 파싱
-    const parseLocation = (location: any): number | undefined => {
-      if (Array.isArray(location) && location[0] === 'java.math.BigDecimal') {
-        return Number(location[1]);
-      }
-      return location ? Number(location) : undefined;
-    };
-
-    // 상세 정보 구성
     const placeDetail: PlaceDetail = {
       id: result.id,
       name: result.name,
@@ -344,20 +261,16 @@ export const getPlaceDetail = async (placeId: number): Promise<PlaceDetail> => {
       introduce: result.introduce,
       use_time: result.use_time,
       rest_date: result.rest_date,
-      latitude: parseLocation(result.latitude),
-      longitude: parseLocation(result.longitude),
+      latitude: parseJavaBigDecimal(result.latitude),
+      longitude: parseJavaBigDecimal(result.longitude),
     };
 
     return placeDetail;
   } catch (error) {
-    console.error('명소 상세 조회 오류:', error);
     throw error;
   }
 };
 
-/**
- * 홈화면 정보 조회 API
- */
 /**
  * 큐레이션 아이템 타입
  */
@@ -379,7 +292,6 @@ interface CurationResponse {
 
 /**
  * 큐레이션 데이터 조회 API
- * @param type 타입 (PLACE 또는 FESTIVAL)
  */
 export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<CurationItem[]> => {
   try {
@@ -390,7 +302,6 @@ export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<Curat
     }
 
     const url = `${BASE_URL}/api/home/curation?type=${type}`;
-    console.log('큐레이션 API 호출:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -408,7 +319,6 @@ export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<Curat
     }
 
     const data: BaseApiResponse<CurationResponse> = await response.json();
-    console.log('큐레이션 API 응답:', data);
 
     if (!data.is_success) {
       throw new Error(`API 오류: ${data.message}`);
@@ -419,28 +329,15 @@ export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<Curat
       throw new Error('응답 데이터가 없습니다.');
     }
 
-    // curation_list가 ["java.util.ArrayList", [...]] 형태인지 확인
-    let curationList: CurationItem[] = [];
-    if (Array.isArray(result.curation_list)) {
-      if (
-        result.curation_list.length === 2 &&
-        result.curation_list[0] === 'java.util.ArrayList' &&
-        Array.isArray(result.curation_list[1])
-      ) {
-        curationList = result.curation_list[1];
-      } else {
-        curationList = result.curation_list as unknown as CurationItem[];
-      }
-    }
-
-    console.log(`큐레이션 데이터 개수: ${curationList.length}`);
-    return curationList;
+    return parseJavaArrayList<CurationItem>(result.curation_list);
   } catch (error) {
-    console.error('큐레이션 데이터 조회 오류:', error);
     throw error;
   }
 };
 
+/**
+ * 홈화면 정보 조회 API
+ */
 export const getHomeData = async (): Promise<{
   mostCrowded: PlaceListItem[];
   recommendPlace: PlaceListItem[];
@@ -453,7 +350,6 @@ export const getHomeData = async (): Promise<{
     }
 
     const url = `${BASE_URL}/api/home`;
-    console.log('홈화면 API 호출:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -471,7 +367,6 @@ export const getHomeData = async (): Promise<{
     }
 
     const data: BaseApiResponse<HomeResponse> = await response.json();
-    console.log('홈화면 API 응답:', data);
 
     if (!data.is_success) {
       throw new Error(`API 오류: ${data.message}`);
@@ -482,67 +377,33 @@ export const getHomeData = async (): Promise<{
       throw new Error('응답 데이터가 없습니다.');
     }
 
-    let mostCrowdedData = Array.isArray(result.most_crowded[1])
+    const mostCrowdedData = Array.isArray(result.most_crowded[1])
       ? result.most_crowded[1]
       : [];
 
-    let recommendPlaceData = Array.isArray(result.recommend_place[1])
+    const recommendPlaceData = Array.isArray(result.recommend_place[1])
       ? result.recommend_place[1]
       : [];
 
-    mostCrowdedData = mostCrowdedData.map((place: any) => ({
+    const normalizeCoordinates = (place: HomePlace) => ({
       ...place,
-      latitude:
-        Array.isArray(place.latitude) &&
-        place.latitude[0] === 'java.math.BigDecimal'
-          ? place.latitude[1]
-          : place.latitude,
-      longitude:
-        Array.isArray(place.longitude) &&
-        place.longitude[0] === 'java.math.BigDecimal'
-          ? place.longitude[1]
-          : place.longitude,
-    }));
-
-    recommendPlaceData = recommendPlaceData.map((place: any) => ({
-      ...place,
-      latitude:
-        Array.isArray(place.latitude) &&
-        place.latitude[0] === 'java.math.BigDecimal'
-          ? place.latitude[1]
-          : place.latitude,
-      longitude:
-        Array.isArray(place.longitude) &&
-        place.longitude[0] === 'java.math.BigDecimal'
-          ? place.longitude[1]
-          : place.longitude,
-    }));
-
-    console.log(`붐비는 곳 개수: ${mostCrowdedData.length}`);
-    console.log(`추천 명소 개수: ${recommendPlaceData.length}`);
-
-    // 데이터 변환
-    const mostCrowded = mostCrowdedData.map(transformHomePlaceToPlaceItem);
-    const recommendPlace = recommendPlaceData.map(
-      transformHomePlaceToPlaceItem,
-    );
-
-    // 좌표 디버깅
-    console.log('홈 데이터 좌표 정보:');
-    mostCrowded.forEach(place => {
-      console.log(`${place.name}: ${place.latitude}, ${place.longitude}`);
+      latitude: parseJavaBigDecimal(place.latitude) ?? place.latitude,
+      longitude: parseJavaBigDecimal(place.longitude) ?? place.longitude,
     });
-    recommendPlace.forEach(place => {
-      console.log(`${place.name}: ${place.latitude}, ${place.longitude}`);
-    });
+
+    const mostCrowded = mostCrowdedData
+      .map(normalizeCoordinates)
+      .map(transformHomePlaceToPlaceItem);
+
+    const recommendPlace = recommendPlaceData
+      .map(normalizeCoordinates)
+      .map(transformHomePlaceToPlaceItem);
 
     return {
       mostCrowded,
       recommendPlace,
     };
   } catch (error) {
-    console.error('홈화면 데이터 조회 오류:', error);
     throw error;
   }
 };
-

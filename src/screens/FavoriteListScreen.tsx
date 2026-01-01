@@ -34,7 +34,7 @@ const FavoriteListScreen: React.FC = () => {
     try {
       setIsLoading(true);
       if (!user?.accessToken) {
-        console.log('=== 액세스 토큰 없음 ===');
+        
         setFavorites([]);
         return;
       }
@@ -60,9 +60,9 @@ const FavoriteListScreen: React.FC = () => {
           break;
       }
       
-      console.log('=== FavoriteList 로딩 시작 ===', { category, option });
+      
       const list = await UserService.getLikes(user.accessToken, option);
-      console.log('=== FavoriteList 로딩 완료 ===', { count: list.length, list });
+      
       setFavorites(list);
     } catch (e) {
       console.error('FavoriteList 로딩 실패:', e);

@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
-import CurationComponent from '../components/common/Curration';
+import CurationComponent from '../components/common/Curation';
 import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
 import {PlaceListItem} from '../types/place';
@@ -54,12 +54,12 @@ const AttractionScreen = () => {
       const category = getCategoryFromKorean(selectedCategory);
       const sort = getSortFromKorean(selectedSort);
 
-      console.log('명소 데이터 로드 시작:', {category, sort});
+      
 
       const data = await getPlaceList(category, sort);
       setPlaceData(data);
 
-      console.log('명소 데이터 로드 완료:', data.length, '개');
+      
     } catch (err) {
       const errorMessage =
         err instanceof Error

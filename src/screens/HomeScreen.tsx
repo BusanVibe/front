@@ -8,7 +8,7 @@ import IcMap from '../assets/icon/ic_map.svg';
 import IcCalendar from '../assets/icon/ic_calendar.svg';
 import IcMessage from '../assets/icon/ic_message.svg';
 import IcX from '../assets/icon/ic_x.svg';
-import CurationComponent from '../components/common/Curration';
+import CurationComponent from '../components/common/Curation';
 import CrowdedPlacesSection from '../components/home/CrowdedPlacesSection';
 import AttractionSection from '../components/home/AttractionSection';
 import {useLocation} from '../contexts/LocationContext';

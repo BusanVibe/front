@@ -26,6 +26,12 @@ import {useLikes} from '../../contexts/LikesContext';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
+interface FestivalLikeData {
+  start_date?: string;
+  end_date?: string;
+  like_count?: number;
+}
+
 interface AttractionCardProps {
   place: PlaceListItem | FestivalListItem;
   cardType?: CardType;
@@ -59,21 +65,21 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     if (isPlace && placeData.type !== PlaceType.FESTIVAL) {
       navigation.navigate('PlaceDetail', {place: placeData});
     } else {
+      const festivalLikeData = place as PlaceListItem & FestivalLikeData;
       const festivalItem = {
         id: place.id,
         name: place.name,
         is_like: place.is_like,
         address: place.address,
         img: place.img,
-        start_date: (place as any).start_date || '',
-        end_date: (place as any).end_date || '',
-        like_amount: (place as any).like_count || 0,
+        start_date: festivalLikeData.start_date || '',
+        end_date: festivalLikeData.end_date || '',
+        like_amount: festivalLikeData.like_count || 0,
       };
       navigation.navigate('FestivalDetail', {festival: festivalItem});
     }
   }, [isPlace, navigation, placeData, place]);
 
-  // 거리 계산 - 메모이제이션
   const getDistanceText = useCallback((): string | null => {
     if (!isPlace || !hasLocationPermission || !userLocation) {
       return null;
@@ -94,42 +100,42 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   }, [isPlace, hasLocationPermission, userLocation, place]);
 
   const handleLikePress = useCallback(async () => {
-    console.log('=== AttractionCard handleLikePress 시작 ===');
-    console.log('isLikeLoading:', isLikeLoading, 'onToggleLike:', !!onToggleLike);
-    console.log('isPlace:', isPlace, 'festivalId:', isPlace ? placeData.id : festivalData.id);
-    
     if (isLikeLoading) {
-      console.log('=== handleLikePress 조기 리턴 ===');
       return;
     }
-    
+
     setIsLikeLoading(true);
     try {
-      console.log('=== onToggleLike 호출 시작 ===', isPlace ? placeData.id : festivalData.id);
       if (onToggleLike) {
         await onToggleLike(isPlace ? placeData.id : festivalData.id);
       } else if (isPlace) {
         await togglePlaceLikeInContext(placeData.id);
       }
-      console.log('=== onToggleLike/Context 호출 완료 ===');
     } finally {
       setIsLikeLoading(false);
     }
   }, [isLikeLoading, onToggleLike, isPlace, placeData.id, festivalData.id, togglePlaceLikeInContext]);
 
-  // 이미지 URL이 있는지 확인 - 메모이제이션
   const imageUrl = place.img;
   const hasImage = imageUrl && imageUrl.trim() !== '';
   const distanceText = getDistanceText();
 
-  // 이미지 로드 핸들러들 메모이제이션
   const handleImageLoadStart = useCallback(() => setImageLoading(true), []);
   const handleImageLoadEnd = useCallback(() => setImageLoading(false), []);
   const handleImageError = useCallback(() => {
-    console.log('이미지 로드 실패:', imageUrl);
     setImageError(true);
     setImageLoading(false);
-  }, [imageUrl]);
+  }, []);
+
+  const getFestivalDateInfo = (): { startDate?: string; endDate?: string } => {
+    const festivalLikeData = place as PlaceListItem & FestivalLikeData;
+    return {
+      startDate: festivalLikeData.start_date,
+      endDate: festivalLikeData.end_date,
+    };
+  };
+
+  const dateInfo = getFestivalDateInfo();
 
   return (
     <TouchableOpacity style={styles.attractionItem} onPress={handlePress}>
@@ -184,8 +190,8 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
         <Text style={styles.attractionCategory}>
           {isPlace && placeData.type !== PlaceType.FESTIVAL
             ? getPlaceTypeText(placeData.type)
-            : placeData.type === PlaceType.FESTIVAL && (place as any).start_date && (place as any).end_date
-            ? formatDateRange((place as any).start_date, (place as any).end_date)
+            : placeData.type === PlaceType.FESTIVAL && dateInfo.startDate && dateInfo.endDate
+            ? formatDateRange(dateInfo.startDate, dateInfo.endDate)
             : !isPlace
             ? formatDateRange(festivalData.start_date, festivalData.end_date)
             : getPlaceTypeText(placeData.type)}
@@ -208,16 +214,13 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
   );
 };
 
-// React.memo로 컴포넌트 메모이제이션
 export default memo(AttractionCard, (prevProps, nextProps) => {
-  // place 객체의 변경사항만 체크
   if (prevProps.place.id !== nextProps.place.id) return false;
   if (prevProps.place.name !== nextProps.place.name) return false;
   if (prevProps.place.img !== nextProps.place.img) return false;
   if (prevProps.place.is_like !== nextProps.place.is_like) return false;
   if (prevProps.cardType !== nextProps.cardType) return false;
-  
-  // PlaceListItem의 경우 추가 필드 체크
+
   if (prevProps.cardType === CardType.PLACE) {
     const prevPlace = prevProps.place as PlaceListItem;
     const nextPlace = nextProps.place as PlaceListItem;
@@ -225,7 +228,7 @@ export default memo(AttractionCard, (prevProps, nextProps) => {
     if (prevPlace.type !== nextPlace.type) return false;
     if (prevPlace.address !== nextPlace.address) return false;
   }
-  
+
   return true;
 });
 
