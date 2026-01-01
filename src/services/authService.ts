@@ -2,8 +2,8 @@
  * 인증 관련 API 서비스
  */
 
-import { CONFIG } from '../config';
-import { KakaoLoginResponse } from '../types/auth';
+import {CONFIG} from '../config';
+import {KakaoLoginResponse} from '../types/auth';
 
 // 환경 설정
 const KAKAO_CONFIG = {
@@ -30,7 +30,7 @@ export class AuthService {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'User-Agent': 'BusanVibe-Mobile-App',
         },
       });
@@ -38,14 +38,17 @@ export class AuthService {
       const responseText = await response.text();
 
       // 500 에러인 경우 한 번 더 시도
-      if (response.status === 500 && responseText.includes('Invalid Parameter')) {
+      if (
+        response.status === 500 &&
+        responseText.includes('Invalid Parameter')
+      ) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         response = await fetch(url, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            Accept: 'application/json',
             'User-Agent': 'BusanVibe-Mobile-App',
           },
         });
@@ -54,7 +57,9 @@ export class AuthService {
 
         if (!response.ok) {
           if (retryResponseText.includes('Invalid Parameter')) {
-            throw new Error('백엔드 카카오 설정 오류입니다. REDIRECT_URI 환경변수를 확인해주세요.');
+            throw new Error(
+              '백엔드 카카오 설정 오류입니다. REDIRECT_URI 환경변수를 확인해주세요.',
+            );
           }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -64,7 +69,9 @@ export class AuthService {
 
       if (!response.ok) {
         if (responseText.includes('Invalid Parameter')) {
-          throw new Error('백엔드 카카오 설정 오류입니다. REDIRECT_URI 환경변수를 확인해주세요.');
+          throw new Error(
+            '백엔드 카카오 설정 오류입니다. REDIRECT_URI 환경변수를 확인해주세요.',
+          );
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }

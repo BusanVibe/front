@@ -8,10 +8,10 @@ import {
   StatusBar,
 } from 'react-native';
 import {PlaceListItem} from '../types/place';
-import { useAuth } from '../contexts/AuthContext';
-import { useFocusEffect } from '@react-navigation/native';
-import { UserService } from '../services/userService';
-import { useLikes } from '../contexts/LikesContext';
+import {useAuth} from '../contexts/AuthContext';
+import {useFocusEffect} from '@react-navigation/native';
+import {UserService} from '../services/userService';
+import {useLikes} from '../contexts/LikesContext';
 import AttractionCard from '../components/common/AttractionCard';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -27,18 +27,17 @@ const FavoriteListScreen: React.FC = () => {
   const [sortType, setSortType] = useState<SortType>('담은순');
   const [showSortModal, setShowSortModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
-  const { likedPlaceIds, isPlaceLiked, refreshLikes } = useLikes();
+  const {user} = useAuth();
+  const {likedPlaceIds, isPlaceLiked, refreshLikes} = useLikes();
 
   const loadLikes = async (category: string = selectedCategory) => {
     try {
       setIsLoading(true);
       if (!user?.accessToken) {
-        
         setFavorites([]);
         return;
       }
-      
+
       // 카테고리에 따른 옵션 설정
       let option = 'ALL';
       switch (category) {
@@ -59,10 +58,9 @@ const FavoriteListScreen: React.FC = () => {
           option = 'ALL';
           break;
       }
-      
-      
+
       const list = await UserService.getLikes(user.accessToken, option);
-      
+
       setFavorites(list);
     } catch (e) {
       console.error('FavoriteList 로딩 실패:', e);
@@ -92,12 +90,15 @@ const FavoriteListScreen: React.FC = () => {
     useCallback(() => {
       refreshLikes();
       return () => {};
-    }, [refreshLikes])
+    }, [refreshLikes]),
   );
 
-  const sortFavorites = (data: PlaceListItem[], sortType: SortType): PlaceListItem[] => {
+  const sortFavorites = (
+    data: PlaceListItem[],
+    sortType: SortType,
+  ): PlaceListItem[] => {
     const sortedData = [...data];
-    
+
     switch (sortType) {
       case '담은순':
         // 담은 순서대로 (기본 순서)
@@ -125,8 +126,6 @@ const FavoriteListScreen: React.FC = () => {
     return sortFavorites(favorites, sortType);
   };
 
-
-
   const renderFavoriteItem = ({item}: {item: PlaceListItem}) => (
     <AttractionCard place={item} />
   );
@@ -135,84 +134,84 @@ const FavoriteListScreen: React.FC = () => {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.container}>
-      {/* 카테고리 필터 */}
-      <View style={styles.categoryContainer}>
-        {categories.map(category => (
-          <TouchableOpacity
-            key={category}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory(category)}>
-            <Text
+        {/* 카테고리 필터 */}
+        <View style={styles.categoryContainer}>
+          {categories.map(category => (
+            <TouchableOpacity
+              key={category}
               style={[
-                styles.categoryText,
-                selectedCategory === category && styles.categoryTextActive,
-              ]}>
-              {category}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity 
-          style={styles.sortButton}
-          onPress={() => setShowSortModal(true)}
-        >
-          <Text style={styles.sortText}>{sortType} ▼</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 좋아요 목록 */}
-      {isLoading ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>로딩 중...</Text>
-        </View>
-      ) : getFilteredAndSortedData().length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>좋아요한 장소가 없습니다</Text>
-          <Text style={styles.emptySubText}>관심있는 장소에 하트를 눌러보세요</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={getFilteredAndSortedData()}
-          renderItem={renderFavoriteItem}
-          keyExtractor={item => item.id.toString()}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.listContainer}
-        />
-      )}
-
-      {/* 정렬 드롭다운 */}
-      {showSortModal && (
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowSortModal(false)}
-        >
-          <View style={styles.dropdownContent}>
-            {sortOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
+                styles.categoryButton,
+                selectedCategory === category && styles.categoryButtonActive,
+              ]}
+              onPress={() => setSelectedCategory(category)}>
+              <Text
                 style={[
-                  styles.sortOption,
-                  sortType === option && styles.sortOptionActive
-                ]}
-                onPress={() => {
-                  setSortType(option as SortType);
-                  setShowSortModal(false);
-                }}
-              >
-                <Text style={[
-                  styles.sortOptionText,
-                  sortType === option && styles.sortOptionTextActive
+                  styles.categoryText,
+                  selectedCategory === category && styles.categoryTextActive,
                 ]}>
-                  {option}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setShowSortModal(true)}>
+            <Text style={styles.sortText}>{sortType} ▼</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 좋아요 목록 */}
+        {isLoading ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>로딩 중...</Text>
           </View>
-        </TouchableOpacity>
-      )}
+        ) : getFilteredAndSortedData().length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>좋아요한 장소가 없습니다</Text>
+            <Text style={styles.emptySubText}>
+              관심있는 장소에 하트를 눌러보세요
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={getFilteredAndSortedData()}
+            renderItem={renderFavoriteItem}
+            keyExtractor={item => item.id.toString()}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listContainer}
+          />
+        )}
+
+        {/* 정렬 드롭다운 */}
+        {showSortModal && (
+          <TouchableOpacity
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowSortModal(false)}>
+            <View style={styles.dropdownContent}>
+              {sortOptions.map(option => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.sortOption,
+                    sortType === option && styles.sortOptionActive,
+                  ]}
+                  onPress={() => {
+                    setSortType(option as SortType);
+                    setShowSortModal(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      sortType === option && styles.sortOptionTextActive,
+                    ]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );

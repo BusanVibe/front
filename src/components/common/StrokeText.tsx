@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextStyle } from 'react-native';
+import {View, Text, StyleSheet, TextStyle} from 'react-native';
 
 type StrokeTextProps = {
   children: React.ReactNode;
@@ -19,14 +19,14 @@ const StrokeText: React.FC<StrokeTextProps> = ({
   strokeWidth = 1,
 }) => {
   const offsets = [
-    { x: -strokeWidth, y: 0 },
-    { x: strokeWidth, y: 0 },
-    { x: 0, y: -strokeWidth },
-    { x: 0, y: strokeWidth },
-    { x: -strokeWidth, y: -strokeWidth },
-    { x: -strokeWidth, y: strokeWidth },
-    { x: strokeWidth, y: -strokeWidth },
-    { x: strokeWidth, y: strokeWidth },
+    {x: -strokeWidth, y: 0},
+    {x: strokeWidth, y: 0},
+    {x: 0, y: -strokeWidth},
+    {x: 0, y: strokeWidth},
+    {x: -strokeWidth, y: -strokeWidth},
+    {x: -strokeWidth, y: strokeWidth},
+    {x: strokeWidth, y: -strokeWidth},
+    {x: strokeWidth, y: strokeWidth},
   ];
 
   return (
@@ -38,9 +38,8 @@ const StrokeText: React.FC<StrokeTextProps> = ({
           style={[
             style as any,
             styles.strokeLayer,
-            { left: o.x, top: o.y, color: strokeColor },
-          ]}
-        >
+            {left: o.x, top: o.y, color: strokeColor},
+          ]}>
           {children}
         </Text>
       ))}
@@ -61,5 +60,3 @@ const styles = StyleSheet.create({
 });
 
 export default StrokeText;
-
-

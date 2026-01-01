@@ -3,7 +3,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CONFIG } from '../config';
+import {CONFIG} from '../config';
 
 export type ChatType = 'CHAT' | 'BOT_REQUEST' | 'BOT_RESPONSE';
 
@@ -40,8 +40,8 @@ const buildHeaders = async () => {
   const accessToken = await AsyncStorage.getItem('accessToken');
   return {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    Accept: 'application/json',
+    ...(accessToken ? {Authorization: `Bearer ${accessToken}`} : {}),
   } as Record<string, string>;
 };
 
@@ -67,7 +67,7 @@ export class ChatService {
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({message}),
     });
 
     const text = await response.text();
@@ -81,28 +81,34 @@ export class ChatService {
       const t = (data.result?.type ?? 'CHAT') as string;
       let normalizedType: ChatType = 'CHAT';
       if (t === 'CHAT') normalizedType = 'CHAT';
-      else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalizedType = 'BOT_REQUEST';
-      else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalizedType = 'BOT_RESPONSE';
+      else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST')
+        normalizedType = 'BOT_REQUEST';
+      else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT')
+        normalizedType = 'BOT_RESPONSE';
       if (data.result) {
         (data.result as any).type = normalizedType;
       }
       // 안전 로그 (민감정보 제외)
       console.log('[send] api', {
         endpoint: url,
-        request: { messageLength: message.length, isBotQuery: message.startsWith('/') },
-        response: {
-        is_success: data.is_success,
-        code: data.code,
-        message: data.message,
-        result: {
-          user_id: data.result?.user_id,
-          name: data.result?.name,
-          image_url: !!data.result?.image_url,
-          message: data.result?.message?.slice(0, 80),
-          time: data.result?.time,
-          type: data.result?.type,
+        request: {
+          messageLength: message.length,
+          isBotQuery: message.startsWith('/'),
         },
-      }});
+        response: {
+          is_success: data.is_success,
+          code: data.code,
+          message: data.message,
+          result: {
+            user_id: data.result?.user_id,
+            name: data.result?.name,
+            image_url: !!data.result?.image_url,
+            message: data.result?.message?.slice(0, 80),
+            time: data.result?.time,
+            type: data.result?.type,
+          },
+        },
+      });
       return data;
     } catch (e) {
       throw new Error(`응답 파싱 실패: ${text}`);
@@ -112,11 +118,18 @@ export class ChatService {
   /**
    * 채팅 히스토리 조회 (cursor 기반 페이지네이션)
    */
-  static async history(cursorId: string | null = null, pageSize: number = 30): Promise<ChatHistoryPage> {
+  static async history(
+    cursorId: string | null = null,
+    pageSize: number = 30,
+  ): Promise<ChatHistoryPage> {
     const size = Math.min(Math.max(pageSize, 1), 30);
     // React Native(Hermes)에서 URL/URLSearchParams 미지원 이슈가 있어 수동 구성
     let query = `?page-size=${encodeURIComponent(String(size))}`;
-    if (cursorId !== null && cursorId !== undefined && String(cursorId).trim() !== '') {
+    if (
+      cursorId !== null &&
+      cursorId !== undefined &&
+      String(cursorId).trim() !== ''
+    ) {
       query += `&cursor-id=${encodeURIComponent(String(cursorId))}`;
     }
     const url = `${this.baseUrl}api/chat/history${query}`;
@@ -126,7 +139,7 @@ export class ChatService {
       method: 'GET',
       headers,
     });
-    
+
     const text = await response.text();
     if (!response.ok) {
       throw new Error(`히스토리 조회 실패: ${response.status} ${text}`);
@@ -143,40 +156,69 @@ export class ChatService {
     const result = raw.result ?? {};
     // cursor 다양한 키 케이스 허용
     const pickCursor = (obj: any): any =>
-      obj?.cursor_id ?? obj?.cursorId ?? obj?.next_cursor_id ?? obj?.nextCursorId ?? obj?.next_cursor ?? obj?.nextCursor ?? obj?.cursor ?? null;
-    let nextCursor: any = pickCursor(result) ?? pickCursor(raw) ?? pickCursor(result?.page) ?? pickCursor(result?.page_info) ?? null;
+      obj?.cursor_id ??
+      obj?.cursorId ??
+      obj?.next_cursor_id ??
+      obj?.nextCursorId ??
+      obj?.next_cursor ??
+      obj?.nextCursor ??
+      obj?.cursor ??
+      null;
+    let nextCursor: any =
+      pickCursor(result) ??
+      pickCursor(raw) ??
+      pickCursor(result?.page) ??
+      pickCursor(result?.page_info) ??
+      null;
     if (!nextCursor) {
       try {
         const h = response.headers as any;
-        const get = (k: string) => (h?.get ? h.get(k) : (h?.[k] ?? h?.[k.toLowerCase?.()]));
-        nextCursor = get('x-next-cursor') || get('x-cursor-id') || get('next-cursor') || get('next-cursor-id') || null;
+        const get = (k: string) =>
+          h?.get ? h.get(k) : h?.[k] ?? h?.[k.toLowerCase?.()];
+        nextCursor =
+          get('x-next-cursor') ||
+          get('x-cursor-id') ||
+          get('next-cursor') ||
+          get('next-cursor-id') ||
+          null;
       } catch {}
     }
     if (typeof nextCursor === 'string') {
       const trimmed = nextCursor.trim();
-      nextCursor = (trimmed.length === 0 || trimmed.toLowerCase() === 'null') ? null : trimmed;
+      nextCursor =
+        trimmed.length === 0 || trimmed.toLowerCase() === 'null'
+          ? null
+          : trimmed;
     }
 
     let messages: ChatMessage[] = [];
 
     if (Array.isArray(result.messages)) {
       // 메시지 배열은 이미 표준 스키마라고 가정하되 type 정규화
-      messages = (result.messages as any[]).map((m) => {
+      messages = (result.messages as any[]).map(m => {
         const t = (m.type ?? 'CHAT') as string;
         let normalized: ChatType = 'CHAT';
         if (t === 'CHAT') normalized = 'CHAT';
-        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
-        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalized = 'BOT_RESPONSE';
-        return { ...m, type: normalized } as ChatMessage;
+        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST')
+          normalized = 'BOT_REQUEST';
+        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT')
+          normalized = 'BOT_RESPONSE';
+        return {...m, type: normalized} as ChatMessage;
       });
     } else if (Array.isArray(result.result_list)) {
       // 백엔드 예시가 다른 스키마일 수 있어 최소 필드 매핑 시도
-      messages = (result.result_list as any[]).map((item) => {
+      messages = (result.result_list as any[]).map(item => {
         const rawType = (item.type as string) ?? 'CHAT';
         let normalized: ChatType = 'CHAT';
         if (rawType === 'CHAT') normalized = 'CHAT';
-        else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
-        else if (rawType === 'CHAT_RESPONSE' || rawType === 'BOT_RESPONSE' || rawType === 'BOT') normalized = 'BOT_RESPONSE';
+        else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST')
+          normalized = 'BOT_REQUEST';
+        else if (
+          rawType === 'CHAT_RESPONSE' ||
+          rawType === 'BOT_RESPONSE' ||
+          rawType === 'BOT'
+        )
+          normalized = 'BOT_RESPONSE';
         return {
           user_id: item.user_id ?? 0,
           name: item.name ?? '알 수 없음',
@@ -202,7 +244,9 @@ export class ChatService {
         const iso = (() => {
           try {
             const d = new Date(item?.date_time);
-            return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+            return isNaN(d.getTime())
+              ? new Date().toISOString()
+              : d.toISOString();
           } catch {
             return new Date().toISOString();
           }
@@ -212,8 +256,14 @@ export class ChatService {
         const rawType = String(item?.type ?? 'CHAT');
         let normalized: ChatType = 'CHAT';
         if (rawType === 'CHAT') normalized = 'CHAT';
-        else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
-        else if (rawType === 'CHAT_RESPONSE' || rawType === 'BOT_RESPONSE' || rawType === 'BOT') normalized = 'BOT_RESPONSE';
+        else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST')
+          normalized = 'BOT_REQUEST';
+        else if (
+          rawType === 'CHAT_RESPONSE' ||
+          rawType === 'BOT_RESPONSE' ||
+          rawType === 'BOT'
+        )
+          normalized = 'BOT_RESPONSE';
 
         return {
           user_id: 0, // 서버 히스토리에는 user_id 미포함. is_my로 좌/우 판단
@@ -226,12 +276,14 @@ export class ChatService {
         } as ChatMessage;
       });
     } else if (Array.isArray(result.list)) {
-      messages = (result.list as any[]).map((m) => {
+      messages = (result.list as any[]).map(m => {
         const t = (m.type ?? 'CHAT') as string;
         let normalized: ChatType = 'CHAT';
         if (t === 'CHAT') normalized = 'CHAT';
-        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
-        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalized = 'BOT_RESPONSE';
+        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST')
+          normalized = 'BOT_REQUEST';
+        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT')
+          normalized = 'BOT_RESPONSE';
         return {
           user_id: Number(m.user_id ?? 0),
           name: String(m.name ?? m.user_name ?? ''),
@@ -243,12 +295,14 @@ export class ChatService {
         } as ChatMessage;
       });
     } else if (Array.isArray(result.data)) {
-      messages = (result.data as any[]).map((m) => {
+      messages = (result.data as any[]).map(m => {
         const t = (m.type ?? 'CHAT') as string;
         let normalized: ChatType = 'CHAT';
         if (t === 'CHAT') normalized = 'CHAT';
-        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST') normalized = 'BOT_REQUEST';
-        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT') normalized = 'BOT_RESPONSE';
+        else if (t === 'CHAT_REQUEST' || t === 'BOT_REQUEST')
+          normalized = 'BOT_REQUEST';
+        else if (t === 'CHAT_RESPONSE' || t === 'BOT_RESPONSE' || t === 'BOT')
+          normalized = 'BOT_RESPONSE';
         return {
           user_id: Number(m.user_id ?? 0),
           name: String(m.name ?? m.user_name ?? ''),
@@ -263,10 +317,8 @@ export class ChatService {
       messages = [];
     }
 
-    return { messages, cursorId: nextCursor };
+    return {messages, cursorId: nextCursor};
   }
 }
 
 export default ChatService;
-
-

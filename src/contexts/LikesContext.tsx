@@ -1,4 +1,11 @@
-import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {UserService} from '../services/userService';
 import {togglePlaceLike as togglePlaceLikeApi} from '../services/placeService';
 import {useAuth} from './AuthContext';
@@ -13,9 +20,13 @@ interface LikesContextValue {
 
 const LikesContext = createContext<LikesContextValue | undefined>(undefined);
 
-export const LikesProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
+export const LikesProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   const {user, isAuthenticated} = useAuth();
-  const [likedPlaceIdsState, setLikedPlaceIdsState] = useState<Set<number>>(new Set());
+  const [likedPlaceIdsState, setLikedPlaceIdsState] = useState<Set<number>>(
+    new Set(),
+  );
 
   const refreshLikes = useCallback(async () => {
     try {
@@ -40,44 +51,53 @@ export const LikesProvider: React.FC<{children: React.ReactNode}> = ({children})
     }
   }, [isAuthenticated, refreshLikes]);
 
-  const isPlaceLiked = useCallback((placeId: number) => {
-    return likedPlaceIdsState.has(placeId);
-  }, [likedPlaceIdsState]);
+  const isPlaceLiked = useCallback(
+    (placeId: number) => {
+      return likedPlaceIdsState.has(placeId);
+    },
+    [likedPlaceIdsState],
+  );
 
   const {showToast} = useToast();
 
-  const togglePlaceLike = useCallback(async (placeId: number) => {
-    const wasLiked = likedPlaceIdsState.has(placeId);
-    const res = await togglePlaceLikeApi(placeId);
-    if (res?.is_success) {
-      setLikedPlaceIdsState(prev => {
-        const next = new Set(prev);
-        if (wasLiked) {
-          next.delete(placeId);
-        } else {
-          next.add(placeId);
-        }
-        return next;
-      });
-      // 좋아요/해제 모두 동일한 배경색(해제 색상)으로 노출
-      showToast(wasLiked ? '좋아요를 해제했습니다' : '좋아요를 눌렀습니다', {type: 'info'});
-      return true;
-    }
-    showToast('처리에 실패했습니다', {type: 'error'});
-    return false;
-  }, [likedPlaceIdsState, showToast]);
+  const togglePlaceLike = useCallback(
+    async (placeId: number) => {
+      const wasLiked = likedPlaceIdsState.has(placeId);
+      const res = await togglePlaceLikeApi(placeId);
+      if (res?.is_success) {
+        setLikedPlaceIdsState(prev => {
+          const next = new Set(prev);
+          if (wasLiked) {
+            next.delete(placeId);
+          } else {
+            next.add(placeId);
+          }
+          return next;
+        });
+        // 좋아요/해제 모두 동일한 배경색(해제 색상)으로 노출
+        showToast(wasLiked ? '좋아요를 해제했습니다' : '좋아요를 눌렀습니다', {
+          type: 'info',
+        });
+        return true;
+      }
+      showToast('처리에 실패했습니다', {type: 'error'});
+      return false;
+    },
+    [likedPlaceIdsState, showToast],
+  );
 
-  const value = useMemo<LikesContextValue>(() => ({
-    likedPlaceIds: likedPlaceIdsState,
-    isPlaceLiked,
-    togglePlaceLike,
-    refreshLikes,
-  }), [likedPlaceIdsState, isPlaceLiked, togglePlaceLike, refreshLikes]);
+  const value = useMemo<LikesContextValue>(
+    () => ({
+      likedPlaceIds: likedPlaceIdsState,
+      isPlaceLiked,
+      togglePlaceLike,
+      refreshLikes,
+    }),
+    [likedPlaceIdsState, isPlaceLiked, togglePlaceLike, refreshLikes],
+  );
 
   return (
-    <LikesContext.Provider value={value}>
-      {children}
-    </LikesContext.Provider>
+    <LikesContext.Provider value={value}>{children}</LikesContext.Provider>
   );
 };
 
@@ -88,5 +108,3 @@ export const useLikes = (): LikesContextValue => {
   }
   return ctx;
 };
-
-

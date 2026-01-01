@@ -1,5 +1,15 @@
 import React, {useState, useEffect, useCallback} from 'react';
-import {View, Text, StyleSheet, ScrollView, StatusBar, Alert, TouchableOpacity, Image, Modal} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  StatusBar,
+  Alert,
+  TouchableOpacity,
+  Image,
+  Modal,
+} from 'react-native';
 import {useNavigation, NavigationProp} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import Logo from '../assets/logo.svg';
@@ -19,18 +29,25 @@ import colors from '../styles/colors';
 const banner = require('../assets/banner.png');
 
 type TabParamList = {
-  '혼잡도': undefined;
-  '명소': undefined;
-  '홈': undefined;
-  '축제': undefined;
-  '부산톡': undefined;
+  혼잡도: undefined;
+  명소: undefined;
+  홈: undefined;
+  축제: undefined;
+  부산톡: undefined;
 };
 
 const HomeScreen = () => {
-  const [mostCrowdedPlaces, setMostCrowdedPlaces] = useState<PlaceListItem[]>([]);
+  const [mostCrowdedPlaces, setMostCrowdedPlaces] = useState<PlaceListItem[]>(
+    [],
+  );
   const [recommendPlaces, setRecommendPlaces] = useState<PlaceListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const {userLocation, hasLocationPermission, refreshLocation, ensureFreshLocation} = useLocation();
+  const {
+    userLocation,
+    hasLocationPermission,
+    refreshLocation,
+    ensureFreshLocation,
+  } = useLocation();
   const [isIntroVisible, setIsIntroVisible] = useState(false);
   const navigation = useNavigation<NavigationProp<TabParamList>>();
 
@@ -57,20 +74,20 @@ const HomeScreen = () => {
     }
   };
 
-  
-
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <ScrollView style={styles.container}>
-
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => setIsIntroVisible(true)}
           accessibilityRole="button"
-          accessibilityLabel="부산스럽다 소개 보기"
-        >
-          <Image source={banner} style={styles.bannerImage} resizeMode="cover" />
+          accessibilityLabel="부산스럽다 소개 보기">
+          <Image
+            source={banner}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
         </TouchableOpacity>
 
         <View style={styles.crowdedSection}>
@@ -90,51 +107,83 @@ const HomeScreen = () => {
         visible={isIntroVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setIsIntroVisible(false)}
-      >
+        onRequestClose={() => setIsIntroVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <TouchableOpacity
               onPress={() => setIsIntroVisible(false)}
               style={styles.modalCloseButton}
               accessibilityRole="button"
-              accessibilityLabel="닫기"
-            >
+              accessibilityLabel="닫기">
               <IcX width={18} height={18} fill="none" stroke="#374151" />
             </TouchableOpacity>
             <LinearGradient
               colors={[colors.secondary[500], colors.secondary[600]]}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
-              style={styles.modalHeader}
-            >
+              style={styles.modalHeader}>
               <View style={styles.logoBadge}>
                 <Logo width={48} height={48} />
               </View>
               <Text style={styles.modalHeaderTitle}>부산스럽다</Text>
-              <Text style={styles.modalHeaderSubtitle}>지금 가장 즐거운 곳, 가장 붐비는 곳 알려드립니다</Text>
+              <Text style={styles.modalHeaderSubtitle}>
+                지금 가장 즐거운 곳, 가장 붐비는 곳 알려드립니다
+              </Text>
             </LinearGradient>
 
             <View style={styles.modalContent}>
               <View style={styles.featureRow}>
-                <IcMap width={18} height={18} fill="none" stroke="#0057cc" color="#0057cc" />
-                <Text style={styles.featureText}>실시간 혼잡도 기반으로 쾌적한 동선 계획</Text>
+                <IcMap
+                  width={18}
+                  height={18}
+                  fill="none"
+                  stroke="#0057cc"
+                  color="#0057cc"
+                />
+                <Text style={styles.featureText}>
+                  실시간 혼잡도 기반으로 쾌적한 동선 계획
+                </Text>
               </View>
               <View style={styles.featureRow}>
-                <IcHome width={18} height={18} fill="none" stroke="#0057cc" color="#0057cc" />
-                <Text style={styles.featureText}>인기 명소와 주변 추천 장소 한눈에</Text>
+                <IcHome
+                  width={18}
+                  height={18}
+                  fill="none"
+                  stroke="#0057cc"
+                  color="#0057cc"
+                />
+                <Text style={styles.featureText}>
+                  인기 명소와 주변 추천 장소 한눈에
+                </Text>
               </View>
               <View style={styles.featureRow}>
-                <IcCalendar width={18} height={18} fill="none" stroke="#0057cc" color="#0057cc" />
-                <Text style={styles.featureText}>축제 · 행사 일정 간편 확인</Text>
+                <IcCalendar
+                  width={18}
+                  height={18}
+                  fill="none"
+                  stroke="#0057cc"
+                  color="#0057cc"
+                />
+                <Text style={styles.featureText}>
+                  축제 · 행사 일정 간편 확인
+                </Text>
               </View>
               <View style={styles.featureRow}>
-                <IcMessage width={18} height={18} fill="none" stroke="#0057cc" color="#0057cc" />
+                <IcMessage
+                  width={18}
+                  height={18}
+                  fill="none"
+                  stroke="#0057cc"
+                  color="#0057cc"
+                />
                 <Text style={styles.featureText}>부산톡에서 실시간 소통</Text>
               </View>
 
               <Text style={styles.modalBody}>
-                부산스럽다는 부산 지역의 실시간 혼잡도 기반 서비스입니다. 인기 명소와 축제, 혼잡도를 한눈에 보고 더 여유로운 여행을 즐겨보세요. 부산의 다양한 정보를 모아 편리하게 제공해 드리니, 지금 바로 부산스럽다와 함께 특별한 순간을 시작해 보세요!
+                부산스럽다는 부산 지역의 실시간 혼잡도 기반 서비스입니다. 인기
+                명소와 축제, 혼잡도를 한눈에 보고 더 여유로운 여행을 즐겨보세요.
+                부산의 다양한 정보를 모아 편리하게 제공해 드리니, 지금 바로
+                부산스럽다와 함께 특별한 순간을 시작해 보세요!
               </Text>
 
               <TouchableOpacity
@@ -144,8 +193,7 @@ const HomeScreen = () => {
                 }}
                 style={styles.modalButton}
                 accessibilityRole="button"
-                accessibilityLabel="시작하기"
-              >
+                accessibilityLabel="시작하기">
                 <Text style={styles.modalButtonText}>시작하기</Text>
               </TouchableOpacity>
             </View>

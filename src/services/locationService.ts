@@ -1,4 +1,4 @@
-import { PermissionsAndroid, Platform, Alert, Linking } from 'react-native';
+import {PermissionsAndroid, Platform, Alert, Linking} from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -32,7 +32,7 @@ class LocationService {
       if (cached) {
         const location = JSON.parse(cached) as UserLocation;
         const now = Date.now();
-        
+
         // 캐시가 유효한 경우에만 사용
         if (now - location.timestamp < this.CACHE_DURATION) {
           this.currentLocation = location;
@@ -114,7 +114,7 @@ class LocationService {
   isLocationValid(): boolean {
     if (!this.currentLocation) return false;
     const now = Date.now();
-    return (now - this.currentLocation.timestamp) < this.CACHE_DURATION;
+    return now - this.currentLocation.timestamp < this.CACHE_DURATION;
   }
 
   // 사용자 위치 로딩 상태 확인 (화면에 표시되는 로딩)
@@ -130,9 +130,11 @@ class LocationService {
         PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
       ]);
 
-      const fineResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
-      const coarseResult = results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
-      
+      const fineResult =
+        results[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+      const coarseResult =
+        results[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION];
+
       return (
         fineResult === PermissionsAndroid.RESULTS.GRANTED ||
         coarseResult === PermissionsAndroid.RESULTS.GRANTED
@@ -144,23 +146,37 @@ class LocationService {
   }
 
   // 위치 업데이트 (단일 요청)
-  async updateLocation(options: {
-    showAlert?: boolean;
-    forceUpdate?: boolean;
-    timeout?: number;
-    isUserRequest?: boolean; // 사용자가 직접 요청한 것인지 (화면 로딩 표시 여부)
-  } = {}): Promise<UserLocation | null> {
-    const { showAlert = false, forceUpdate = false, timeout = 15000, isUserRequest = true } = options;
+  async updateLocation(
+    options: {
+      showAlert?: boolean;
+      forceUpdate?: boolean;
+      timeout?: number;
+      isUserRequest?: boolean; // 사용자가 직접 요청한 것인지 (화면 로딩 표시 여부)
+    } = {},
+  ): Promise<UserLocation | null> {
+    const {
+      showAlert = false,
+      forceUpdate = false,
+      timeout = 15000,
+      isUserRequest = true,
+    } = options;
 
     // 이미 로딩 중이고 강제 업데이트가 아닌 경우 현재 위치 반환
-    if ((this.isUserLocationLoading || this.isBackgroundLocationLoading) && !forceUpdate) {
+    if (
+      (this.isUserLocationLoading || this.isBackgroundLocationLoading) &&
+      !forceUpdate
+    ) {
       console.log('위치 업데이트가 이미 진행 중');
       return this.currentLocation;
     }
 
     // 최근에 업데이트했고 강제 업데이트가 아닌 경우
     const now = Date.now();
-    if (!forceUpdate && this.isLocationValid() && (now - this.lastLocationUpdate) < 30000) {
+    if (
+      !forceUpdate &&
+      this.isLocationValid() &&
+      now - this.lastLocationUpdate < 30000
+    ) {
       console.log('최근 위치 사용 (30초 이내)');
       return this.currentLocation;
     }
@@ -173,7 +189,7 @@ class LocationService {
       this.isBackgroundLocationLoading = true;
       console.log('백그라운드 위치 업데이트 시작 (화면 로딩 표시 없음)');
     }
-    
+
     this.notifyListeners();
 
     try {
@@ -186,9 +202,9 @@ class LocationService {
               '위치 권한 필요',
               '현재 위치를 사용하려면 위치 권한이 필요합니다.',
               [
-                { text: '취소', style: 'cancel' },
-                { text: '설정으로 이동', onPress: () => Linking.openSettings() }
-              ]
+                {text: '취소', style: 'cancel'},
+                {text: '설정으로 이동', onPress: () => Linking.openSettings()},
+              ],
             );
           }
           return null;
@@ -197,24 +213,24 @@ class LocationService {
 
       // 위치 가져오기 (정밀도 우선, 실패 시 저정밀도)
       const location = await this.getCurrentPositionWithFallback(timeout);
-      
+
       if (location) {
         const userLocation: UserLocation = {
           latitude: location.latitude,
           longitude: location.longitude,
           timestamp: now,
-          accuracy: location.accuracy
+          accuracy: location.accuracy,
         };
 
         this.currentLocation = userLocation;
         this.lastLocationUpdate = now;
-        
+
         // 캐시에 저장
         await this.saveCachedLocation(userLocation);
-        
+
         console.log('위치 업데이트 성공:', userLocation);
         this.notifyListeners();
-        
+
         return userLocation;
       } else {
         if (showAlert) {
@@ -247,48 +263,48 @@ class LocationService {
     longitude: number;
     accuracy?: number;
   } | null> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // 첫 번째 시도: 고정밀 GPS
       const highAccuracyOptions = {
         enableHighAccuracy: true,
         timeout,
-        maximumAge: 60000
+        maximumAge: 60000,
       };
 
       Geolocation.getCurrentPosition(
-        (position) => {
+        position => {
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
+            accuracy: position.coords.accuracy,
           });
         },
-        (error) => {
+        error => {
           console.warn('고정밀 위치 실패, 저정밀도로 재시도:', error);
-          
+
           // 두 번째 시도: 저정밀도 (네트워크/WiFi)
           const lowAccuracyOptions = {
             enableHighAccuracy: false,
             timeout: timeout + 5000,
-            maximumAge: 120000
+            maximumAge: 120000,
           };
 
           Geolocation.getCurrentPosition(
-            (position) => {
+            position => {
               resolve({
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy
+                accuracy: position.coords.accuracy,
               });
             },
-            (lowAccuracyError) => {
+            lowAccuracyError => {
               console.error('저정밀도 위치도 실패:', lowAccuracyError);
               resolve(null);
             },
-            lowAccuracyOptions
+            lowAccuracyOptions,
           );
         },
-        highAccuracyOptions
+        highAccuracyOptions,
       );
     });
   }
@@ -301,15 +317,15 @@ class LocationService {
     }
 
     console.log('백그라운드 위치 추적 시작');
-    
+
     this.watchId = Geolocation.watchPosition(
-      (position) => {
+      position => {
         const now = Date.now();
         const userLocation: UserLocation = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           timestamp: now,
-          accuracy: position.coords.accuracy
+          accuracy: position.coords.accuracy,
         };
 
         // 위치가 크게 변경된 경우에만 업데이트
@@ -321,15 +337,15 @@ class LocationService {
           console.log('백그라운드 위치 업데이트:', userLocation);
         }
       },
-      (error) => {
+      error => {
         console.warn('백그라운드 위치 추적 오류:', error);
       },
       {
         enableHighAccuracy: false, // 배터리 절약을 위해 저정밀도 사용
         distanceFilter: 100, // 100m 이상 이동 시에만 업데이트
         interval: this.UPDATE_INTERVAL,
-        fastestInterval: 60000 // 최소 1분 간격
-      }
+        fastestInterval: 60000, // 최소 1분 간격
+      },
     );
   }
 
@@ -359,13 +375,13 @@ class LocationService {
   // 서비스 초기화 (앱 시작 시 호출)
   async initialize() {
     console.log('LocationService 초기화 시작');
-    
+
     // 캐시된 위치가 없거나 만료된 경우 백그라운드에서 위치 업데이트
     if (!this.isLocationValid()) {
       console.log('유효한 캐시 위치가 없음, 백그라운드 위치 업데이트 시작');
-      await this.updateLocation({ 
-        showAlert: false, 
-        isUserRequest: false // 백그라운드 요청이므로 화면에 로딩 표시 안함
+      await this.updateLocation({
+        showAlert: false,
+        isUserRequest: false, // 백그라운드 요청이므로 화면에 로딩 표시 안함
       });
     }
 

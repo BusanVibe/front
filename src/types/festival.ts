@@ -25,7 +25,7 @@ export interface FestivalDetail {
 }
 
 export interface FestivalDetailResult {
-  "@class": string;
+  '@class': string;
   id: number;
   img: [string, string[]];
   name: string;
@@ -41,7 +41,7 @@ export interface FestivalDetailResult {
 }
 
 export interface FestivalListResult {
-  "@class": string;
+  '@class': string;
   festival_list: [string, FestivalListItem[]];
 }
 

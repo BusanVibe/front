@@ -1,7 +1,7 @@
 const colors = {
   white: '#FFFFFF',
   black: '#000000',
-  
+
   primary: {
     100: '#E8F0FC',
     200: '#D1E2F8',
@@ -13,7 +13,7 @@ const colors = {
     800: '#38495F',
     900: '#1C2430',
   },
-  
+
   secondary: {
     100: '#CCE2FF',
     200: '#99C5FF',
@@ -25,7 +25,7 @@ const colors = {
     800: '#002C66',
     900: '#001633',
   },
-  
+
   gray: {
     50: '#FDFDFD',
     100: '#FAFAFA',
@@ -38,7 +38,7 @@ const colors = {
     800: '#5C5C5C',
     900: '#2E2E2E',
   },
-  
+
   red: {
     100: '#ECC3C3',
     500: '#FF0000',
@@ -55,6 +55,6 @@ const colors = {
     100: '#BDD8BA',
     500: '#119600',
   },
-}
+};
 
 export default colors;

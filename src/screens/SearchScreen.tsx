@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import CustomHeader, { CustomHeaderRef } from '../components/CustomHeader';
+import CustomHeader, {CustomHeaderRef} from '../components/CustomHeader';
 import type {RootStackParamList} from '../navigation/RootNavigator';
 import {mapKoreanCategoryToSearchOption} from '../services/searchService';
 
@@ -40,29 +40,32 @@ const SearchScreen = () => {
 
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
-  const handleSearch = useCallback(async (textParam?: string) => {
-    try {
-      const term = (textParam ?? keyword).trim();
-      if (!term || term.length === 0) {
-        return;
+  const handleSearch = useCallback(
+    async (textParam?: string) => {
+      try {
+        const term = (textParam ?? keyword).trim();
+        if (!term || term.length === 0) {
+          return;
+        }
+        const option = mapKoreanCategoryToSearchOption(selectedCategory);
+        // 결과 화면으로 이동
+        navigation.navigate('SearchResult', {
+          keyword: term,
+          option,
+        } as any);
+        // 최근 검색어 업데이트
+        setRecentSearchList(prev => {
+          const exists = prev.find(p => p.term === term);
+          if (exists) return prev;
+          const newItem = {id: Date.now().toString(), term};
+          return [newItem, ...prev].slice(0, 10);
+        });
+      } catch (e) {
+        console.error('검색 오류:', e);
       }
-      const option = mapKoreanCategoryToSearchOption(selectedCategory);
-      // 결과 화면으로 이동
-      navigation.navigate('SearchResult', {
-        keyword: term,
-        option,
-      } as any);
-      // 최근 검색어 업데이트
-      setRecentSearchList(prev => {
-        const exists = prev.find(p => p.term === term);
-        if (exists) return prev;
-        const newItem = {id: Date.now().toString(), term};
-        return [newItem, ...prev].slice(0, 10);
-      });
-    } catch (e) {
-      console.error('검색 오류:', e);
-    }
-  }, [keyword, selectedCategory, navigation]);
+    },
+    [keyword, selectedCategory, navigation],
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -101,7 +104,10 @@ const SearchScreen = () => {
       <View style={styles.container}>
         {/* 카테고리 버튼들 */}
         <View style={styles.categoryWrapper}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryContainer}>
             {categories.map(category => (
               <TouchableOpacity
                 key={category}
@@ -127,9 +133,7 @@ const SearchScreen = () => {
         </View>
 
         <View style={styles.sectionContainer}>
-          {isLoading && (
-            <Text style={styles.sectionTitle}>검색 중...</Text>
-          )}
+          {isLoading && <Text style={styles.sectionTitle}>검색 중...</Text>}
           {resultCount !== null && !isLoading && (
             <Text style={styles.sectionTitle}>검색 결과 {resultCount}건</Text>
           )}
@@ -158,7 +162,9 @@ const SearchScreen = () => {
             </View>
           ) : (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>지금 궁금한 장소를 검색해보세요!</Text>
+              <Text style={styles.emptyText}>
+                지금 궁금한 장소를 검색해보세요!
+              </Text>
             </View>
           )}
         </View>
@@ -168,15 +174,21 @@ const SearchScreen = () => {
           <FlatList
             data={popularSearches}
             renderItem={({item}) => (
-              <TouchableOpacity style={styles.popularItem} onPress={() => handleSelectKeyword(item.term)}>
+              <TouchableOpacity
+                style={styles.popularItem}
+                onPress={() => handleSelectKeyword(item.term)}>
                 <Text style={styles.itemNumber}>{item.id}</Text>
-                <Text style={styles.itemText} numberOfLines={1} ellipsizeMode="tail">{item.term}</Text>
+                <Text
+                  style={styles.itemText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail">
+                  {item.term}
+                </Text>
                 <Text
                   style={[
                     styles.trendIcon,
                     item.trend === 'up' ? styles.trendUp : styles.trendDown,
-                  ]}
-                >
+                  ]}>
                   {item.trend === 'up' ? '▲' : '▼'}
                 </Text>
               </TouchableOpacity>

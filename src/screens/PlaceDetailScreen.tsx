@@ -46,7 +46,7 @@ const PlaceDetailScreen = () => {
   const [isLiked, setIsLiked] = useState(place.is_like);
   const [likeAmount, setLikeAmount] = useState(0);
   const [likeStateChanged, setLikeStateChanged] = useState(false);
-  const { togglePlaceLike: togglePlaceLikeInContext } = useLikes();
+  const {togglePlaceLike: togglePlaceLikeInContext} = useLikes();
 
   useEffect(() => {
     fetchPlaceDetail();
@@ -69,16 +69,14 @@ const PlaceDetailScreen = () => {
 
   const toggleLike = async () => {
     try {
-      
       const ok = await togglePlaceLikeInContext(place.id);
       if (ok) {
-        
         const newLikeState = !isLiked;
         setIsLiked(newLikeState);
         setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
-        
+
         setLikeStateChanged(true);
-        
+
         fetchPlaceDetail();
       } else {
         Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
@@ -90,17 +88,29 @@ const PlaceDetailScreen = () => {
   };
 
   const openDirections = async () => {
-    const ensureCoords = async (): Promise<{ latitude: number; longitude: number; label: string } | null> => {
+    const ensureCoords = async (): Promise<{
+      latitude: number;
+      longitude: number;
+      label: string;
+    } | null> => {
       const latFromState = placeDetail?.latitude;
       const lonFromState = placeDetail?.longitude;
       if (latFromState && lonFromState) {
-        return { latitude: latFromState, longitude: lonFromState, label: placeDetail?.name || place.name };
+        return {
+          latitude: latFromState,
+          longitude: lonFromState,
+          label: placeDetail?.name || place.name,
+        };
       }
 
       const latFromParam = place?.latitude as number | undefined;
       const lonFromParam = place?.longitude as number | undefined;
       if (latFromParam && lonFromParam) {
-        return { latitude: latFromParam, longitude: lonFromParam, label: placeDetail?.name || place.name };
+        return {
+          latitude: latFromParam,
+          longitude: lonFromParam,
+          label: placeDetail?.name || place.name,
+        };
       }
 
       // 좌표가 없으면 상세 API 재조회로 확보
@@ -108,7 +118,11 @@ const PlaceDetailScreen = () => {
         const detail = await getPlaceDetail(place.id);
         setPlaceDetail(detail);
         if (detail.latitude && detail.longitude) {
-          return { latitude: detail.latitude, longitude: detail.longitude, label: detail.name };
+          return {
+            latitude: detail.latitude,
+            longitude: detail.longitude,
+            label: detail.name,
+          };
         }
       } catch (e) {
         // 무시하고 아래에서 에러 안내
@@ -124,8 +138,8 @@ const PlaceDetailScreen = () => {
 
     let url = '';
     if (coords) {
-      const { latitude, longitude } = coords;
-      
+      const {latitude, longitude} = coords;
+
       if (Platform.OS === 'ios') {
         url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d&q=${encodedLabel}`;
       } else {
@@ -136,7 +150,6 @@ const PlaceDetailScreen = () => {
         }
       }
     } else {
-      
       if (Platform.OS === 'ios') {
         // Apple Maps는 주소 문자열로 목적지 지정 가능
         url = `http://maps.apple.com/?daddr=${encodedAddress}&dirflg=d&q=${encodedLabel}`;
@@ -149,8 +162,6 @@ const PlaceDetailScreen = () => {
         }
       }
     }
-
-    
 
     try {
       await Linking.openURL(url);
@@ -196,8 +207,10 @@ const PlaceDetailScreen = () => {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(event) => {
-              const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+            onMomentumScrollEnd={event => {
+              const index = Math.round(
+                event.nativeEvent.contentOffset.x / screenWidth,
+              );
               setCurrentImageIndex(index);
             }}
             scrollEventThrottle={16}
@@ -249,7 +262,10 @@ const PlaceDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <StrokeText strokeColor="#000" strokeWidth={1.5} style={styles.likeCount}>
+          <StrokeText
+            strokeColor="#000"
+            strokeWidth={1.5}
+            style={styles.likeCount}>
             {likeAmount}
           </StrokeText>
         </View>
@@ -311,29 +327,25 @@ const PlaceDetailScreen = () => {
         {placeDetail.introduce && (
           <View style={styles.introSection}>
             <Text style={styles.sectionTitle}>소개</Text>
-            <Text style={styles.description}>
-              {placeDetail.introduce}
-            </Text>
+            <Text style={styles.description}>{placeDetail.introduce}</Text>
           </View>
         )}
 
         {/* 버튼들 */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.directionButton}
-            onPress={openDirections}
-          >
+            onPress={openDirections}>
             <Text style={styles.directionButtonText}>길찾기</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.detailButton}
             onPress={() => {
               (navigation as any).navigate('Main', {
                 screen: '혼잡도',
-                params: { selectedPlaceId: place.id }
+                params: {selectedPlaceId: place.id},
               });
-            }}
-          >
+            }}>
             <Text style={styles.detailButtonText}>혼잡도 보기</Text>
           </TouchableOpacity>
         </View>

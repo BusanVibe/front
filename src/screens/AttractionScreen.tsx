@@ -37,13 +37,11 @@ const AttractionScreen = () => {
   const CURATION_HEIGHT = 400;
   const FILTER_HEIGHT = 60;
   const ITEM_HEIGHT = 112; // 패딩 포함 아이템 높이
-  
+
   // 가상화 최적화 설정
   const INITIAL_NUM_TO_RENDER = Math.ceil(SCREEN_HEIGHT / ITEM_HEIGHT);
   const WINDOW_SIZE = 10;
   const MAX_TO_RENDER_PER_BATCH = 5;
-
-  
 
   // API 데이터 로드
   const loadPlaceData = useCallback(async () => {
@@ -54,12 +52,8 @@ const AttractionScreen = () => {
       const category = getCategoryFromKorean(selectedCategory);
       const sort = getSortFromKorean(selectedSort);
 
-      
-
       const data = await getPlaceList(category, sort);
       setPlaceData(data);
-
-      
     } catch (err) {
       const errorMessage =
         err instanceof Error
@@ -100,56 +94,61 @@ const AttractionScreen = () => {
     () => [
       {type: 'curation', id: 'curation'},
       {type: 'filter', id: 'filter'},
-      ...filteredData.filter(item => item && item.id).map(item => ({
-        type: 'attraction',
-        id: item.id,
-        data: item,
-      })),
+      ...filteredData
+        .filter(item => item && item.id)
+        .map(item => ({
+          type: 'attraction',
+          id: item.id,
+          data: item,
+        })),
     ],
     [filteredData],
   );
 
   // 메모이제이션된 렌더 아이템 함수
-  const renderItem = useCallback(({item, index}: {item: any; index: number}) => {
-    switch (item.type) {
-      case 'curation':
-        return (
-          <View style={styles.curationWrapper}>
-            <CurationComponent type="PLACE" />
-          </View>
-        );
-      case 'filter':
-        return (
-          <FilterComponent
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onCategorySelect={handleCategorySelect}
-            selectedSort={selectedSort}
-            onSortSelect={handleSortSelect}
-            showFilter={showFilter}
-            onToggleFilter={handleToggleFilter}
-            sortOptions={sortOptions}
-          />
-        );
-      case 'attraction':
-        return (
-          <View style={styles.itemContainer}>
-            <AttractionCard place={item.data} />
-          </View>
-        );
-      default:
-        return null;
-    }
-  }, [
-    categories,
-    selectedCategory,
-    selectedSort,
-    showFilter,
-    sortOptions,
-    handleCategorySelect,
-    handleSortSelect,
-    handleToggleFilter,
-  ]);
+  const renderItem = useCallback(
+    ({item, index}: {item: any; index: number}) => {
+      switch (item.type) {
+        case 'curation':
+          return (
+            <View style={styles.curationWrapper}>
+              <CurationComponent type="PLACE" />
+            </View>
+          );
+        case 'filter':
+          return (
+            <FilterComponent
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onCategorySelect={handleCategorySelect}
+              selectedSort={selectedSort}
+              onSortSelect={handleSortSelect}
+              showFilter={showFilter}
+              onToggleFilter={handleToggleFilter}
+              sortOptions={sortOptions}
+            />
+          );
+        case 'attraction':
+          return (
+            <View style={styles.itemContainer}>
+              <AttractionCard place={item.data} />
+            </View>
+          );
+        default:
+          return null;
+      }
+    },
+    [
+      categories,
+      selectedCategory,
+      selectedSort,
+      showFilter,
+      sortOptions,
+      handleCategorySelect,
+      handleSortSelect,
+      handleToggleFilter,
+    ],
+  );
 
   // getItemLayout으로 스크롤 성능 최적화
   const getItemLayout = useCallback((data: any, index: number) => {
@@ -169,7 +168,8 @@ const AttractionScreen = () => {
       };
     } else {
       // Attraction items
-      const offset = CURATION_HEIGHT + FILTER_HEIGHT + (index - 2) * ITEM_HEIGHT;
+      const offset =
+        CURATION_HEIGHT + FILTER_HEIGHT + (index - 2) * ITEM_HEIGHT;
       return {
         length: ITEM_HEIGHT,
         offset,

@@ -2,9 +2,15 @@
  * 인증 상태 관리 컨텍스트
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types/auth';
+import {User} from '../types/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -21,7 +27,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,7 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('AsyncStorage 토큰 존재:', !!accessToken, !!refreshToken);
       console.log('AsyncStorage 토큰 발급시간 존재:', !!tokenIssuedAtString);
 
-      if (userDataString && accessToken && refreshToken && tokenIssuedAtString) {
+      if (
+        userDataString &&
+        accessToken &&
+        refreshToken &&
+        tokenIssuedAtString
+      ) {
         const userData = JSON.parse(userDataString);
         const tokenIssuedAt = parseInt(tokenIssuedAtString, 10);
 
@@ -82,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email: user.email,
           hasAccessToken: !!user.accessToken,
           hasRefreshToken: !!user.refreshToken,
-          tokenIssuedAt: new Date(user.tokenIssuedAt).toISOString()
+          tokenIssuedAt: new Date(user.tokenIssuedAt).toISOString(),
         });
 
         // 토큰 만료 확인
@@ -90,8 +101,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           console.log('저장된 토큰이 유효합니다.');
           setUser(user);
         } else {
-          console.log('저장된 토큰이 만료되었습니다. 저장된 데이터를 삭제합니다.');
-          await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
+          console.log(
+            '저장된 토큰이 만료되었습니다. 저장된 데이터를 삭제합니다.',
+          );
+          await AsyncStorage.multiRemove([
+            'userData',
+            'accessToken',
+            'refreshToken',
+            'tokenIssuedAt',
+          ]);
           setUser(null);
         }
       } else {
@@ -107,19 +125,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (userData: User) => {
     try {
-      console.log('로그인 정보 저장 시작:', { id: userData.id, email: userData.email });
-
-      // AsyncStorage에 모든 정보 저장 (토큰 발급 시간 포함)
-      await AsyncStorage.setItem('userData', JSON.stringify({
+      console.log('로그인 정보 저장 시작:', {
         id: userData.id,
         email: userData.email,
-      }));
+      });
+
+      // AsyncStorage에 모든 정보 저장 (토큰 발급 시간 포함)
+      await AsyncStorage.setItem(
+        'userData',
+        JSON.stringify({
+          id: userData.id,
+          email: userData.email,
+        }),
+      );
       await AsyncStorage.setItem('accessToken', userData.accessToken);
       await AsyncStorage.setItem('refreshToken', userData.refreshToken);
-      await AsyncStorage.setItem('tokenIssuedAt', userData.tokenIssuedAt.toString());
+      await AsyncStorage.setItem(
+        'tokenIssuedAt',
+        userData.tokenIssuedAt.toString(),
+      );
 
       console.log('로그인 정보 저장 완료 (토큰 발급시간 포함):', {
-        tokenIssuedAt: new Date(userData.tokenIssuedAt).toISOString()
+        tokenIssuedAt: new Date(userData.tokenIssuedAt).toISOString(),
       });
       setUser(userData);
     } catch (error) {
@@ -133,7 +160,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('로그아웃 시작');
 
       // AsyncStorage에서 모든 정보 삭제 (토큰 발급시간 포함)
-      await AsyncStorage.multiRemove(['userData', 'accessToken', 'refreshToken', 'tokenIssuedAt']);
+      await AsyncStorage.multiRemove([
+        'userData',
+        'accessToken',
+        'refreshToken',
+        'tokenIssuedAt',
+      ]);
 
       console.log('로그아웃 완료');
       setUser(null);
@@ -159,7 +191,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const currentTime = Date.now();
     const tokenAge = currentTime - userToCheck.tokenIssuedAt;
     const isValid = tokenAge < TOKEN_EXPIRY_TIME;
-    const remainingMinutes = Math.floor((TOKEN_EXPIRY_TIME - tokenAge) / (60 * 1000));
+    const remainingMinutes = Math.floor(
+      (TOKEN_EXPIRY_TIME - tokenAge) / (60 * 1000),
+    );
 
     console.log('토큰 유효성 검사:', {
       tokenIssuedAt: new Date(userToCheck.tokenIssuedAt).toISOString(),
@@ -167,7 +201,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       tokenAgeMinutes: Math.floor(tokenAge / (60 * 1000)),
       maxAgeMinutes: TOKEN_EXPIRY_TIME / (60 * 1000),
       remainingMinutes: isValid ? remainingMinutes : 0,
-      isValid
+      isValid,
     });
 
     return isValid;
@@ -192,11 +226,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkTokenExpiry,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

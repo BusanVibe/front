@@ -70,9 +70,13 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
   return (
     <TouchableOpacity style={styles.cardContainer} onPress={handlePress}>
       <View style={styles.imageContainer}>
-        <Image 
-          source={place.img ? {uri: place.img} : require('../../assets/image_default.png')} 
-          style={styles.image} 
+        <Image
+          source={
+            place.img
+              ? {uri: place.img}
+              : require('../../assets/image_default.png')
+          }
+          style={styles.image}
         />
 
         <View style={styles.badgeContainer}>
@@ -82,9 +86,7 @@ const CrowdedPlaceCard: React.FC<CrowdedPlaceCardProps> = ({place}) => {
 
       <View style={styles.infoContainer}>
         <Text style={styles.placeName}>{place.name}</Text>
-        {distanceText && (
-          <Text style={styles.distance}>{distanceText}</Text>
-        )}
+        {distanceText && <Text style={styles.distance}>{distanceText}</Text>}
         <View style={styles.typeAddressContainer}>
           <Text style={styles.placeType}>{getPlaceTypeText(place.type)}</Text>
           <Text style={styles.separator}>|</Text>

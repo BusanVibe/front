@@ -17,7 +17,7 @@ import {FestivalListItem} from '../types/festival';
 export type RootStackParamList = {
   Main: undefined;
   Search: undefined;
-  SearchResult: { keyword: string; option: string };
+  SearchResult: {keyword: string; option: string};
   MyPage: undefined;
   FavoriteList: undefined;
   TermsOfService: undefined;

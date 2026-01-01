@@ -1,6 +1,6 @@
-import { CONFIG } from '../config';
-import { MyPageDto, MyPageResponse } from '../types/user';
-import { PlaceListItem, PlaceType } from '../types/place';
+import {CONFIG} from '../config';
+import {MyPageDto, MyPageResponse} from '../types/user';
+import {PlaceListItem, PlaceType} from '../types/place';
 
 export class UserService {
   private static baseUrl = CONFIG.API_BASE_URL;
@@ -12,9 +12,9 @@ export class UserService {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -39,17 +39,22 @@ export class UserService {
   /**
    * 좋아요 목록 조회
    */
-  static async getLikes(accessToken: string, option: string = 'restaurant'): Promise<PlaceListItem[]> {
+  static async getLikes(
+    accessToken: string,
+    option: string = 'restaurant',
+  ): Promise<PlaceListItem[]> {
     const normalized = String(option).toUpperCase();
-    const url = `${this.baseUrl}api/users/likes?option=${encodeURIComponent(normalized)}`;
+    const url = `${this.baseUrl}api/users/likes?option=${encodeURIComponent(
+      normalized,
+    )}`;
 
     try {
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -101,26 +106,26 @@ export class UserService {
         like_count?: number;
       }
 
-      const places: PlaceListItem[] = (list as LikeItem[])
-        .map(item => {
-          const placeItem: PlaceListItem = {
-            id: Number(item.id),
-            name: String(item.name ?? ''),
-            congestion_level: Number(item.congestion_level ?? 0),
-            is_like: item.is_like == null ? true : Boolean(item.is_like),
-            type: toPlaceType(item.type_en ?? 'SIGHT'),
-            address: String(item.address ?? ''),
-            img: String(item.img_url ?? ''),
-            latitude: item.latitude == null ? undefined : Number(item.latitude),
-            longitude: item.longitude == null ? undefined : Number(item.longitude),
-            ...(String(item.type_en ?? '').toUpperCase() === 'FESTIVAL' && {
-              start_date: item.start_date,
-              end_date: item.end_date,
-              like_count: item.like_count,
-            }),
-          };
-          return placeItem;
-        });
+      const places: PlaceListItem[] = (list as LikeItem[]).map(item => {
+        const placeItem: PlaceListItem = {
+          id: Number(item.id),
+          name: String(item.name ?? ''),
+          congestion_level: Number(item.congestion_level ?? 0),
+          is_like: item.is_like == null ? true : Boolean(item.is_like),
+          type: toPlaceType(item.type_en ?? 'SIGHT'),
+          address: String(item.address ?? ''),
+          img: String(item.img_url ?? ''),
+          latitude: item.latitude == null ? undefined : Number(item.latitude),
+          longitude:
+            item.longitude == null ? undefined : Number(item.longitude),
+          ...(String(item.type_en ?? '').toUpperCase() === 'FESTIVAL' && {
+            start_date: item.start_date,
+            end_date: item.end_date,
+            like_count: item.like_count,
+          }),
+        };
+        return placeItem;
+      });
 
       return places;
     } catch (error) {
