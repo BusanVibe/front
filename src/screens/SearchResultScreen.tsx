@@ -1,12 +1,28 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import CustomHeader from '../components/CustomHeader';
 import AttractionCard from '../components/common/AttractionCard';
 import {RouteProp, useNavigation, useRoute} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
 import type {RootStackParamList} from '../navigation/RootNavigator';
-import {CardType, PlaceListItem, PlaceType, FestivalListItem} from '../types/place';
-import {SearchService, mapKoreanCategoryToSearchOption, mapKoreanSortToSearchSort} from '../services/searchService';
+import {
+  CardType,
+  PlaceListItem,
+  PlaceType,
+  FestivalListItem,
+} from '../types/place';
+import {
+  SearchService,
+  mapKoreanCategoryToSearchOption,
+  mapKoreanSortToSearchSort,
+} from '../services/searchService';
 import {SearchSortType, NormalizedSearchItem} from '../types/search';
 
 type Nav = StackNavigationProp<RootStackParamList>;
@@ -34,12 +50,18 @@ const SearchResultScreen: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<
-    {cardType: CardType; data: PlaceListItem | FestivalListItem; likeCount: number}[]
+    {
+      cardType: CardType;
+      data: PlaceListItem | FestivalListItem;
+      likeCount: number;
+    }[]
   >([]);
 
   const title = useMemo(() => `"${keyword}" 검색 결과`, [keyword]);
 
-  const mapToCardItem = (item: NormalizedSearchItem): {
+  const mapToCardItem = (
+    item: NormalizedSearchItem,
+  ): {
     cardType: CardType;
     data: PlaceListItem | FestivalListItem;
     likeCount: number; // 정렬을 위해 좋아요 개수를 별도로 저장
@@ -57,7 +79,11 @@ const SearchResultScreen: React.FC = () => {
         like_amount: item.likeCount || 0,
         address: item.address,
       } as FestivalListItem;
-      return {cardType: CardType.FESTIVAL, data: f as FestivalListItem, likeCount: item.likeCount || 0};
+      return {
+        cardType: CardType.FESTIVAL,
+        data: f as FestivalListItem,
+        likeCount: item.likeCount || 0,
+      };
     }
 
     const toPlaceType = (t: string): PlaceType => {
@@ -87,39 +113,54 @@ const SearchResultScreen: React.FC = () => {
     return {cardType: CardType.PLACE, data: p, likeCount: item.likeCount || 0};
   };
 
-  const sortResults = useCallback((items: {cardType: CardType; data: PlaceListItem | FestivalListItem; likeCount: number}[], sortType: string) => {
-    const sortedItems = [...items];
-    
-    switch (sortType) {
-      case '기본순':
-        // 가나다 이름순 정렬
-        return sortedItems.sort((a, b) => a.data.name.localeCompare(b.data.name, 'ko'));
-      case '좋아요순':
-        // 좋아요 개수 내림차순 정렬 (likeCount 사용)
-        return sortedItems.sort((a, b) => b.likeCount - a.likeCount);
-      case '혼잡도순':
-        // 혼잡도 내림차순 정렬
-        return sortedItems.sort((a, b) => b.data.congestion_level - a.data.congestion_level);
-      default:
-        return sortedItems;
-    }
-  }, []);
+  const sortResults = useCallback(
+    (
+      items: {
+        cardType: CardType;
+        data: PlaceListItem | FestivalListItem;
+        likeCount: number;
+      }[],
+      sortType: string,
+    ) => {
+      const sortedItems = [...items];
+
+      switch (sortType) {
+        case '기본순':
+          // 가나다 이름순 정렬
+          return sortedItems.sort((a, b) =>
+            a.data.name.localeCompare(b.data.name, 'ko'),
+          );
+        case '좋아요순':
+          // 좋아요 개수 내림차순 정렬 (likeCount 사용)
+          return sortedItems.sort((a, b) => b.likeCount - a.likeCount);
+        case '혼잡도순':
+          // 혼잡도 내림차순 정렬
+          return sortedItems.sort(
+            (a, b) => b.data.congestion_level - a.data.congestion_level,
+          );
+        default:
+          return sortedItems;
+      }
+    },
+    [],
+  );
 
   const fetchResults = useCallback(async () => {
     try {
       setIsLoading(true);
       const apiOption = mapKoreanCategoryToSearchOption(selectedCategory);
       // 기본순과 좋아요순은 클라이언트에서 정렬하므로 서버에는 DEFAULT 요청
-      const apiSort = selectedSort === '혼잡도순' 
-        ? SearchSortType.CONGESTION 
-        : SearchSortType.DEFAULT;
-      
+      const apiSort =
+        selectedSort === '혼잡도순'
+          ? SearchSortType.CONGESTION
+          : SearchSortType.DEFAULT;
+
       const res = await SearchService.search({
         option: apiOption as any,
         sort: apiSort,
         keyword,
       });
-      
+
       const mappedResults = res.list.map(mapToCardItem);
       const sortedResults = sortResults(mappedResults, selectedSort);
       setResults(sortedResults);
@@ -136,9 +177,7 @@ const SearchResultScreen: React.FC = () => {
 
   useEffect(() => {
     navigation.setOptions({
-      header: () => (
-        <CustomHeader title={title} showBackButton={true} />
-      ),
+      header: () => <CustomHeader title={title} showBackButton={true} />,
     });
   }, [navigation, title]);
 
@@ -146,7 +185,10 @@ const SearchResultScreen: React.FC = () => {
     <View style={styles.container}>
       {/* 카테고리 버튼 */}
       <View style={styles.categoryWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryContainer}>
           {categories.map(category => (
             <TouchableOpacity
               key={category}
@@ -199,7 +241,7 @@ const SearchResultScreen: React.FC = () => {
           renderItem={({item}) => (
             <AttractionCard place={item.data} cardType={item.cardType} />
           )}
-          keyExtractor={(item) => {
+          keyExtractor={item => {
             if (item.cardType === CardType.PLACE) {
               return `PLACE-${(item.data as PlaceListItem).id}`;
             }

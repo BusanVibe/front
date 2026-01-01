@@ -49,7 +49,7 @@ export const calculateDistance = (
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   const distance = R * c;
-  
+
   // console.log('계산된 거리:', {
   //   미터: Math.round(distance),
   //   킬로미터: (distance / 1000).toFixed(2),
@@ -86,7 +86,8 @@ export const requestLocationPermission = async (): Promise<boolean> => {
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
           title: '위치 권한',
-          message: '근처 장소까지의 거리를 표시하기 위해 위치 권한이 필요합니다.',
+          message:
+            '근처 장소까지의 거리를 표시하기 위해 위치 권한이 필요합니다.',
           buttonNeutral: '나중에',
           buttonNegative: '거부',
           buttonPositive: '허용',
@@ -105,15 +106,15 @@ export const requestLocationPermission = async (): Promise<boolean> => {
  * @returns 현재 위치 또는 null
  */
 export const getCurrentLocation = (): Promise<UserLocation | null> => {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     Geolocation.getCurrentPosition(
-      (position) => {
+      position => {
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
       },
-      (error) => {
+      error => {
         console.warn('위치 가져오기 실패:', error);
         resolve(null);
       },
@@ -130,23 +131,24 @@ export const getCurrentLocation = (): Promise<UserLocation | null> => {
  * 위치 권한을 확인하고 현재 위치를 가져옵니다
  * @returns 현재 위치 또는 null (권한이 없거나 위치를 가져올 수 없는 경우)
  */
-export const getLocationWithPermission = async (): Promise<UserLocation | null> => {
-  try {
-    const hasPermission = await requestLocationPermission();
-    if (!hasPermission) {
-      console.log('위치 권한이 거부되었습니다.');
+export const getLocationWithPermission =
+  async (): Promise<UserLocation | null> => {
+    try {
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        console.log('위치 권한이 거부되었습니다.');
+        return null;
+      }
+
+      const location = await getCurrentLocation();
+      if (!location) {
+        console.log('현재 위치를 가져올 수 없습니다.');
+        return null;
+      }
+
+      return location;
+    } catch (error) {
+      console.error('위치 가져오기 실패:', error);
       return null;
     }
-
-    const location = await getCurrentLocation();
-    if (!location) {
-      console.log('현재 위치를 가져올 수 없습니다.');
-      return null;
-    }
-
-    return location;
-  } catch (error) {
-    console.error('위치 가져오기 실패:', error);
-    return null;
-  }
-};
+  };

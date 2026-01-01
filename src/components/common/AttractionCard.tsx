@@ -12,7 +12,12 @@ import {
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {StackNavigationProp} from '@react-navigation/stack';
-import {PlaceListItem, FestivalListItem, CardType, PlaceType} from '../../types/place';
+import {
+  PlaceListItem,
+  FestivalListItem,
+  CardType,
+  PlaceType,
+} from '../../types/place';
 import {RootStackParamList} from '../../navigation/RootNavigator';
 import CongestionBadge from '../common/CongestionBadge';
 import {getPlaceTypeText} from '../../utils/placeUtils';
@@ -114,7 +119,14 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     } finally {
       setIsLikeLoading(false);
     }
-  }, [isLikeLoading, onToggleLike, isPlace, placeData.id, festivalData.id, togglePlaceLikeInContext]);
+  }, [
+    isLikeLoading,
+    onToggleLike,
+    isPlace,
+    placeData.id,
+    festivalData.id,
+    togglePlaceLikeInContext,
+  ]);
 
   const imageUrl = place.img;
   const hasImage = imageUrl && imageUrl.trim() !== '';
@@ -127,7 +139,7 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
     setImageLoading(false);
   }, []);
 
-  const getFestivalDateInfo = (): { startDate?: string; endDate?: string } => {
+  const getFestivalDateInfo = (): {startDate?: string; endDate?: string} => {
     const festivalLikeData = place as PlaceListItem & FestivalLikeData;
     return {
       startDate: festivalLikeData.start_date,
@@ -176,21 +188,42 @@ const AttractionCard: React.FC<AttractionCardProps> = ({
             )}
           </View>
           <TouchableOpacity
-            style={[styles.favoriteButton, isLikeLoading && styles.favoriteButtonLoading]}
+            style={[
+              styles.favoriteButton,
+              isLikeLoading && styles.favoriteButtonLoading,
+            ]}
             onPress={handleLikePress}
             disabled={isLikeLoading}>
             <IcHeart
               width={16}
               height={16}
-              stroke={isPlace ? (isPlaceLiked(placeData.id) ? colors.red[500] : colors.gray[600]) : (place.is_like ? colors.red[500] : colors.gray[600])}
-              fill={isPlace ? (isPlaceLiked(placeData.id) ? colors.red[500] : 'none') : (place.is_like ? colors.red[500] : 'none')}
+              stroke={
+                isPlace
+                  ? isPlaceLiked(placeData.id)
+                    ? colors.red[500]
+                    : colors.gray[600]
+                  : place.is_like
+                  ? colors.red[500]
+                  : colors.gray[600]
+              }
+              fill={
+                isPlace
+                  ? isPlaceLiked(placeData.id)
+                    ? colors.red[500]
+                    : 'none'
+                  : place.is_like
+                  ? colors.red[500]
+                  : 'none'
+              }
             />
           </TouchableOpacity>
         </View>
         <Text style={styles.attractionCategory}>
           {isPlace && placeData.type !== PlaceType.FESTIVAL
             ? getPlaceTypeText(placeData.type)
-            : placeData.type === PlaceType.FESTIVAL && dateInfo.startDate && dateInfo.endDate
+            : placeData.type === PlaceType.FESTIVAL &&
+              dateInfo.startDate &&
+              dateInfo.endDate
             ? formatDateRange(dateInfo.startDate, dateInfo.endDate)
             : !isPlace
             ? formatDateRange(festivalData.start_date, festivalData.end_date)

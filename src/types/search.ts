@@ -69,5 +69,3 @@ export interface NormalizedSearchResult {
   sort: SearchSortType | string;
   list: NormalizedSearchItem[];
 }
-
-

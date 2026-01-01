@@ -59,7 +59,9 @@ const FilterComponent: React.FC<FilterComponentProps> = ({
 
         {/* 정렬 필터 */}
         <View style={styles.filterWrapper}>
-          <TouchableOpacity style={styles.filterButton} onPress={onToggleFilter}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={onToggleFilter}>
             <Text style={styles.filterText}>{selectedSort}</Text>
             <View
               style={[styles.iconContainer, showFilter && styles.iconRotated]}>
@@ -80,7 +82,8 @@ const FilterComponent: React.FC<FilterComponentProps> = ({
                   <Text
                     style={[
                       styles.filterOptionText,
-                      selectedSort === option && styles.selectedFilterOptionText,
+                      selectedSort === option &&
+                        styles.selectedFilterOptionText,
                     ]}>
                     {option}
                   </Text>

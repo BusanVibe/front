@@ -2,7 +2,7 @@
  * 카카오 로그인 컴포넌트
  */
 
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { AuthService } from '../services/authService';
-import { KakaoLoginResult } from '../types/auth';
+import {WebView} from 'react-native-webview';
+import {AuthService} from '../services/authService';
+import {KakaoLoginResult} from '../types/auth';
 
 interface KakaoLoginProps {
   onLoginSuccess: (user: KakaoLoginResult) => void;
@@ -28,57 +28,40 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
   const [loading, setLoading] = useState(false);
 
   const handleKakaoLogin = () => {
-    
     setShowWebView(true);
   };
 
   const handleWebViewNavigationStateChange = async (navState: any) => {
-    const { url, loading, canGoBack, canGoForward } = navState;
-    
-    
-    
-    
-    
-    
+    const {url, loading, canGoBack, canGoForward} = navState;
+
     // 카카오 인증 페이지 로드 확인
     if (url.includes('kauth.kakao.com')) {
-      
     }
-    
+
     // 리다이렉트 URL에서 code 파라미터 추출
     if (url.includes('api.busanvibe.site/users/oauth/kakao')) {
-      
-      
-      
       const urlParts = url.split('?');
       if (urlParts.length > 1) {
         const urlParams = new URLSearchParams(urlParts[1]);
         const code = urlParams.get('code');
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
-        
-        
-        
-        
-        
-        
+
         if (error) {
           setShowWebView(false);
           console.error('카카오 인증 에러:', error, errorDescription);
           onLoginError(`카카오 인증 실패: ${error} - ${errorDescription}`);
           return;
         }
-        
+
         if (code) {
-          
           setShowWebView(false);
           setLoading(true);
-          
+
           try {
             const response = await AuthService.kakaoLogin(code);
-            
+
             if (response.is_success) {
-              
               onLoginSuccess(response.result);
             } else {
               console.error('백엔드 로그인 처리 실패:', response.message);
@@ -107,28 +90,23 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => setShowWebView(false)}
-          >
+            onPress={() => setShowWebView(false)}>
             <Text style={styles.closeButtonText}>닫기</Text>
           </TouchableOpacity>
         </View>
         <WebView
-          source={{ uri: AuthService.getKakaoAuthUrl() }}
+          source={{uri: AuthService.getKakaoAuthUrl()}}
           onNavigationStateChange={handleWebViewNavigationStateChange}
-          onError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
+          onError={syntheticEvent => {
+            const {nativeEvent} = syntheticEvent;
             console.error('WebView 에러:', nativeEvent);
           }}
-          onHttpError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
+          onHttpError={syntheticEvent => {
+            const {nativeEvent} = syntheticEvent;
             console.error('WebView HTTP 에러:', nativeEvent);
           }}
-          onLoadStart={() => {
-            
-          }}
-          onLoadEnd={() => {
-            
-          }}
+          onLoadStart={() => {}}
+          onLoadEnd={() => {}}
           style={styles.webView}
         />
       </View>
@@ -140,8 +118,7 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
       <TouchableOpacity
         style={styles.kakaoButton}
         onPress={handleKakaoLogin}
-        disabled={loading}
-      >
+        disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#000" />
         ) : (

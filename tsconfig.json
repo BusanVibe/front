@@ -11,10 +11,5 @@
       "@screens/*": ["./screens/*"]
     }
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "App.tsx",
-    "declarations.d.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "App.tsx", "declarations.d.ts"]
 }

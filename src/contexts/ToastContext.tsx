@@ -1,4 +1,10 @@
-import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
 import {Animated, Easing, StyleSheet, Text, View} from 'react-native';
 import colors from '../styles/colors';
 import typography from '../styles/typography';
@@ -16,69 +22,84 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
-export const ToastProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
+export const ToastProvider: React.FC<{children: React.ReactNode}> = ({
+  children,
+}) => {
   const [message, setMessage] = useState<string>('');
   const [type, setType] = useState<ToastType>('info');
   const [visible, setVisible] = useState(false);
   const translateY = useState(new Animated.Value(80))[0];
   const opacity = useState(new Animated.Value(0))[0];
 
-  const hide = useCallback((delayMs: number) => {
-    setTimeout(() => {
+  const hide = useCallback(
+    (delayMs: number) => {
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 180,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 80,
+            duration: 180,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]).start(() => setVisible(false));
+      }, delayMs);
+    },
+    [opacity, translateY],
+  );
+
+  const showToast = useCallback(
+    (msg: string, options?: ToastOptions) => {
+      const {type: t = 'info', durationMs = 1800} = options ?? {};
+      setMessage(msg);
+      setType(t);
+      setVisible(true);
+      translateY.setValue(80);
+      opacity.setValue(0);
       Animated.parallel([
         Animated.timing(opacity, {
-          toValue: 0,
+          toValue: 1,
           duration: 180,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
-          toValue: 80,
+          toValue: 0,
           duration: 180,
           easing: Easing.out(Easing.quad),
           useNativeDriver: true,
         }),
-      ]).start(() => setVisible(false));
-    }, delayMs);
-  }, [opacity, translateY]);
+      ]).start();
 
-  const showToast = useCallback((msg: string, options?: ToastOptions) => {
-    const {type: t = 'info', durationMs = 1800} = options ?? {};
-    setMessage(msg);
-    setType(t);
-    setVisible(true);
-    translateY.setValue(80);
-    opacity.setValue(0);
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 180,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 180,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    hide(durationMs);
-  }, [hide, opacity, translateY]);
+      hide(durationMs);
+    },
+    [hide, opacity, translateY],
+  );
 
   const value = useMemo(() => ({showToast}), [showToast]);
 
-  const bgColor = type === 'success' ? colors.primary[500]
-    : type === 'error' ? '#F04438'
-    : colors.gray[800];
+  const bgColor =
+    type === 'success'
+      ? colors.primary[500]
+      : type === 'error'
+      ? '#F04438'
+      : colors.gray[800];
 
   return (
     <ToastContext.Provider value={value}>
       {children}
       {visible && (
         <View pointerEvents="none" style={styles.wrap}>
-          <Animated.View style={[styles.toast, {backgroundColor: bgColor, opacity, transform: [{translateY}]}]}>
+          <Animated.View
+            style={[
+              styles.toast,
+              {backgroundColor: bgColor, opacity, transform: [{translateY}]},
+            ]}>
             <Text style={styles.text}>{message}</Text>
           </Animated.View>
         </View>
@@ -112,5 +133,3 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
 });
-
-

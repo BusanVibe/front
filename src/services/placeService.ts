@@ -22,7 +22,11 @@ const BASE_URL = API_CONFIG.BASE_URL;
  */
 const parseJavaArrayList = <T>(data: unknown): T[] => {
   if (!Array.isArray(data)) return [];
-  if (data.length === 2 && data[0] === 'java.util.ArrayList' && Array.isArray(data[1])) {
+  if (
+    data.length === 2 &&
+    data[0] === 'java.util.ArrayList' &&
+    Array.isArray(data[1])
+  ) {
     return data[1];
   }
   return data as T[];
@@ -43,12 +47,12 @@ const parseJavaBigDecimal = (value: unknown): number | undefined => {
  */
 const getPlaceType = (apiType: string): PlaceType => {
   const typeMap: Record<string, PlaceType> = {
-    'SIGHT': PlaceType.SIGHT,
-    'RESTAURANT': PlaceType.RESTAURANT,
-    'CULTURE': PlaceType.CULTURE,
-    '관광지': PlaceType.SIGHT,
-    '식당': PlaceType.RESTAURANT,
-    '문화시설': PlaceType.CULTURE,
+    SIGHT: PlaceType.SIGHT,
+    RESTAURANT: PlaceType.RESTAURANT,
+    CULTURE: PlaceType.CULTURE,
+    관광지: PlaceType.SIGHT,
+    식당: PlaceType.RESTAURANT,
+    문화시설: PlaceType.CULTURE,
   };
   return typeMap[apiType] || PlaceType.SIGHT;
 };
@@ -56,7 +60,9 @@ const getPlaceType = (apiType: string): PlaceType => {
 /**
  * 명소 좋아요 토글 API
  */
-export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<{success: boolean; message: string}>> => {
+export const togglePlaceLike = async (
+  placeId: number,
+): Promise<BaseApiResponse<{success: boolean; message: string}>> => {
   try {
     const accessToken = await AsyncStorage.getItem('accessToken');
     const url = `${BASE_URL}/api/places/like/${placeId}`;
@@ -90,7 +96,10 @@ export const togglePlaceLike = async (placeId: number): Promise<BaseApiResponse<
 const transformApiPlaceToPlaceItem = (
   apiPlace: ApiPlaceItem,
 ): PlaceListItem => {
-  const place = apiPlace as ApiPlaceItem & { latitude?: unknown; longitude?: unknown };
+  const place = apiPlace as ApiPlaceItem & {
+    latitude?: unknown;
+    longitude?: unknown;
+  };
   return {
     id: apiPlace.id,
     name: apiPlace.name,
@@ -143,8 +152,11 @@ export const getPlaceList = async (
 
     const placeList = parseJavaArrayList<ApiPlaceItem>(data.result?.place_list);
 
-    const normalizedPlaces = placeList.map((place) => {
-      const placeWithCoords = place as ApiPlaceItem & { latitude?: unknown; longitude?: unknown };
+    const normalizedPlaces = placeList.map(place => {
+      const placeWithCoords = place as ApiPlaceItem & {
+        latitude?: unknown;
+        longitude?: unknown;
+      };
       return {
         ...place,
         latitude: parseJavaBigDecimal(placeWithCoords.latitude),
@@ -293,7 +305,9 @@ interface CurationResponse {
 /**
  * 큐레이션 데이터 조회 API
  */
-export const getCurationData = async (type: 'PLACE' | 'FESTIVAL'): Promise<CurationItem[]> => {
+export const getCurationData = async (
+  type: 'PLACE' | 'FESTIVAL',
+): Promise<CurationItem[]> => {
   try {
     const accessToken = await AsyncStorage.getItem('accessToken');
 

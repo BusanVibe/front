@@ -1,31 +1,33 @@
-import { CONFIG } from '../../config';
+import {CONFIG} from '../../config';
 
 // 카카오 지도 HTML 템플릿 생성 함수 (TypeScript)
 export const createMapHTML = (config: {
-    centerLat: number;
-    centerLng: number;
-    currentLocation?: { latitude: number; longitude: number } | null;
-    shouldShowCurrentLocation?: boolean;
-    placeMarkers: any[];
+  centerLat: number;
+  centerLng: number;
+  currentLocation?: {latitude: number; longitude: number} | null;
+  shouldShowCurrentLocation?: boolean;
+  placeMarkers: any[];
 }) => {
-    const {
-        centerLat,
-        centerLng,
-        currentLocation,
-        shouldShowCurrentLocation,
-        placeMarkers
-    } = config;
+  const {
+    centerLat,
+    centerLng,
+    currentLocation,
+    shouldShowCurrentLocation,
+    placeMarkers,
+  } = config;
 
-    const isCurrentLocation = shouldShowCurrentLocation && !!currentLocation;
+  const isCurrentLocation = shouldShowCurrentLocation && !!currentLocation;
 
-    return `
+  return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>카카오 지도</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${CONFIG.KAKAO_MAP_API_KEY}"></script>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${
+      CONFIG.KAKAO_MAP_API_KEY
+    }"></script>
     <style>
         * {
             margin: 0;
@@ -87,7 +89,9 @@ export const createMapHTML = (config: {
 </head>
 <body>
     <div id="map">
-        <div class="loading" id="loadingMessage">${isCurrentLocation ? '현재 위치 지도 로딩 중...' : '지도 로딩 중...'}</div>
+        <div class="loading" id="loadingMessage">${
+          isCurrentLocation ? '현재 위치 지도 로딩 중...' : '지도 로딩 중...'
+        }</div>
     </div>
     <script>
         // PingManager 클래스 정의
@@ -481,12 +485,16 @@ export const createMapHTML = (config: {
                 var loading = document.getElementById('loadingMessage');
                 if (loading) { loading.remove(); }
                 
-                ${isCurrentLocation && currentLocation ? `
+                ${
+                  isCurrentLocation && currentLocation
+                    ? `
                 window.pingManager.updateCurrentLocationPing({
                     latitude: ${currentLocation.latitude},
                     longitude: ${currentLocation.longitude}
                 }, true);
-                ` : ''}
+                `
+                    : ''
+                }
                 
                 var apiPlaces = ${JSON.stringify(placeMarkers)};
                 if (apiPlaces.length > 0) {
@@ -762,5 +770,3 @@ export const createMapHTML = (config: {
 };
 
 export default createMapHTML;
-
-

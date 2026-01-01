@@ -33,23 +33,22 @@ const FestivalScreen = () => {
   const sortOptions = ['기본순', '좋아요순', '시작일순', '종료일순'];
 
   const handleToggleLike = useCallback(async (festivalId: number) => {
-    
-    
     try {
       const response = await FestivalService.toggleFestivalLike(festivalId);
-      
+
       if (response.is_success) {
-        
-        setFestivalData(prevData => 
-          prevData.map(item => 
-            item.id === festivalId 
+        setFestivalData(prevData =>
+          prevData.map(item =>
+            item.id === festivalId
               ? {
                   ...item,
                   is_like: !item.is_like,
-                  like_amount: item.is_like ? item.like_amount - 1 : item.like_amount + 1
+                  like_amount: item.is_like
+                    ? item.like_amount - 1
+                    : item.like_amount + 1,
                 }
-              : item
-          )
+              : item,
+          ),
         );
       } else {
         Alert.alert('오류', '좋아요 처리 중 오류가 발생했습니다.');
@@ -62,8 +61,6 @@ const FestivalScreen = () => {
 
   const fetchFestivals = async (isRefresh = false) => {
     try {
-      
-
       if (isRefresh) {
         setRefreshing(true);
       } else {
@@ -100,13 +97,8 @@ const FestivalScreen = () => {
           sort = FestivalSortType.DEFAULT;
       }
 
-      
-
       const response = await FestivalService.getFestivalList({sort, status});
 
-      
-      
-      
       console.log(
         '축제 데이터 개수:',
         response.result?.festival_list?.[1]?.length || 0,
@@ -114,7 +106,6 @@ const FestivalScreen = () => {
 
       if (response.is_success && response.result) {
         setFestivalData(response.result.festival_list?.[1] || []);
-        
       } else {
         console.error('API 응답 실패:', response);
         setFestivalData([]);
@@ -129,7 +120,6 @@ const FestivalScreen = () => {
       setFestivalData([]);
       Alert.alert('오류', '네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
     } finally {
-      
       setLoading(false);
       setRefreshing(false);
     }

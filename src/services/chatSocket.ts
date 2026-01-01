@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
+import {Client, IMessage, StompSubscription} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { ChatMessage } from './chatService';
-import { CONFIG } from '../config';
+import {ChatMessage} from './chatService';
+import {CONFIG} from '../config';
 
 type MessageHandler = (message: ChatMessage) => void;
 
@@ -40,7 +40,7 @@ class ChatSocketSingleton {
         return sock as unknown as WebSocket;
       },
       // STOMP CONNECT 프레임에 인증 헤더 포함
-      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+      connectHeaders: token ? {Authorization: `Bearer ${token}`} : {},
       reconnectDelay: 3000,
       debug: (msg: string) => {
         // 필요 시 주석 해제하여 디버깅
@@ -50,42 +50,69 @@ class ChatSocketSingleton {
 
     client.onConnect = () => {
       // 채팅방 구독
-      this.subscription = client.subscribe('/sub/chatroom', (frame: IMessage) => {
-        try {
-          const payload = JSON.parse(frame.body);
-          // 타입 정규화
-          const rawType = String(payload.type ?? 'CHAT');
-          let normalizedType: 'CHAT' | 'BOT_REQUEST' | 'BOT_RESPONSE' = 'CHAT';
-          if (rawType === 'CHAT') normalizedType = 'CHAT';
-          else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST') normalizedType = 'BOT_REQUEST';
-          else if (rawType === 'CHAT_RESPONSE' || rawType === 'BOT_RESPONSE' || rawType === 'BOT') normalizedType = 'BOT_RESPONSE';
-          // 서버 예시 스키마를 ChatMessage로 정규화
-          const normalized: ChatMessage = {
-            user_id: Number(payload.user_id ?? 0),
-            name: String(payload.name ?? ''),
-            image_url: String(payload.image_url ?? ''),
-            message: String(payload.message ?? ''),
-            time: String(payload.time ?? new Date().toISOString()),
-            type: normalizedType,
-          };
+      this.subscription = client.subscribe(
+        '/sub/chatroom',
+        (frame: IMessage) => {
           try {
-            console.log('[socket][received]', { ts: new Date().toISOString(), payload: normalized });
-          } catch {}
-          this.onMessageHandler?.(normalized);
-        } catch (e) {
-          try {
-            console.warn('[WARN][RECEIVE_PARSE]', { ts: new Date().toISOString(), stage: 'WS_MESSAGE', detail: 'Malformed payload', error: String(e) });
-          } catch {}
-        }
-      });
+            const payload = JSON.parse(frame.body);
+            // 타입 정규화
+            const rawType = String(payload.type ?? 'CHAT');
+            let normalizedType: 'CHAT' | 'BOT_REQUEST' | 'BOT_RESPONSE' =
+              'CHAT';
+            if (rawType === 'CHAT') normalizedType = 'CHAT';
+            else if (rawType === 'CHAT_REQUEST' || rawType === 'BOT_REQUEST')
+              normalizedType = 'BOT_REQUEST';
+            else if (
+              rawType === 'CHAT_RESPONSE' ||
+              rawType === 'BOT_RESPONSE' ||
+              rawType === 'BOT'
+            )
+              normalizedType = 'BOT_RESPONSE';
+            // 서버 예시 스키마를 ChatMessage로 정규화
+            const normalized: ChatMessage = {
+              user_id: Number(payload.user_id ?? 0),
+              name: String(payload.name ?? ''),
+              image_url: String(payload.image_url ?? ''),
+              message: String(payload.message ?? ''),
+              time: String(payload.time ?? new Date().toISOString()),
+              type: normalizedType,
+            };
+            try {
+              console.log('[socket][received]', {
+                ts: new Date().toISOString(),
+                payload: normalized,
+              });
+            } catch {}
+            this.onMessageHandler?.(normalized);
+          } catch (e) {
+            try {
+              console.warn('[WARN][RECEIVE_PARSE]', {
+                ts: new Date().toISOString(),
+                stage: 'WS_MESSAGE',
+                detail: 'Malformed payload',
+                error: String(e),
+              });
+            } catch {}
+          }
+        },
+      );
       // 에러 채널 구독
       try {
         client.subscribe('/sub/chat/error', (frame: IMessage) => {
           try {
             const payload = JSON.parse(frame.body);
-            console.warn('[WARN][CHANNEL_ERROR]', { ts: new Date().toISOString(), stage: 'WS_CHANNEL_ERROR', payload });
+            console.warn('[WARN][CHANNEL_ERROR]', {
+              ts: new Date().toISOString(),
+              stage: 'WS_CHANNEL_ERROR',
+              payload,
+            });
           } catch (e) {
-            console.warn('[WARN][CHANNEL_ERROR_PARSE]', { ts: new Date().toISOString(), stage: 'WS_CHANNEL_ERROR', error: String(e), body: frame.body });
+            console.warn('[WARN][CHANNEL_ERROR_PARSE]', {
+              ts: new Date().toISOString(),
+              stage: 'WS_CHANNEL_ERROR',
+              error: String(e),
+              body: frame.body,
+            });
           }
         });
       } catch {}
@@ -139,21 +166,27 @@ class ChatSocketSingleton {
     try {
       const token = await AsyncStorage.getItem('accessToken');
       const url = this.buildUrl(token);
-      return await new Promise<boolean>((resolve) => {
+      return await new Promise<boolean>(resolve => {
         try {
           const sock = new SockJS(url);
           const timer = setTimeout(() => {
-            try { (sock as any)?.close?.(); } catch {}
+            try {
+              (sock as any)?.close?.();
+            } catch {}
             resolve(false);
           }, 7000);
           (sock as any).onopen = () => {
             clearTimeout(timer);
-            try { (sock as any)?.close?.(); } catch {}
+            try {
+              (sock as any)?.close?.();
+            } catch {}
             resolve(true);
           };
           (sock as any).onerror = () => {
             clearTimeout(timer);
-            try { (sock as any)?.close?.(); } catch {}
+            try {
+              (sock as any)?.close?.();
+            } catch {}
             resolve(false);
           };
         } catch {

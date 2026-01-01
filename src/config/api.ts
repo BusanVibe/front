@@ -3,7 +3,7 @@
  * 백엔드 API 통신을 위한 전역 설정
  */
 
-import { CONFIG } from './environment';
+import {CONFIG} from './environment';
 
 export const API_CONFIG = {
   BASE_URL: CONFIG.API_BASE_URL,

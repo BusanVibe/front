@@ -5,5 +5,3 @@ export interface MyPageDto {
 }
 
 export type MyPageResponse = import('./common').BaseApiResponse<MyPageDto>;
-
-

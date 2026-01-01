@@ -136,22 +136,28 @@ const FestivalDetailScreen = () => {
     try {
       setLikeLoading(true);
       console.log('=== FestivalDetailScreen 좋아요 처리 시작 ===', festival.id);
-      
+
       const response = await FestivalService.toggleFestivalLike(festival.id);
-      
+
       if (response.is_success) {
         console.log('=== FestivalDetailScreen 좋아요 처리 성공 ===');
         if (festivalDetail) {
-          setFestivalDetail(prev => prev ? {
-            ...prev,
-            is_like: !prev.is_like,
-            like_amount: prev.is_like ? prev.like_amount - 1 : prev.like_amount + 1
-          } : null);
+          setFestivalDetail(prev =>
+            prev
+              ? {
+                  ...prev,
+                  is_like: !prev.is_like,
+                  like_amount: prev.is_like
+                    ? prev.like_amount - 1
+                    : prev.like_amount + 1,
+                }
+              : null,
+          );
         }
-        
+
         // 좋아요 상태가 변경되었음을 표시
         setLikeStateChanged(true);
-        
+
         // 상세 정보 다시 가져와서 최신 상태 반영
         fetchFestivalDetail();
       } else {
@@ -218,24 +224,24 @@ const FestivalDetailScreen = () => {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(event) => {
-              const index = Math.round(event.nativeEvent.contentOffset.x / screenWidth);
+            onMomentumScrollEnd={event => {
+              const index = Math.round(
+                event.nativeEvent.contentOffset.x / screenWidth,
+              );
               setCurrentImageIndex(index);
             }}
             scrollEventThrottle={16}
             decelerationRate="fast">
             {images.map((imageUri, index) => (
-              <TouchableOpacity 
-                key={index} 
-                onPress={handleImagePress} 
+              <TouchableOpacity
+                key={index}
+                onPress={handleImagePress}
                 activeOpacity={0.9}
                 style={{width: screenWidth}}>
                 <Image
                   source={{uri: imageUri}}
                   style={[styles.festivalImage, {width: screenWidth}]}
-                  onError={() =>
-                    console.log('이미지 로드 실패:', imageUri)
-                  }
+                  onError={() => console.log('이미지 로드 실패:', imageUri)}
                 />
               </TouchableOpacity>
             ))}
@@ -268,11 +274,10 @@ const FestivalDetailScreen = () => {
         )}
 
         {/* 좋아요 버튼 */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.favoriteButton}
           onPress={handleLikePress}
-          disabled={likeLoading}
-        >
+          disabled={likeLoading}>
           <IcHeart
             width={24}
             height={24}
@@ -283,7 +288,10 @@ const FestivalDetailScreen = () => {
 
         {/* 좋아요 수 */}
         <View style={styles.likeCountContainer}>
-          <StrokeText strokeColor="#000" strokeWidth={1.5} style={styles.likeCount}>
+          <StrokeText
+            strokeColor="#000"
+            strokeWidth={1.5}
+            style={styles.likeCount}>
             {festivalDetail?.like_amount || currentFestival.like_amount || 0}
           </StrokeText>
         </View>

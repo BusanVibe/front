@@ -72,7 +72,10 @@ const CurationComponent: React.FC<CurationComponentProps> = ({type}) => {
             title,
             time,
             image: item.img_url,
-            period: item.type_en === 'FESTIVAL' && item.duration !== '정보 없음' ? item.duration : undefined,
+            period:
+              item.type_en === 'FESTIVAL' && item.duration !== '정보 없음'
+                ? item.duration
+                : undefined,
           };
         });
 
@@ -205,16 +208,18 @@ const CurationComponent: React.FC<CurationComponentProps> = ({type}) => {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => {
+        onMomentumScrollEnd={event => {
           const slideSize = screenWidth;
-          const index = Math.round(event.nativeEvent.contentOffset.x / slideSize);
+          const index = Math.round(
+            event.nativeEvent.contentOffset.x / slideSize,
+          );
           setCurrentIndex(index);
         }}
         scrollEventThrottle={16}
         decelerationRate="fast"
         snapToInterval={screenWidth}
         snapToAlignment="center">
-        {curationData.map((item) => (
+        {curationData.map(item => (
           <View key={item.id} style={styles.slideContainer}>
             {renderCurationItem(item)}
           </View>
