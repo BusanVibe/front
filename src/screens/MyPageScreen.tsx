@@ -82,13 +82,13 @@ const MyPageScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('=== 로그아웃 시작 ===');
-              console.log('현재 사용자:', authUser?.email);
+              
+              
               
               // AuthContext의 logout 함수 사용
               await logout();
               
-              console.log('=== 로그아웃 완료 ===');
+              
               Alert.alert('알림', '로그아웃되었습니다.');
               
               // AuthContext 상태가 변경되면 App.tsx에서 자동으로 로그인 화면으로 이동

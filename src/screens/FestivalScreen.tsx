@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import CurationComponent from '../components/common/Curration';
+import CurationComponent from '../components/common/Curation';
 import AttractionCard from '../components/common/AttractionCard';
 import FilterComponent from '../components/common/Filter';
 import {CardType} from '../types/place';
@@ -33,13 +33,13 @@ const FestivalScreen = () => {
   const sortOptions = ['기본순', '좋아요순', '시작일순', '종료일순'];
 
   const handleToggleLike = useCallback(async (festivalId: number) => {
-    console.log('=== FestivalScreen handleToggleLike 시작 ===', festivalId);
+    
     
     try {
       const response = await FestivalService.toggleFestivalLike(festivalId);
       
       if (response.is_success) {
-        console.log('=== 좋아요 API 성공, 데이터 업데이트 ===');
+        
         setFestivalData(prevData => 
           prevData.map(item => 
             item.id === festivalId 
@@ -62,7 +62,7 @@ const FestivalScreen = () => {
 
   const fetchFestivals = async (isRefresh = false) => {
     try {
-      console.log('=== FestivalScreen API 요청 시작 ===');
+      
 
       if (isRefresh) {
         setRefreshing(true);
@@ -100,13 +100,13 @@ const FestivalScreen = () => {
           sort = FestivalSortType.DEFAULT;
       }
 
-      console.log('API 파라미터:', {sort, status});
+      
 
       const response = await FestivalService.getFestivalList({sort, status});
 
-      console.log('=== FestivalScreen API 응답 ===');
-      console.log('response.is_success:', response.is_success);
-      console.log('response.message:', response.message);
+      
+      
+      
       console.log(
         '축제 데이터 개수:',
         response.result?.festival_list?.[1]?.length || 0,
@@ -114,7 +114,7 @@ const FestivalScreen = () => {
 
       if (response.is_success && response.result) {
         setFestivalData(response.result.festival_list?.[1] || []);
-        console.log('축제 데이터 설정 완료');
+        
       } else {
         console.error('API 응답 실패:', response);
         setFestivalData([]);
@@ -129,7 +129,7 @@ const FestivalScreen = () => {
       setFestivalData([]);
       Alert.alert('오류', '네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
     } finally {
-      console.log('=== FestivalScreen API 요청 완료 ===');
+      
       setLoading(false);
       setRefreshing(false);
     }

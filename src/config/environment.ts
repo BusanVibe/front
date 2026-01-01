@@ -2,32 +2,26 @@
  * 환경별 설정 파일
  */
 
+import Config from 'react-native-config';
+
 export type Environment = 'development' | 'staging' | 'production';
 
 const getEnvironment = (): Environment => {
-  // __DEV__는 React Native에서 제공하는 개발 모드 플래그입니다
   if (__DEV__) {
     return 'development';
   }
   return 'production';
 };
 
-const ENVIRONMENT_CONFIG = {
-  development: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: true,
-  },
-  staging: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: false,
-  },
-  production: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: false,
-  },
+export const CONFIG = {
+  API_BASE_URL: Config.API_BASE_URL || 'https://api.busanvibe.site/',
+  WS_CHAT_URL: Config.WS_CHAT_URL || 'https://api.busanvibe.site/ws-chat',
+  API_TIMEOUT: parseInt(Config.API_TIMEOUT || '10000', 10),
+  KAKAO_CLIENT_ID: Config.KAKAO_CLIENT_ID || '',
+  KAKAO_MAP_API_KEY: Config.KAKAO_MAP_API_KEY || '',
+  DEBUG: Config.DEBUG_ENABLED === 'true' || __DEV__,
 };
 
 export const ENV = getEnvironment();
-export const CONFIG = ENVIRONMENT_CONFIG[ENV];
 
 export default CONFIG;

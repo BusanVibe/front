@@ -1,3 +1,5 @@
+import { CONFIG } from '../../config';
+
 // 카카오 지도 HTML 템플릿 생성 함수 (TypeScript)
 export const createMapHTML = (config: {
     centerLat: number;
@@ -23,7 +25,7 @@ export const createMapHTML = (config: {
     <meta charset="utf-8">
     <title>카카오 지도</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=0578d9aa78d051f1c0efa91fe3c2cb6d"></script>
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${CONFIG.KAKAO_MAP_API_KEY}"></script>
     <style>
         * {
             margin: 0;

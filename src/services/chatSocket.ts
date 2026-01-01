@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { ChatMessage } from './chatService';
+import { CONFIG } from '../config';
 
 type MessageHandler = (message: ChatMessage) => void;
 
@@ -12,7 +13,7 @@ class ChatSocketSingleton {
 
   private buildUrl(token?: string | null): string {
     // SockJS 엔드포인트는 HTTPS 주소 사용 (서버 설정과 일치해야 함)
-    const base = 'https://api.busanvibe.site/ws-chat';
+    const base = CONFIG.WS_CHAT_URL;
     if (token && token.trim().length > 0) {
       return `${base}?token=${encodeURIComponent(token)}`;
     }
@@ -166,5 +167,3 @@ class ChatSocketSingleton {
 }
 
 export const ChatSocket = new ChatSocketSingleton();
-
-

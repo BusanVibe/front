@@ -28,27 +28,27 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
   const [loading, setLoading] = useState(false);
 
   const handleKakaoLogin = () => {
-    console.log('카카오 로그인 시도 시작');
+    
     setShowWebView(true);
   };
 
   const handleWebViewNavigationStateChange = async (navState: any) => {
     const { url, loading, canGoBack, canGoForward } = navState;
-    console.log('=== WebView 네비게이션 상태 변경 ===');
-    console.log('URL:', url);
-    console.log('로딩 중:', loading);
-    console.log('뒤로 가기 가능:', canGoBack);
-    console.log('앞으로 가기 가능:', canGoForward);
+    
+    
+    
+    
+    
     
     // 카카오 인증 페이지 로드 확인
     if (url.includes('kauth.kakao.com')) {
-      console.log('카카오 인증 페이지 로드됨');
+      
     }
     
     // 리다이렉트 URL에서 code 파라미터 추출
     if (url.includes('api.busanvibe.site/users/oauth/kakao')) {
-      console.log('=== 카카오 리다이렉트 URL 감지 ===');
-      console.log('리다이렉트 URL:', url);
+      
+      
       
       const urlParts = url.split('?');
       if (urlParts.length > 1) {
@@ -57,10 +57,10 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
         const error = urlParams.get('error');
         const errorDescription = urlParams.get('error_description');
         
-        console.log('URL 파라미터들:');
-        console.log('- code:', code);
-        console.log('- error:', error);
-        console.log('- error_description:', errorDescription);
+        
+        
+        
+        
         
         if (error) {
           setShowWebView(false);
@@ -70,7 +70,7 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
         }
         
         if (code) {
-          console.log('카카오 인증 코드 추출 성공:', code);
+          
           setShowWebView(false);
           setLoading(true);
           
@@ -78,7 +78,7 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
             const response = await AuthService.kakaoLogin(code);
             
             if (response.is_success) {
-              console.log('=== 최종 로그인 성공 ===');
+              
               onLoginSuccess(response.result);
             } else {
               console.error('백엔드 로그인 처리 실패:', response.message);
@@ -124,10 +124,10 @@ export const KakaoLogin: React.FC<KakaoLoginProps> = ({
             console.error('WebView HTTP 에러:', nativeEvent);
           }}
           onLoadStart={() => {
-            console.log('WebView 로드 시작');
+            
           }}
           onLoadEnd={() => {
-            console.log('WebView 로드 완료');
+            
           }}
           style={styles.webView}
         />

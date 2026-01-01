@@ -69,10 +69,10 @@ const PlaceDetailScreen = () => {
 
   const toggleLike = async () => {
     try {
-      console.log('=== PlaceDetailScreen 좋아요 처리 시작 ===', place.id);
+      
       const ok = await togglePlaceLikeInContext(place.id);
       if (ok) {
-        console.log('=== PlaceDetailScreen 좋아요 처리 성공 ===');
+        
         const newLikeState = !isLiked;
         setIsLiked(newLikeState);
         setLikeAmount(prev => (newLikeState ? prev + 1 : prev - 1));
@@ -125,7 +125,7 @@ const PlaceDetailScreen = () => {
     let url = '';
     if (coords) {
       const { latitude, longitude } = coords;
-      console.log('사용할 위치 정보 - latitude:', latitude, 'longitude:', longitude);
+      
       if (Platform.OS === 'ios') {
         url = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d&q=${encodedLabel}`;
       } else {
@@ -136,7 +136,7 @@ const PlaceDetailScreen = () => {
         }
       }
     } else {
-      console.log('좌표 없음 – 주소로 길찾기 시도:', address);
+      
       if (Platform.OS === 'ios') {
         // Apple Maps는 주소 문자열로 목적지 지정 가능
         url = `http://maps.apple.com/?daddr=${encodedAddress}&dirflg=d&q=${encodedLabel}`;
@@ -150,7 +150,7 @@ const PlaceDetailScreen = () => {
       }
     }
 
-    console.log('길찾기 URL:', url);
+    
 
     try {
       await Linking.openURL(url);
