@@ -2,6 +2,8 @@
  * 환경별 설정 파일
  */
 
+import Config from 'react-native-config';
+
 export type Environment = 'development' | 'staging' | 'production';
 
 const getEnvironment = (): Environment => {
@@ -11,25 +13,15 @@ const getEnvironment = (): Environment => {
   return 'production';
 };
 
-const ENVIRONMENT_CONFIG = {
-  development: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: true,
-    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
-  },
-  staging: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: false,
-    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
-  },
-  production: {
-    API_BASE_URL: 'https://api.busanVibe.site/',
-    DEBUG: false,
-    KAKAO_CLIENT_ID: '54690ce439aabad65181d8b39262d8b9',
-  },
+export const CONFIG = {
+  API_BASE_URL: Config.API_BASE_URL || 'https://api.busanvibe.site/',
+  WS_CHAT_URL: Config.WS_CHAT_URL || 'https://api.busanvibe.site/ws-chat',
+  API_TIMEOUT: parseInt(Config.API_TIMEOUT || '10000', 10),
+  KAKAO_CLIENT_ID: Config.KAKAO_CLIENT_ID || '',
+  KAKAO_MAP_API_KEY: Config.KAKAO_MAP_API_KEY || '',
+  DEBUG: Config.DEBUG_ENABLED === 'true' || __DEV__,
 };
 
 export const ENV = getEnvironment();
-export const CONFIG = ENVIRONMENT_CONFIG[ENV];
 
 export default CONFIG;

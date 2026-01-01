@@ -5,9 +5,9 @@
 import { CONFIG } from '../config';
 import { KakaoLoginResponse } from '../types/auth';
 
-// 환경 설정 - 실제 운영시 환경변수로 관리 권장
+// 환경 설정
 const KAKAO_CONFIG = {
-  CLIENT_ID: CONFIG.KAKAO_CLIENT_ID || '54690ce439aabad65181d8b39262d8b9',
+  CLIENT_ID: CONFIG.KAKAO_CLIENT_ID,
   REDIRECT_URI: `${CONFIG.API_BASE_URL}users/oauth/kakao`,
 };
 
