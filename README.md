@@ -20,51 +20,70 @@
 <img width="7680" height="4320" alt="13" src="https://github.com/user-attachments/assets/db3260f5-214c-419b-963c-385e675aa644" />
 <img width="7680" height="4320" alt="14" src="https://github.com/user-attachments/assets/a34852e0-6d7b-4b98-89db-bc375d5ae2d4" />
 <img width="7680" height="4320" alt="15" src="https://github.com/user-attachments/assets/3877384e-88ec-4bea-9cbd-776e4ec2eaba" />
+<img width="7680" height="4320" alt="9" src="https://github.com/user-attachments/assets/897e9f51-5c72-407c-ac52-d4f551e0dddd" />
 <img width="7680" height="4320" alt="16" src="https://github.com/user-attachments/assets/c30e6eae-6017-48c4-8176-a070ef6bbc03" />
 <img width="7680" height="4320" alt="17" src="https://github.com/user-attachments/assets/9b3291fc-0478-4e6b-acf3-24bf1bbc96b3" />
 
 
-### 시연 영상
+## 🖥️ 시연 영상
 
 [![시연 영상](https://img.youtube.com/vi/gIAk3Fj_dK4/0.jpg)](https://youtube.com/shorts/gIAk3Fj_dK4)
 
+<br />
 
-### 폴더 구조
+## 🛠 기술 스택
+
+| 분류 | 기술 |
+|------|------|
+| **Framework** | React Native 0.73 |
+| **Language** | TypeScript |
+| **Navigation** | React Navigation (Stack, Bottom Tabs) |
+| **State Management** | Context API, AsyncStorage |
+| **Animation** | React Native Reanimated, Lottie |
+| **Real-time** | STOMP.js, SockJS (WebSocket) |
+| **Authentication** | Kakao OAuth, React Native Keychain |
+| **UI Components** | React Native SVG, Linear Gradient |
+
+<br />
+
+
+## 📂 프로젝트 구조
 
 ```
 src/
-├── screens/           # 전체 화면 단위
-├── components/        # 공통 UI 컴포넌트
-├── navigation/        # 네비게이션 스택/탭 정의
-├── hooks/             # 사용자 정의 훅
-├── store/             # Redux/Context 등 상태관리
-├── api/               # REST API 호출, axios 정의 등
-├── utils/             # 날짜/문자열/포맷 함수들
-├── types/             # 공통 타입 정의
-├── assets/            # 이미지, 폰트, 아이콘 등
-└── App.tsx            
+├── screens/           # 화면 컴포넌트
+│   ├── HomeScreen.tsx           # 홈 화면
+│   ├── CongestionScreen.tsx     # 혼잡도 화면
+│   ├── BusanTalkScreen.tsx      # 실시간 채팅
+│   ├── AttractionScreen.tsx     # 관광지 목록
+│   ├── FestivalScreen.tsx       # 축제 정보
+│   ├── PlaceDetailScreen.tsx    # 장소 상세
+│   └── ...
+├── components/        # 재사용 컴포넌트
+│   ├── common/                  # 공통 UI
+│   ├── home/                    # 홈 화면 전용
+│   ├── map/                     # 지도 관련
+│   └── KakaoLogin.tsx           # 카카오 로그인
+├── contexts/          # Context API
+│   ├── AuthContext.tsx          # 인증 상태
+│   ├── LocationContext.tsx      # 위치 상태
+│   ├── LikesContext.tsx         # 즐겨찾기 상태
+│   └── ToastContext.tsx         # 토스트 알림
+├── services/          # API 서비스
+│   ├── authService.ts           # 인증 API
+│   ├── chatSocket.ts            # WebSocket 연결
+│   ├── placeService.ts          # 장소 API
+│   └── ...
+├── navigation/        # 네비게이션
+├── types/             # TypeScript 타입 정의
+├── utils/             # 유틸리티 함수
+└── assets/            # 이미지, 아이콘
 ```
 
-### Git 커밋 컨벤션
+<br />
 
-- 🎉 **Start:** Start New Project  
-- ✨ **Feat:** 새로운 기능을 추가  
-- 🐛 **Fix:** 버그 수정  
-- 🎨 **Design:** CSS 등 사용자 UI 디자인 변경  
-- ♻️ **Refactor:** 코드 리팩토링  
-- 🔧 **Settings:** 설정 파일 수정  
-- 🗃️ **Comment:** 필요한 주석 추가 및 변경  
-- ➕ **Dependency/Plugin:** 의존성·플러그인 추가  
-- 📝 **Docs:** 문서 수정  
-- 🔀 **Merge:** 브랜치 병합  
-- 🚀 **Deploy:** 배포 관련 커밋  
-- 🚚 **Rename:** 파일·폴더명 수정 또는 이동  
-- 🔥 **Remove:** 파일 삭제  
-- ⏪️ **Revert:** 이전 버전으로 롤백
+## 🏗 아키텍처
 
+<img width="2937" height="2667" alt="image" src="https://github.com/user-attachments/assets/c467b469-9e47-410c-ac9b-54daefed32ac" />
 
-
-
-
-
-
+<br />
